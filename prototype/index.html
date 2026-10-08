@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interview</title>
+<link rel="stylesheet" href="styles.css">
+<script src="app.js"></script>
+</head>
+<body>
+<header id="top" data-step="1"></header>
+
+<main class="wrap" style="max-width: 1200px">
+  <section class="col-main">
+    <div>
+      <div id="qnum" style="font-size: 13px; color: var(--muted); margin-bottom: 10px">Question 1 of 5</div>
+      <div class="progress"><div id="bar"></div></div>
+    </div>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <div class="typing" id="typing" hidden><span></span><span></span><span></span></div>
+    <div class="bubbles" id="bubbles"></div>
+    <form class="own" id="own">
+      <label for="ownInput" class="sr-only">Type your own answer</label>
+      <input id="ownInput" class="field" type="text" placeholder="Or type your own answer…" autocomplete="off">
+      <button class="cta" type="submit" style="min-height: 44px; padding: 0 20px">Send</button>
+    </form>
+    <div id="finish" hidden style="padding-left: 48px; display: flex; flex-wrap: wrap; gap: 12px">
+      <a class="cta" href="upload.html">Continue <span id="arrow"></span></a>
+      <button class="ghost" type="button" id="restart">Start over</button>
+    </div>
+  </section>
+
+  <aside class="col-side panel">
+    <div>
+      <div class="panel-title">What I know about you</div>
+      <p class="hint">Builds as you answer. This is what the research runs on.</p>
+    </div>
+    <div class="facts" id="facts"></div>
+  </aside>
+</main>
+
+<script>
+const FLOW = [
+  { key: 'drawn', label: 'Drawn to', q: "Let's start easy. When you lose track of time, what are you usually doing?",
+    opts: ['Making things look good', 'Figuring out why something broke', 'Convincing people', 'Organising chaos', 'Helping someone feel better'] },
+  { key: 'detail', label: 'Specifically' },
+  { key: 'style', label: 'Work style', q: 'Good to know. How do you like to work?',
+    opts: ['Deep focus, mostly alone', 'In a small team', 'Talking to people all day', 'A mix of everything'] },
+  { key: 'place', label: 'Where', q: 'Where do you want to work?',
+    opts: ['Prague', 'Anywhere in Czechia', 'Remote', 'Abroad'] },
+  { key: 'goal', label: 'Right now', q: 'Last one. What matters most to you right now?',
+    opts: ['Learn fast and grow', 'A stable job and salary', 'Work that means something'] }
+];
+const FOLLOW = {
+  'Making things look good': { q: 'Love that. What do you like making look good?', opts: ['Websites and apps', 'Posters and brands', 'Photos and video', 'Rooms and spaces'] },
+  'Figuring out why something broke': { q: 'A fixer. What kind of broken things pull you in?', opts: ['Code or websites', 'Gadgets and machines', 'Spreadsheets and numbers', 'How a team works'] },
+  'Convincing people': { q: 'What do you usually convince people of?', opts: ['To buy something', 'To join an idea', 'To see another side', 'To make a decision'] },
+  'Organising chaos': { q: 'What kind of chaos do you enjoy taming?', opts: ['Events and trips', 'Messy data', 'Group projects', 'Money and budgets'] },
+  'Helping someone feel better': { q: 'Who do you most like helping?', opts: ['Friends with problems', 'Kids or students', 'Sick or older people', 'Customers'] }
+};
+const GENERIC = { q: 'Interesting. What part of that do you enjoy most?', opts: ['Solving it', 'Making it', 'Explaining it', 'Organising it'] };
+
+let step = 0, answers = {}, busy = false;
+const $ = (id) => document.getElementById(id);
+
+function stepDef(i) {
+  const f = FLOW[i];
+  return f.key === 'detail' ? { ...f, ...(FOLLOW[answers.drawn] || GENERIC) } : f;
+}
+function agentSay(text) {
+  const d = document.createElement('div');
+  d.className = 'msg-agent';
+  d.innerHTML = '<div class="avatar">' + LOGO.replace('width="28" height="28"', 'width="18" height="18"') + '</div><p>' + esc(text) + '</p>';
+  $('chat').appendChild(d);
+}
+function meSay(text) {
+  const d = document.createElement('div');
+  d.className = 'msg-me';
+  d.textContent = text;
+  $('chat').appendChild(d);
+}
+function renderFacts() {
+  $('facts').innerHTML = FLOW.map((f) => '<div class="fact"><span class="lbl">' + f.label + '</span>' +
+    (answers[f.key] ? '<span class="chip">' + esc(answers[f.key]) + '</span>' : '<span class="chip-empty">Not yet</span>') + '</div>').join('');
+  const n = Object.keys(answers).length;
+  $('bar').style.width = (n / FLOW.length * 100) + '%';
+  $('qnum').textContent = 'Question ' + Math.min(step + 1, FLOW.length) + ' of ' + FLOW.length;
+}
+function renderBubbles() {
+  const done = step >= FLOW.length;
+  $('own').hidden = done || busy;
+  $('finish').hidden = !done;
+  $('bubbles').innerHTML = '';
+  if (done || busy) return;
+  stepDef(step).opts.forEach((label, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'bubble';
+    b.style.animationDelay = (i * 0.05) + 's';
+    b.textContent = label;
+    b.onclick = () => answer(label);
+    $('bubbles').appendChild(b);
+  });
+}
+function answer(text) {
+  text = text.trim();
+  if (!text || busy) return;
+  answers[FLOW[step].key] = text;
+  meSay(text);
+  busy = true;
+  $('typing').hidden = false;
+  renderBubbles();
+  renderFacts();
+  setTimeout(() => {
+    $('typing').hidden = true;
+    busy = false;
+    step += 1;
+    if (step >= FLOW.length) {
+      agentSay("That's all I need. One optional thing before I start digging into the job market.");
+      try { localStorage.setItem('answers', JSON.stringify(answers)); } catch (e) {}
+    } else {
+      agentSay(stepDef(step).q);
+    }
+    renderFacts();
+    renderBubbles();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }, 750);
+}
+function start() {
+  step = 0; answers = {}; busy = false;
+  $('chat').innerHTML = '';
+  agentSay(FLOW[0].q);
+  renderFacts();
+  renderBubbles();
+}
+$('own').addEventListener('submit', (e) => { e.preventDefault(); answer($('ownInput').value); $('ownInput').value = ''; });
+$('restart').onclick = start;
+$('arrow').innerHTML = ICON.arrow;
+start();
+</script>
+</body>
+</html>
