@@ -136,8 +136,7 @@ export async function createRoadmap(
         modules,
         updatedAt: timestamp(deps),
       };
-      if (await deps.store.get(roadmap.roadmapId) === undefined) return;
-      await deps.store.put(ready);
+      await deps.store.replaceIfExists(ready);
     } catch (error) {
       const failed: Roadmap = {
         ...roadmap,
@@ -145,8 +144,7 @@ export async function createRoadmap(
         error: safeBuildError(error),
         updatedAt: timestamp(deps),
       };
-      if (await deps.store.get(roadmap.roadmapId) === undefined) return;
-      await deps.store.put(failed);
+      await deps.store.replaceIfExists(failed);
     }
   };
   const buildPromise = new Promise<void>((resolve, reject) => {

@@ -2,6 +2,7 @@ import type { Roadmap } from "./contracts.ts";
 
 export interface RoadmapStore {
   put(r: Roadmap): Promise<void>;
+  replaceIfExists(r: Roadmap): Promise<boolean>; // atomic: never re-creates a roadmap deleted meanwhile
   get(id: string): Promise<Roadmap | undefined>;
   listBySeeker(seekerId: string): Promise<Roadmap[]>;
   deleteBySeeker(seekerId: string): Promise<number>;
@@ -12,6 +13,12 @@ export class MemoryRoadmapStore implements RoadmapStore {
 
   async put(roadmap: Roadmap): Promise<void> {
     this.roadmaps.set(roadmap.roadmapId, structuredClone(roadmap));
+  }
+
+  async replaceIfExists(roadmap: Roadmap): Promise<boolean> {
+    if (!this.roadmaps.has(roadmap.roadmapId)) return false;
+    this.roadmaps.set(roadmap.roadmapId, structuredClone(roadmap));
+    return true;
   }
 
   async get(id: string): Promise<Roadmap | undefined> {

@@ -217,3 +217,18 @@ test("throws upstream_failed after one retry of malformed output", async () => {
   );
   assert.equal(llm.calls.length, 2);
 });
+
+test("odds words are fine in prose, only a prediction about getting hired is stripped", async () => {
+  const llm = new FakeLlm([answer([
+    chapter("Python practice", "code", [PYTHON.uri], "This gives you a chance to practise loops. You will likely enjoy it."),
+    chapter("SQL practice", "data", [SQL.uri], "You have a good chance of getting hired. Use SQL in a task."),
+  ], { why: "Start with prerequisites." }), answer([
+    chapter("Python practice", "code", [PYTHON.uri], "This gives you a chance to practise loops. You will likely enjoy it."),
+    chapter("SQL practice", "data", [SQL.uri], "You have a good chance of getting hired. Use SQL in a task."),
+  ], { why: "Start with prerequisites." })]);
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+  const chapters = allChapters(modules);
+  assert.equal(bySkill(chapters, PYTHON.uri).outcome, "This gives you a chance to practise loops. You will likely enjoy it.");
+  assert.equal(bySkill(chapters, SQL.uri).outcome, "Use SQL in a task.");
+});

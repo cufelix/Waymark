@@ -9,7 +9,10 @@ export type PlannerDeps = { llm: LlmClient };
 const CATEGORIES = new Set<RoadmapChapter["category"]>(["code", "data", "theory", "tools", "project", "soft"]);
 const EVIDENCE_RANK: Record<Evidence, number> = { none: 0, stated: 1, proven: 2 };
 const NUMBER = /\d+/gu;
-const FORBIDDEN_SEEKER_SUMMARY = /%|\b(?:probability|chance|likely|xp)\b|šance|pravděpodobnost|\blevel\s+\d+\b|\b\d+\s+of\s+\d+\s+(?:chapters?|modules?)\b/iu;
+const FORBIDDEN_SEEKER_SUMMARY = /%|\bxp\b|\blevel\s+\d+\b|\b\d+\s+of\s+\d+\s+(?:chapters?|modules?)\b/iu;
+// "Chance" or "likely" is fine in prose ("a chance to practise"); only next to getting hired is it a forbidden prediction.
+const ODDS_WORD = /\b(?:probability|probable|chances?|likely|likelihood|odds)\b|šanc|pravděpodob/iu;
+const HIRING_WORD = /\b(?:hire[ds]?|hiring|job|position|role|offer|employ\w*|land(?:ing)?)\b|přijet|přijm|pozic|zaměstn/iu;
 
 type ModelChapter = {
   title: string;
@@ -212,7 +215,7 @@ function hasUnsupportedNumber(text: string, allowed: Set<string>): boolean {
 }
 
 function hasForbiddenSummary(text: string): boolean {
-  return FORBIDDEN_SEEKER_SUMMARY.test(text);
+  return FORBIDDEN_SEEKER_SUMMARY.test(text) || (ODDS_WORD.test(text) && HIRING_WORD.test(text));
 }
 
 function hasUnsupportedText(text: string, allowed: Set<string>): boolean {
@@ -232,7 +235,7 @@ function planHasUnsupportedText(modules: RoadmapModule[]): boolean {
 
 function removeUnsupportedSentences(text: string, allowed: Set<string>, fallback: string): string {
   const sentences = text.match(/[^.!?\n]+[.!?]?/gu) ?? [];
-  const kept = sentences.filter((sentence) => !hasUnsupportedText(sentence, allowed)).join(" ").trim();
+  const kept = sentences.filter((sentence) => !hasUnsupportedText(sentence, allowed)).map((sentence) => sentence.trim()).join(" ").trim();
   return kept || fallback;
 }
 

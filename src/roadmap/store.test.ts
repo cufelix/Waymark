@@ -37,3 +37,13 @@ test("MemoryRoadmapStore isolates values and deletes only one seeker's roadmaps"
   assert.equal(await store.get(first.roadmapId), undefined);
   assert.deepEqual(await store.listBySeeker(foreign.seekerId), [foreign]);
 });
+
+test("replaceIfExists never re-creates a deleted roadmap", async () => {
+  const store = new MemoryRoadmapStore();
+  const roadmap = { roadmapId: "rmp_00000000000000000000000009", seekerId: "skr_00000000000000000000000009" } as unknown as Roadmap;
+  assert.equal(await store.replaceIfExists(roadmap), false);
+  assert.equal(await store.get(roadmap.roadmapId), undefined);
+  await store.put(roadmap);
+  assert.equal(await store.replaceIfExists({ ...roadmap, status: "ready" } as Roadmap), true);
+  assert.equal((await store.get(roadmap.roadmapId))?.status, "ready");
+});
