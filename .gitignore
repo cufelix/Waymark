@@ -1,2 +1,11 @@
 # .remember/ is local assistant state, not project content
 .remember/
+
+# local data
+data/
+node_modules/
+
+# secrets
+.env
+.env.*
+!.env.example

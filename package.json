@@ -1,0 +1,37 @@
+{
+  "name": "ethera-research",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "tsx watch src/main.ts",
+    "migrate": "tsx src/db/migrate.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:local": "tsx src/db/local.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.4",
+    "@mendable/firecrawl-js": "4.46.0",
+    "apify-client": "2.25.0",
+    "exa-js": "2.25.0",
+    "hono": "4.13.13",
+    "mammoth": "1.13.0",
+    "pdf-parse": "2.4.5",
+    "pg": "8.23.1",
+    "pg-boss": "12.37.1",
+    "tsx": "4.23.15",
+    "ulid": "3.0.2",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "@types/pg": "8.23.1",
+    "embedded-postgres": "18.4.0-beta.17",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}
