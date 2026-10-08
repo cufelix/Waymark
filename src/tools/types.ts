@@ -1,5 +1,5 @@
 import type { ToolSpec } from "../llm";
-import { releaseCost, reserveCost, settleCost, type PaidTool } from "../ledger";
+import { ESTIMATE_USD, releaseCost, reserveCost, settleCost, type PaidTool } from "../ledger";
 import { errorMessage, log } from "../log";
 import { assertPublicUrl } from "./net";
 
@@ -71,7 +71,9 @@ export async function runTool(tool: Tool, params: Record<string, unknown>, ctx: 
         : releaseCost(reservation);
       await settle.catch((e: unknown) => log.error("cost ledger update failed", { tool: tool.name, error: errorMessage(e) }));
     }
-    return { ok: false, error: errorMessage(err), usd: err instanceof PaidToolError ? (err.usd ?? 0) : 0 };
+    // Unknown cost of a failed paid call counts as the reserved estimate in the agent's budget, never as $0.
+    const usd = err instanceof PaidToolError ? (err.usd ?? tool.estimateUsd ?? ESTIMATE_USD[tool.paid ?? "llm"]) : 0;
+    return { ok: false, error: errorMessage(err), usd };
   }
   if (reservation !== undefined) {
     // A failed ledger write must not throw away a result we already paid for.

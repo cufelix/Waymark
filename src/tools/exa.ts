@@ -22,7 +22,7 @@ const toResult = (r: { url: string; title?: string | null; text?: string; publis
 
 const render = (rs: ExaResult[]): string => rs.map((r) => `## ${r.title}\n${r.url}\n${r.text}`).join("\n\n") || "No results.";
 
-export const exaSearch: Tool<{ query: string; category?: string; numResults?: number; includeDomains?: string[] }> = {
+export const exaSearch: Tool<{ query: string; category?: string; numResults?: number; includeDomains?: string[]; startPublishedDate?: string; endPublishedDate?: string }> = {
   name: "exa_search",
   description:
     "Paid (about $0.01). Semantic web search with page text. Use to discover pages a keyword search misses: a company's careers page, a person's related profiles, independent mentions. category can be 'company', 'people' (public professional profiles), 'news', 'research paper', 'pdf', 'personal site'. 'people' only accepts LinkedIn domains in includeDomains.",
@@ -33,19 +33,23 @@ export const exaSearch: Tool<{ query: string; category?: string; numResults?: nu
       category: { type: "string", enum: ["company", "people", "news", "research paper", "pdf", "personal site", "financial report"] },
       numResults: { type: "number", description: "Default 5, max 20" },
       includeDomains: { type: "array", items: { type: "string" } },
+      startPublishedDate: { type: "string", description: "ISO date; only pages published on or after it" },
+      endPublishedDate: { type: "string", description: "ISO date; only pages published on or before it" },
     },
     required: ["query"],
     additionalProperties: false,
   },
   paid: "exa",
   available: () => !!config.EXA_API_KEY,
-  async run({ query, category, numResults, includeDomains }) {
+  async run({ query, category, numResults, includeDomains, startPublishedDate, endPublishedDate }) {
     const n = Math.min(numResults ?? 5, 20);
     const res = await exa().searchAndContents(query, {
       numResults: n,
       text: { maxCharacters: 2000 },
       ...(category ? { category: category as never } : {}),
       ...(includeDomains?.length ? { includeDomains } : {}),
+      ...(startPublishedDate ? { startPublishedDate } : {}),
+      ...(endPublishedDate ? { endPublishedDate } : {}),
     });
     const results = res.results.map(toResult);
     return { raw: results, text: render(results), usd: SEARCH_USD + CONTENT_USD * results.length, units: 1 + results.length };

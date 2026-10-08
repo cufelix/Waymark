@@ -171,8 +171,27 @@ export type SeekerResearch = {
   nameSearch?: { candidates: { url: string; title: string; snippet: string }[] };
 };
 
+/** How demand for a skill in one occupation changed between about ten years ago and the last 12 months. */
+export type SkillTrend = {
+  skill: Skill;
+  thenShare: number;
+  nowShare: number;
+  trend: "rising" | "stable" | "fading";
+  sources: Source[];
+};
+
+export type OccupationTrends = {
+  occupation: Occupation;
+  then: { from: string; to: string };
+  now: { from: string; to: string };
+  thenDocs: number;
+  nowDocs: number;
+  skills: SkillTrend[];
+};
+
 export type ResearchResult = {
   careerPaths: CareerPath[];
+  trends: OccupationTrends[];
   companyIds: string[];
   vacancyIds: string[];
   market: JobMarket[];

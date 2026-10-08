@@ -102,7 +102,8 @@ export function assertPublicInput(input: unknown, path = "input"): void {
 }
 
 // Server-side actor check: the model picks actors, so their eligibility is verified here, not trusted.
-const MIN_USERS_30D = 50;
+// ponytail: low bar so niche platforms (SoundCloud, Bandcamp) work; the per-run charge cap and item limit bound the risk
+const MIN_USERS_30D = 10;
 const MAX_CHARGE_PER_RUN_USD = 0.5;
 const eligibility = new Map<string, { ok: boolean; reason?: string; at: number }>();
 

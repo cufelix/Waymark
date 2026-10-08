@@ -1,12 +1,13 @@
 // Market research for one seeker: vacancies → requirements → companies → market → career paths.
-import type { CareerPath, JobMarket, ResearchOptions, RunStep, SeekerProfile } from "../../contracts";
+import type { CareerPath, JobMarket, OccupationTrends, ResearchOptions, RunStep, SeekerProfile } from "../../contracts";
 import { query } from "../../db/pool";
 import { errorMessage, log } from "../../log";
 import { careerPaths } from "./careerPaths";
 import { enrichCompany, linkRunCompany, refreshGhostSignals, upsertCompany } from "./companies";
 import { buildMarket } from "./market";
 import { extractRequirements } from "./requirements";
-import { findVacancies } from "./vacancies";
+import { skillTrends } from "./trends";
+import { findVacancies, searchTerms } from "./vacancies";
 
 type Progress = (step: Exclude<RunStep, "seeker-research">, done: number, total: number) => void;
 
@@ -15,7 +16,7 @@ export async function researchMarket(
   options: ResearchOptions,
   runId: string,
   onProgress: Progress = () => undefined,
-): Promise<{ careerPaths: CareerPath[]; companyIds: string[]; vacancyIds: string[]; market: JobMarket[] }> {
+): Promise<{ careerPaths: CareerPath[]; trends: OccupationTrends[]; companyIds: string[]; vacancyIds: string[]; market: JobMarket[] }> {
   const { targetOccupations: occupations, locations, remote, dreamCompanies, goal } = profile.preferences;
   const pairs = occupations.flatMap((occupation) => locations.map((location) => ({ occupation, location })));
   const perPair = Math.max(1, Math.floor(options.maxVacancies / Math.max(1, pairs.length)));
@@ -59,6 +60,16 @@ export async function researchMarket(
   const paths = await careerPaths(runId, occupations, goal);
   onProgress("career-paths", 1, 1);
 
+  // 6. Then vs now, so older career paths are checked against today's market (needs Exa's date filters).
+  const homeLocation = locations[0]?.country ?? "US";
+  const trends = options.sources.includes("exa")
+    ? await skillTrends(
+        await Promise.all(occupations.map(async (o) => ({ occupation: o, term: (await searchTerms(o, homeLocation, runId))[0] ?? o.label }))),
+        market,
+        runId,
+      )
+    : [];
+
   const allCompanies = await query<{ company_id: string }>("SELECT company_id FROM run_companies WHERE run_id = $1", [runId]);
-  return { careerPaths: paths, companyIds: allCompanies.map((c) => c.company_id), vacancyIds: [...vacancyIds], market };
+  return { careerPaths: paths, trends, companyIds: allCompanies.map((c) => c.company_id), vacancyIds: [...vacancyIds], market };
 }

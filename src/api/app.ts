@@ -101,6 +101,11 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
     return "error" in r ? r.error : ok(c, r.result.careerPaths);
   });
 
+  app.get("/v1/research-runs/:runId/trends", async (c) => {
+    const r = await doneRun(c);
+    return "error" in r ? r.error : ok(c, r.result.trends ?? []);
+  });
+
   app.get("/v1/research-runs/:runId/market", async (c) => {
     const r = await doneRun(c);
     return "error" in r ? r.error : ok(c, r.result.market);

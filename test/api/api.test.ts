@@ -31,6 +31,7 @@ const fixture = JSON.parse(readFileSync(new URL("./fixtures/junior-backend.json"
 const profile = (over: Record<string, unknown> = {}) => ({ ...structuredClone(fixture), seekerId: SEEKER, ...over });
 
 const MARKET = {
+  trends: [],
   careerPaths: [],
   companyIds: ["cmp_1", "cmp_2"],
   vacancyIds: ["vac_1"],
