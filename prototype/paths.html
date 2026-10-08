@@ -13,7 +13,7 @@
 <main class="wrap" style="max-width: 1280px; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 32px">
   <div style="display: flex; flex-direction: column; gap: 10px">
     <h1 class="h1">Three paths that fit you</h1>
-    <p class="lead" style="max-width: 680px">Picked from your answers and ordered by real demand in Prague. No scores. Just why it fits, where you already stand, and what the market looks like.</p>
+    <p class="lead" style="max-width: 680px">Picked from your answers and ordered by real demand where you want to work. No scores. Just why it fits, where you already stand, and what the market looks like.</p>
   </div>
   <div class="cards" id="cards"></div>
 </main>
@@ -38,7 +38,7 @@
     <div style="display: flex; flex-direction: column; gap: 12px">
       <span class="lbl">Where it can take you</span>
       <div class="ladder" id="dLadder"></div>
-      <div style="font-size: 13px; color: var(--faint)">Salary ranges fill in from scraped Prague job ads.</div>
+      <div style="font-size: 13px; color: var(--faint)">Pay comes from current job ads or a salary site, with sources; it is left empty when no source gives it.</div>
     </div>
     <a class="cta" href="roadmap.html">Choose this path</a>
   </aside>
@@ -73,7 +73,7 @@ async function load() {
     <div>
       <span class="rank">${ranks[i] || ''}</span>
       <h2>${esc(p.occupation.label)}</h2>
-      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted)">${esc(((p.ladder || [])[0] || {}).title || '')}</p>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted)">${(p.ladder || []).length ? esc((p.ladder || []).map((s) => LEVEL[s.level] || s.level).join(' → ')) : ''}</p>
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px">
       <span class="lbl">Why this path</span>
@@ -101,12 +101,14 @@ async function load() {
   document.querySelectorAll('[data-choose]').forEach((a) => a.onclick = (e) => choose(e, Number(a.dataset.choose)));
 }
 
-function open(i) {
+async function open(i) {
   const p = PATHS[i];
+  // Requirements are read during the run, so load them fresh each time the drawer opens.
+  market = await Live.api('GET', '/v1/research-runs/' + runId + '/market').catch(() => market);
   const demand = market.filter((m) => m.occupation.uri === p.occupation.uri).flatMap((m) => m.skillDemand)
     .sort((a, b) => b.vacanciesRequiring - a.vacanciesRequiring).slice(0, 6);
   $('dTitle').textContent = p.occupation.label;
-  $('dWhat').textContent = demand.length ? 'What employers ask for most, from ' + (demand[0].vacanciesTotal) + ' current ads:' : 'Requirements are still being read from the ads.';
+  $('dWhat').textContent = demand.length ? 'What employers ask for most, from ' + (demand[0].vacanciesTotal) + ' current ads:' : 'Requirements are still being read from the ads. Open this again in a minute.';
   $('dDay').innerHTML = demand.map((d) => `<div class="day"><span>${d.vacanciesRequiring} of ${d.vacanciesTotal}</span><span>${esc(d.skill.label)}</span></div>`).join('');
   $('dLadder').innerHTML = (p.ladder || []).map((s, j) => `
     <div class="rung"><div class="rail"><div class="dot ${j === 0 ? 'on' : ''}"></div><div class="bar"></div></div>
