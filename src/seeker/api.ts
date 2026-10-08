@@ -4,7 +4,7 @@ import { newId } from "./core/ids.ts";
 import { validateCareerChoice, validateCreateSeeker, validateInterviewMessage, validateLinks, validatePreferences } from "./core/validate.ts";
 import type { LlmClient } from "./llm/llm.ts";
 import type { ResearchClient } from "./research-client.ts";
-import type { ExaClient } from "./salary/exa.ts";
+import { exaFromEnv, type ExaClient } from "./salary/exa.ts";
 import { setCareerChoice } from "./service/career-choice.ts";
 import { deleteDocument, uploadCv } from "./service/documents.ts";
 import { deleteSeeker, exportSeeker } from "./service/gdpr.ts";
@@ -73,7 +73,9 @@ const ROUTES: Route[] = [
     method: "POST",
     pattern: route("/v1/seekers/{seekerId}/interview/messages"),
     seekerScoped: true,
-    handler: async (req, deps, p) => interviewTurn(deps, p.seekerId, validateInterviewMessage(req.body).text),
+    // undefined = the host passed no Exa client (e.g. src/api/part1.ts), so take it from EXA_API_KEY; null = off.
+    handler: async (req, deps, p) =>
+      interviewTurn({ ...deps, exa: deps.exa === undefined ? exaFromEnv() : deps.exa }, p.seekerId, validateInterviewMessage(req.body).text),
   },
   { method: "GET", pattern: route("/v1/seekers/{seekerId}/interview"), seekerScoped: true, handler: async (_r, deps, p) => getInterview(deps, p.seekerId) },
   {
