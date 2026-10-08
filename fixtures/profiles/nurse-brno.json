@@ -1,0 +1,299 @@
+{
+  "seekerId": "skr_01M4EPBGACYR8FMS5CVB4S6YZX",
+  "profileVersion": 5,
+  "status": "complete",
+  "consent": {
+    "dataProcessing": true,
+    "nameSearch": true,
+    "givenAt": "2026-10-08T20:00:00Z",
+    "policyVersion": "2026-10-01"
+  },
+  "preferences": {
+    "targetOccupations": [
+      {
+        "uri": "urn:stub:occupation:nurse",
+        "label": "nurse",
+        "lang": "en"
+      }
+    ],
+    "locations": [
+      {
+        "country": "CZ",
+        "city": "Brno"
+      }
+    ],
+    "remote": "no",
+    "goal": "stability",
+    "dreamCompanies": [
+      {
+        "name": "Example Regional Hospital"
+      }
+    ],
+    "dealBreakers": [
+      "more than 12-hour shifts"
+    ],
+    "languages": [
+      {
+        "lang": "cs",
+        "level": "native"
+      },
+      {
+        "lang": "de",
+        "level": "basic"
+      }
+    ]
+  },
+  "statedSkills": [
+    {
+      "id": "clm_01M4EPBGACKF8HNWWR2JCNZE5W",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+      },
+      "statement": "States skill: intensive care nursing",
+      "skill": {
+        "uri": "urn:stub:skill:intensive-care-nursing",
+        "label": "intensive care nursing",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGAC36Z1RH9QXJ6C46WK",
+          "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+          "title": "CV: zivotopis-example.docx",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+          "quote": "Intensive care"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGACKFCW5E5M87MJ1ZEP",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+      },
+      "statement": "States skill: patient monitoring",
+      "skill": {
+        "uri": "urn:stub:skill:patient-monitoring",
+        "label": "patient monitoring",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGACG8A8YFVG3R697Y2F",
+          "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+          "title": "CV: zivotopis-example.docx",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+          "quote": "patient monitoring"
+        },
+        {
+          "id": "src_01M4EPBGAC0D8789S8XGMY1ZGF",
+          "url": "seeker-interview://skr_01M4EPBGACYR8FMS5CVB4S6YZX#turn-2",
+          "title": "Interview turn 2",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-interview",
+          "contentHash": "1575f5254949cc6d65da7b4a86f9ccbd54f21ee08b42ac5a3de778eac6a790cd",
+          "quote": "On the ICU I monitored up to four patients per shift."
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGACWPV84N3PDP5GX0JG",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+      },
+      "statement": "States skill: wound care",
+      "skill": {
+        "uri": "urn:stub:skill:wound-care",
+        "label": "wound care",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGACT9Y3RKDZZ3HVJ5Y6",
+          "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+          "title": "CV: zivotopis-example.docx",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+          "quote": "wound care"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGACJNRMA0YA6FSJNXK9",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+      },
+      "statement": "States skill: basic life support",
+      "skill": {
+        "uri": "urn:stub:skill:basic-life-support",
+        "label": "basic life support",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGACJMST3Z9ARKCE1CBR",
+          "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+          "title": "CV: zivotopis-example.docx",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+          "quote": "Basic life support certificate"
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc_01M4EPBGACMPBYEXDK26EK65PM",
+      "kind": "cv",
+      "fileName": "zivotopis-example.docx",
+      "uploadedAt": "2026-10-08T20:00:00Z",
+      "statedSkills": [
+        {
+          "id": "clm_01M4EPBGACKF8HNWWR2JCNZE5W",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+          },
+          "statement": "States skill: intensive care nursing",
+          "skill": {
+            "uri": "urn:stub:skill:intensive-care-nursing",
+            "label": "intensive care nursing",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGAC36Z1RH9QXJ6C46WK",
+              "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+              "title": "CV: zivotopis-example.docx",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+              "quote": "Intensive care"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGACKFCW5E5M87MJ1ZEP",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+          },
+          "statement": "States skill: patient monitoring",
+          "skill": {
+            "uri": "urn:stub:skill:patient-monitoring",
+            "label": "patient monitoring",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGACG8A8YFVG3R697Y2F",
+              "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+              "title": "CV: zivotopis-example.docx",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+              "quote": "patient monitoring"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGACWPV84N3PDP5GX0JG",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+          },
+          "statement": "States skill: wound care",
+          "skill": {
+            "uri": "urn:stub:skill:wound-care",
+            "label": "wound care",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGACT9Y3RKDZZ3HVJ5Y6",
+              "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+              "title": "CV: zivotopis-example.docx",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+              "quote": "wound care"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGACJNRMA0YA6FSJNXK9",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACYR8FMS5CVB4S6YZX"
+          },
+          "statement": "States skill: basic life support",
+          "skill": {
+            "uri": "urn:stub:skill:basic-life-support",
+            "label": "basic life support",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGACJMST3Z9ARKCE1CBR",
+              "url": "seeker-upload://doc_01M4EPBGACMPBYEXDK26EK65PM",
+              "title": "CV: zivotopis-example.docx",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "dbc1ee0253e1b7b5b6b49d5638b368148193d9cc002321553546884d55a343c4",
+              "quote": "Basic life support certificate"
+            }
+          ]
+        }
+      ],
+      "experience": [
+        {
+          "title": "Registered nurse",
+          "organisation": "Example University Hospital Brno",
+          "from": "2023-09"
+        }
+      ],
+      "education": [
+        {
+          "title": "General nursing (Bc.)",
+          "institution": "Example Medical Faculty Brno",
+          "from": "2020-09",
+          "to": "2023-06"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "url": "https://registry.example.com/nurses/12345",
+      "kind": "certificate",
+      "id": "lnk_01M4EPBGACRV3ZXYHNRYAMYAMD",
+      "addedAt": "2026-10-08T20:00:00Z"
+    }
+  ],
+  "updatedAt": "2026-10-08T20:00:00Z"
+}
