@@ -120,7 +120,7 @@ document.querySelectorAll('a[href="research.html"]').forEach((a) => a.addEventLi
       Live.banner('The interview is not finished yet: we still need your target role and where you want to work.', 'error');
       return;
     }
-    const run = await Live.api('POST', '/v1/research-runs', { profile, options: { maxVacancies: 40, maxCompanies: 15 } });
+    const run = await Live.api('POST', '/v1/research-runs', { profile, options: { nameSearch: profile.consent.nameSearch } });
     Live.store.set('runId', run.runId);
     location.href = 'research.html';
   } catch (err) {

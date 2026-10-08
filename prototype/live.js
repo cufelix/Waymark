@@ -16,14 +16,40 @@ const Live = (() => {
     return json.data;
   }
 
+  const POLICY_VERSION = '2026-10-01';
+
+  // GDPR: nothing is stored about the seeker until they agree. Name search is a separate, optional opt-in.
+  function askConsent() {
+    return new Promise((resolve) => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px';
+      wrap.innerHTML = '<form class="panel" style="max-width:520px;display:flex;flex-direction:column;gap:14px">' +
+        '<div class="panel-title">Before we start</div>' +
+        '<p class="hint" style="margin:0">We store your answers, your CV and the links you give us to research jobs for you. You can export or delete everything at any time.</p>' +
+        '<label style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="cData" required> <span>I agree that my answers, CV and links are processed to research jobs for me.</span></label>' +
+        '<label style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="cName"> <span>Optional: you may also search the web for my name to find more of my work.</span></label>' +
+        '<button class="cta" type="submit">Start</button></form>';
+      document.body.appendChild(wrap);
+      wrap.querySelector('form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const consent = { dataProcessing: true, nameSearch: wrap.querySelector('#cName').checked, givenAt: new Date().toISOString(), policyVersion: POLICY_VERSION };
+        wrap.remove();
+        resolve(consent);
+      });
+    });
+  }
+
+  let pending = null;
   async function seeker() {
     let id = store.get('seekerId');
     if (id) return id;
-    const data = await api('POST', '/v1/seekers', {
-      consent: { dataProcessing: true, nameSearch: false, givenAt: new Date().toISOString(), policyVersion: '2026-10-01' },
-    });
-    store.set('seekerId', data.seekerId);
-    return data.seekerId;
+    // One consent prompt even if several calls ask for the seeker at once.
+    pending ??= (async () => {
+      const data = await api('POST', '/v1/seekers', { consent: await askConsent() });
+      store.set('seekerId', data.seekerId);
+      return data.seekerId;
+    })().finally(() => { pending = null; });
+    return pending;
   }
 
   function reset() { ['seekerId', 'runId'].forEach((k) => store.set(k, null)); }
