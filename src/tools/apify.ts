@@ -2,6 +2,7 @@
 import { ApifyClient } from "apify-client";
 import { config } from "../config";
 import { clip, type Tool } from "./types";
+import { PaidToolError } from "./types";
 
 export type StoreActor = {
   id: string;                 // "username/name", the value apify_run_actor takes
@@ -100,6 +101,56 @@ export function assertPublicInput(input: unknown, path = "input"): void {
   }
 }
 
+// Server-side actor check: the model picks actors, so their eligibility is verified here, not trusted.
+const MIN_USERS_30D = 50;
+const MAX_CHARGE_PER_RUN_USD = 0.5;
+const eligibility = new Map<string, { ok: boolean; reason?: string; at: number }>();
+
+async function assertEligibleActor(actorId: string): Promise<void> {
+  const hit = eligibility.get(actorId);
+  if (hit && Date.now() - hit.at < 3_600_000) {
+    if (!hit.ok) throw new Error(`Refused actor ${actorId}: ${hit.reason}`);
+    return;
+  }
+  const actor = (await apify().actor(actorId.replace("/", "~")).get()) as
+    | { isDeprecated?: boolean; stats?: { totalUsers30Days?: number }; isPublic?: boolean }
+    | undefined;
+  const users = actor?.stats?.totalUsers30Days ?? 0;
+  const reason = !actor ? "not found" : actor.isDeprecated ? "deprecated" : users < MIN_USERS_30D ? `only ${users} users in 30 days` : undefined;
+  eligibility.set(actorId, { ok: !reason, reason, at: Date.now() });
+  if (reason) throw new Error(`Refused actor ${actorId}: ${reason}`);
+}
+
+type RunCost = {
+  usageTotalUsd?: number;
+  chargedEventCounts?: Record<string, number>;
+  pricingInfo?: { pricingModel?: string; pricePerUnitUsd?: number; pricingPerEvent?: { actorChargeEvents?: Record<string, { eventPriceUsd?: number }> } };
+  stats?: { itemsCount?: number };
+};
+
+/**
+ * What a run really cost: platform usage plus pay-per-event or pay-per-result charges.
+ * Null when Apify hasn't reported a cost yet, so the ledger keeps the reserved estimate instead of $0.
+ */
+export function runCostUsd(run: RunCost | undefined): number | null {
+  if (!run || run.usageTotalUsd === undefined) return null;
+  let usd = run.usageTotalUsd;
+  const events = run.pricingInfo?.pricingPerEvent?.actorChargeEvents ?? {};
+  for (const [event, count] of Object.entries(run.chargedEventCounts ?? {})) usd += (events[event]?.eventPriceUsd ?? 0) * count;
+  if (run.pricingInfo?.pricingModel === "PRICE_PER_DATASET_ITEM") usd += (run.pricingInfo.pricePerUnitUsd ?? 0) * (run.stats?.itemsCount ?? 0);
+  return usd;
+}
+
+/** Re-reads a finished run a few times until Apify has settled its billing. */
+async function settledRun(runId: string): Promise<(RunCost & { status: string }) | undefined> {
+  for (let i = 0; i < 3; i++) {
+    const run = (await apify().run(runId).get().catch(() => undefined)) as (RunCost & { status: string }) | undefined;
+    if (run && run.status !== "RUNNING" && run.usageTotalUsd !== undefined) return run;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return undefined;
+}
+
 let client: ApifyClient | null = null;
 const apify = (): ApifyClient => (client ??= new ApifyClient({ token: config.APIFY_TOKEN }));
 
@@ -118,16 +169,30 @@ export const apifyRunActor: Tool<{ actorId: string; input: Record<string, unknow
     additionalProperties: false,
   },
   paid: "apify",
+  estimateUsd: MAX_CHARGE_PER_RUN_USD,
   available: () => !!config.APIFY_TOKEN,
   async run({ actorId, input, maxItems }) {
     if (!/^[\w.-]+[/~][\w.-]+$/.test(actorId)) throw new Error(`Invalid actor id "${actorId}"`);
     assertPublicInput(input);
+    await assertEligibleActor(actorId);
     const limit = Math.min(Math.max(maxItems ?? 50, 1), 500);
-    const run = await apify().actor(actorId.replace("/", "~")).call(input, { maxItems: limit, timeout: 300, waitSecs: 330 });
-    if (run.status !== "SUCCEEDED") throw new Error(`Actor run ${run.id} ended with status ${run.status}`);
-    const { items } = await apify().dataset(run.defaultDatasetId).listItems({ limit });
-    const usd = run.usageTotalUsd ?? 0;
+    const started = await apify()
+      .actor(actorId.replace("/", "~"))
+      .call(input, { maxItems: limit, maxTotalChargeUsd: MAX_CHARGE_PER_RUN_USD, memory: 1024, timeout: 180, waitSecs: 200 });
+    // From here on Apify bills us, so every exit reports the run's real (or unknown) cost.
+    const final = await settledRun(started.id);
+    const usd = runCostUsd((final ?? started) as RunCost);
+    if ((final ?? started).status !== "SUCCEEDED") {
+      if ((final ?? started).status === "RUNNING") await apify().run(started.id).abort().catch(() => undefined);
+      throw new PaidToolError(`Actor run ${started.id} ended with status ${(final ?? started).status}`, usd);
+    }
+    let items: Record<string, unknown>[];
+    try {
+      ({ items } = await apify().dataset(started.defaultDatasetId).listItems({ limit }));
+    } catch (err) {
+      throw new PaidToolError(`Reading results of run ${started.id} failed: ${String(err)}`, usd);
+    }
     const text = clip(items.map((i) => JSON.stringify(i)).join("\n"), 12_000);
-    return { raw: items, text: `${items.length} items\n${text}`, usd, units: items.length };
+    return { raw: items, text: `${items.length} items\n${text}`, usd: usd ?? MAX_CHARGE_PER_RUN_USD, usdKnown: usd !== null, units: items.length };
   },
 };

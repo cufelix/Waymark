@@ -69,3 +69,39 @@ export async function resolveSkill(label: string, lang = "en"): Promise<Skill> {
 export function clearCache(): void {
   cache.clear();
 }
+
+/** The main language of a country (ISO 3166-1 alpha-2), e.g. "DE" → "de", "CZ" → "cs". */
+export const countryLanguage = (country: string): string => {
+  try {
+    return new Intl.Locale(`und-${country}`).maximize().language;
+  } catch {
+    return "en";
+  }
+};
+
+const labelCache = new Map<string, string[]>();
+
+/**
+ * Names an occupation is advertised under in one language: ESCO's preferred label (split on "/",
+ * so "Softwareentwickler/Softwareentwicklerin" gives both) plus a few alternatives. Empty for custom URIs.
+ */
+export async function occupationLabels(uri: string, lang: string, max = 4): Promise<string[]> {
+  if (!uri.startsWith("http://data.europa.eu/esco/")) return [];
+  const key = `${uri}|${lang}`;
+  const hit = labelCache.get(key);
+  if (hit) return hit;
+  try {
+    const res = await fetch(`https://ec.europa.eu/esco/api/resource/occupation?uri=${encodeURIComponent(uri)}&language=${lang}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return [];
+    const d = (await res.json()) as { preferredLabel?: Record<string, string>; alternativeLabel?: Record<string, string[]> };
+    const preferred = (d.preferredLabel?.[lang] ?? "").split("/").map((s) => s.trim());
+    const labels = [...new Set([...preferred, ...(d.alternativeLabel?.[lang] ?? [])].filter(Boolean))].slice(0, max);
+    if (labelCache.size > 5000) labelCache.clear();
+    labelCache.set(key, labels);
+    return labels;
+  } catch {
+    return [];
+  }
+}

@@ -12,12 +12,14 @@ const { getRun, processRun, startRun, stopBoss } = await import("../src/research
 
 const args = process.argv.slice(2);
 const userOnly = args.includes("--user-only");
-const path = args.find((a) => !a.startsWith("--")) ?? "test/api/fixtures/junior-backend.json";
+const maxArg = args.indexOf("--max");
+const maxVacancies = maxArg >= 0 ? Number(args[maxArg + 1]) : 40;
+const path = args.find((a, i) => !a.startsWith("--") && i !== maxArg + 1) ?? "test/api/fixtures/junior-backend.json";
 const profile = SeekerProfile.parse(JSON.parse(readFileSync(path, "utf8")));
 const out = (line: string): void => void process.stdout.write(line + "\n");
 
 await migrate();
-const runId = await startRun(profile, userOnly ? { sources: [] } : {});
+const runId = await startRun(profile, userOnly ? { sources: [], maxVacancies } : { maxVacancies, maxCompanies: 15 });
 out(`run ${runId} for ${profile.seekerId} (${path}${userOnly ? ", user research only" : ""})`);
 
 const ticker = setInterval(async () => {

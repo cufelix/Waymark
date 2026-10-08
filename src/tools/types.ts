@@ -9,8 +9,16 @@ export type ToolOutput = {
   text: string;
   url?: string;          // the page or resource this came from, when there is one
   usd: number;
+  usdKnown?: boolean;    // false when the paid service didn't report its cost; the ledger then keeps the estimate
   units?: number;
 };
+
+/** Thrown by a paid tool after the paid work started, so the ledger records what it cost even though it failed. */
+export class PaidToolError extends Error {
+  constructor(message: string, public readonly usd: number | null) {
+    super(message);
+  }
+}
 
 export type ToolResult = ({ ok: true } & ToolOutput) | { ok: false; error: string; usd: number };
 
@@ -21,6 +29,7 @@ export interface Tool<P = Record<string, unknown>> {
   description: string;
   parameters: Record<string, unknown>;   // JSON Schema for the agent
   paid?: PaidTool;                        // set for tools that cost money
+  estimateUsd?: number;                   // reserved before each call; defaults to the ledger's per-tool estimate
   available(): boolean;                   // false when its API key is missing
   run(params: P, ctx: ToolContext): Promise<ToolOutput>;
 }
@@ -47,7 +56,7 @@ export async function runTool(tool: Tool, params: Record<string, unknown>, ctx: 
   let reservation: number | undefined;
   try {
     for (const u of urlsIn(params)) await assertPublicUrl(new URL(u));
-    if (tool.paid) reservation = await reserveCost(tool.paid, { runId: ctx.runId, detail: tool.name });
+    if (tool.paid) reservation = await reserveCost(tool.paid, { runId: ctx.runId, detail: tool.name, estimateUsd: tool.estimateUsd });
   } catch (err) {
     return { ok: false, error: errorMessage(err), usd: 0 };
   }
@@ -55,12 +64,18 @@ export async function runTool(tool: Tool, params: Record<string, unknown>, ctx: 
   try {
     out = await tool.run(params, ctx);
   } catch (err) {
-    if (reservation !== undefined) await releaseCost(reservation).catch(() => undefined);
-    return { ok: false, error: errorMessage(err), usd: 0 };
+    if (reservation !== undefined) {
+      // Failed before anything was paid: drop the reservation. Failed after: record the cost (or keep the estimate).
+      const settle = err instanceof PaidToolError
+        ? settleCost(reservation, { usd: err.usd, units: 0, detail: tool.name })
+        : releaseCost(reservation);
+      await settle.catch((e: unknown) => log.error("cost ledger update failed", { tool: tool.name, error: errorMessage(e) }));
+    }
+    return { ok: false, error: errorMessage(err), usd: err instanceof PaidToolError ? (err.usd ?? 0) : 0 };
   }
   if (reservation !== undefined) {
     // A failed ledger write must not throw away a result we already paid for.
-    await settleCost(reservation, { usd: out.usd, units: out.units ?? 1, detail: tool.name }).catch((err: unknown) =>
+    await settleCost(reservation, { usd: out.usdKnown === false ? null : out.usd, units: out.units ?? 1, detail: tool.name }).catch((err: unknown) =>
       log.error("cost settle failed", { tool: tool.name, error: errorMessage(err) }),
     );
   }

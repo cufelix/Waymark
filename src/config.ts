@@ -30,7 +30,7 @@ const Env = z.object({
   FIRECRAWL_USD_PER_CREDIT: z.coerce.number().default(0.001),
 
   AGENT_MAX_STEPS: z.coerce.number().int().default(8),
-  AGENT_MAX_USD: z.coerce.number().default(0.05),
+  AGENT_MAX_USD: z.coerce.number().default(0.15),
 });
 
 export type Config = z.infer<typeof Env>;

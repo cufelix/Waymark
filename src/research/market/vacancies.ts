@@ -1,4 +1,5 @@
 // Vacancy listing: an agent finds a job-board source for a country once, then the recipe is replayed.
+import { countryLanguage, occupationLabels } from "../../shared/taxonomy";
 import { z } from "zod";
 import { config } from "../../config";
 import type { Occupation, Source } from "../../contracts";
@@ -139,20 +140,72 @@ async function explore(key: string, vars: Vars, max: number, runId: string): Pro
 }
 
 /** Sets maxItems on actor-run steps, so a recipe learned with 10 items can fetch as many as needed. */
+// Size fields actors commonly use; the agent learns recipes with a small test size, replays use the real one.
+const LIMIT_KEYS = ["limit", "maxItems", "maxResults", "max_items", "maxRows", "rows", "count", "resultsLimit", "maxJobs"];
+
 const withMax = (recipe: Recipe, max: number): Recipe => ({
   ...recipe,
-  steps: recipe.steps.map((s) => (s.tool === "apify_run_actor" ? { ...s, params: { ...s.params, maxItems: max } } : s)),
+  steps: recipe.steps.map((s) => {
+    if (s.tool !== "apify_run_actor") return s;
+    const input = { ...((s.params.input as Record<string, unknown>) ?? {}) };
+    for (const k of LIMIT_KEYS) if (typeof input[k] === "number") input[k] = max;
+    return { ...s, params: { ...s.params, input, maxItems: max } };
+  }),
 });
 
 const IDENTITY_MAP: Record<string, string> = Object.fromEntries(OUTPUT_FIELDS.map((f) => [f, f]));
 const FREE_ENOUGH = 20;
 
 /** Free, keyless job APIs first. Their items already use our field names. */
-async function freeJobs(occupation: Occupation, location: Location, remote: "only" | "ok" | "no", max: number, runId: string): Promise<unknown[]> {
+async function freeJobs(queries: string[], location: Location, remote: "only" | "ok" | "no", max: number, runId: string): Promise<unknown[]> {
   const tool = toolRegistry.get("free_jobs_search");
   if (!tool) return [];
-  const res = await runTool(tool, { query: occupation.label, country: location.country, remote: remote !== "no", limit: max }, { runId });
-  return res.ok && Array.isArray(res.raw) ? res.raw : [];
+  // One search per name the job goes by (English and local); the source listings are cached, so this is cheap.
+  const seen = new Set<string>();
+  const out: unknown[] = [];
+  for (const query of queries) {
+    const res = await runTool(tool, { query, country: location.country, remote: remote !== "no", limit: max }, { runId });
+    for (const job of res.ok && Array.isArray(res.raw) ? res.raw : []) {
+      const url = (job as { url?: string }).url ?? "";
+      if (!seen.has(url) && out.length < max) seen.add(url) && out.push(job);
+    }
+  }
+  return out;
+}
+
+const AdTitles = z.object({ titles: z.array(z.string()) });
+const titleCache = new Map<string, string[]>();
+
+/**
+ * Search terms for an occupation in a country, for any job: the short titles employers there actually put
+ * in job ads (in the local language), suggested by the fast model from the ESCO names, then the English label.
+ * ESCO names alone are formal register titles ("Krankenpfleger Allgemeine Krankenpflege") that ads rarely use.
+ */
+export async function searchTerms(occupation: Occupation, country: string, runId?: string): Promise<string[]> {
+  const key = `${occupation.uri}|${country}`;
+  const hit = titleCache.get(key);
+  if (hit) return hit;
+  const lang = countryLanguage(country);
+  const esco = lang === "en" ? [] : await occupationLabels(occupation.uri, lang);
+  let titles: string[] = [];
+  try {
+    const { value } = await chatJson(
+      AdTitles,
+      "You know how jobs are advertised on job boards in every country and profession.",
+      `Occupation: "${occupation.label}" (ESCO). Official names in ${lang}: ${JSON.stringify(esco)}.\n` +
+        `Country: ${country}. Give the 2 to 4 short job titles employers in this country most often use in job ads for this occupation, ` +
+        `in the language job ads there are written in (${lang}), most common first. Short search terms only, no seniority words. ` +
+        `Return {"titles": [...]}.`,
+      { runId, maxTokens: 200 },
+    );
+    titles = value.titles.map((t) => t.trim()).filter((t) => t.length >= 2 && t.length <= 60).slice(0, 4);
+  } catch (err) {
+    log.warn("ad title suggestion failed", { occupation: occupation.uri, country, error: String(err) });
+  }
+  const terms = [...new Set([...titles, ...esco, occupation.label].map((t) => t.trim()).filter(Boolean))].slice(0, 6);
+  if (titleCache.size > 5000) titleCache.clear();
+  titleCache.set(key, terms);
+  return terms;
 }
 
 /** Items from the learned Apify recipe for this country, exploring with the agent when there is none. */
@@ -169,6 +222,11 @@ async function apifyJobs(location: Location, vars: Vars, max: number, runId: str
     const explored = await explore(key, vars, max, runId);
     if (!explored) return { items: [], map: {} };
     ({ items, recipe } = explored);
+    // The agent explored with a small test size; fetch the full amount once with the recipe it just learned.
+    if (recipe && items.length < max) {
+      const full = (await replay(withMax(recipe, max), vars, toolRegistry, runId))?.at(-1)?.raw;
+      if (Array.isArray(full) && full.length > items.length) items = full;
+    }
   }
   if (!recipe) return { items: [], map: {} };
   let map = recipe.outputMap;
@@ -188,14 +246,20 @@ export async function findVacancies(
   runId: string,
   sources: string[] = ["apify"],
 ): Promise<string[]> {
-  const vars: Vars = { query: occupation.label, location: location.city ?? countryName(location.country), country: location.country };
+  const terms = await searchTerms(occupation, location.country, runId);
+  // Job boards are searched in the country's language, so a nurse in Germany is found as "Pflegefachkraft".
+  const vars: Vars = { query: terms[0]!, location: location.city ?? countryName(location.country), country: location.country };
   const batches: { items: unknown[]; map: Record<string, string>; tool: Source["tool"] }[] = [];
 
-  const free = await freeJobs(occupation, location, remote, max, runId);
+  const free = await freeJobs(terms, location, remote, max, runId);
   batches.push({ items: free, map: IDENTITY_MAP, tool: "official-api" });
   if (free.length < Math.min(FREE_ENOUGH, max) && sources.includes("apify")) {
-    const { items, map } = await apifyJobs(location, vars, max - free.length, runId);
-    batches.push({ items, map, tool: "apify" });
+    // Try the search terms in order until a board returns enough jobs (each try is one small actor run).
+    for (const term of terms.slice(0, 3)) {
+      const { items, map } = await apifyJobs(location, { ...vars, query: term }, max - free.length, runId);
+      batches.push({ items, map, tool: "apify" });
+      if (batches.reduce((n, b) => n + b.items.length, 0) >= Math.min(FREE_ENOUGH, max)) break;
+    }
   }
 
   const ids = new Set<string>();

@@ -161,7 +161,8 @@ export function shapeMatches(expected: string[], raw: unknown): boolean {
 export function stepsFromCalls(calls: CallRecord[], usedCalls: number[], vars: Vars): RecipeStep[] {
   return usedCalls
     .map((i) => calls[i])
-    .filter((c): c is CallRecord => !!c && c.result.ok)
+    // Discovery calls (e.g. apify_store_search) helped the agent choose; only the calls that read data are replayed.
+    .filter((c): c is CallRecord => !!c && c.result.ok && RECIPE_TOOLS.has(c.tool))
     .map((c) => ({ tool: c.tool, params: templatize(c.params, vars) }));
 }
 

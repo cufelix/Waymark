@@ -39,3 +39,17 @@ describe("SSRF guard", () => {
     await expect(safeGet("https://example.com/", { request, resolve: resolvesTo("93.184.215.14") })).rejects.toThrow(/Blocked/);
   });
 });
+
+import { runCostUsd } from "../../src/tools/apify";
+describe("Apify run cost", () => {
+  it("adds pay-per-event charges to platform usage", () => {
+    expect(runCostUsd({
+      usageTotalUsd: 0.003,
+      chargedEventCounts: { "apify-default-dataset-item": 20, "apify-actor-start": 1 },
+      pricingInfo: { pricingModel: "PAY_PER_EVENT", pricingPerEvent: { actorChargeEvents: { "apify-default-dataset-item": { eventPriceUsd: 0.001 }, "apify-actor-start": { eventPriceUsd: 0.005 } } } },
+    })).toBeCloseTo(0.028);
+  });
+  it("is unknown (null) when Apify reports no usage yet, so the estimate is kept", () => {
+    expect(runCostUsd({})).toBeNull();
+  });
+});
