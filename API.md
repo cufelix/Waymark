@@ -74,7 +74,7 @@ sequenceDiagram
 | `POST /v1/seekers/{seekerId}/interview/messages` | One turn of the intake interview. The agent asks; the client sends the seeker's answer. Send an empty `text` to get the first question. | `{ text: string }` | `{ reply: string, done: boolean, preferences: CareerPreferencesDraft }` |
 | `GET /v1/seekers/{seekerId}/interview` | Full interview transcript | | `InterviewTurn[]` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
-| `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF or DOCX, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
+| `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
 | `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a CV and everything parsed from it | | `{ deleted: true }` |
 | `PUT /v1/seekers/{seekerId}/links` | Replace the seeker's list of links (portfolio, GitHub, socials). Part 1 stores them; reading them is Part 2's user research. | `{ links: SeekerLinkInput[] }` | `SeekerLink[]` |
 | `PUT /v1/seekers/{seekerId}/career-choice` | The seeker picks one of the run's career paths, usually while the rest of the research is still running. Part 1 accepts only an occupation that run returned (`unprocessable` otherwise), stores it as `profile.careerChoice` (profileVersion +1) and leaves `preferences` as they are. Calling it again replaces the choice. | `{ runId: string, occupationUri: EscoUri }` | `CareerChoice` |

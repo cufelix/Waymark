@@ -93,6 +93,62 @@ test("skill label unsupported by its verbatim quote is dropped", async () => {
   assert.equal(llm.calls[1].model, MODELS.fast);
 });
 
+test("Java label against JavaScript quote goes to semantic verification", async () => {
+  const { deps, store, llm } = await setup([
+    answer({ statedSkills: [{ label: "Java", quote: "JavaScript" }] }),
+    JSON.stringify({ verdicts: [{ index: 0, supported: "yes" }] }),
+  ]);
+  await interviewTurn(deps, "skr_test", "I use JavaScript every day.");
+
+  assert.deepEqual(
+    (await store.get("skr_test"))?.profile.statedSkills.map((claim) => claim.skill?.label),
+    ["Java"],
+  );
+  assert.equal(llm.calls.length, 2);
+  assert.equal(llm.calls[1].model, MODELS.fast);
+});
+
+test("C programming label against programming quote goes to semantic verification", async () => {
+  const { deps, store, llm } = await setup([
+    answer({ statedSkills: [{ label: "C programming", quote: "programming" }] }),
+    JSON.stringify({ verdicts: [{ index: 0, supported: "yes" }] }),
+  ]);
+  await interviewTurn(deps, "skr_test", "I enjoy programming.");
+
+  assert.deepEqual(
+    (await store.get("skr_test"))?.profile.statedSkills.map((claim) => claim.skill?.label),
+    ["C programming"],
+  );
+  assert.equal(llm.calls.length, 2);
+  assert.equal(llm.calls[1].model, MODELS.fast);
+});
+
+test("PostgreSQL label is lexically supported as a whole word in a quote", async () => {
+  const { deps, store, llm } = await setup([
+    answer({ statedSkills: [{ label: "PostgreSQL", quote: "používám PostgreSQL" }] }),
+  ]);
+  await interviewTurn(deps, "skr_test", "Denně používám PostgreSQL.");
+
+  assert.deepEqual(
+    (await store.get("skr_test"))?.profile.statedSkills.map((claim) => claim.skill?.label),
+    ["PostgreSQL"],
+  );
+  assert.equal(llm.calls.length, 1);
+});
+
+test("C++ label is lexically supported as a whole word in a quote", async () => {
+  const { deps, store, llm } = await setup([
+    answer({ statedSkills: [{ label: "C++", quote: "píšu v C++" }] }),
+  ]);
+  await interviewTurn(deps, "skr_test", "Každý den píšu v C++.");
+
+  assert.deepEqual(
+    (await store.get("skr_test"))?.profile.statedSkills.map((claim) => claim.skill?.label),
+    ["C++"],
+  );
+  assert.equal(llm.calls.length, 1);
+});
+
 test("one batched fast-model check keeps supported paraphrased skill labels", async () => {
   const { deps, store, llm } = await setup([
     answer({
