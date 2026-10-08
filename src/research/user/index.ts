@@ -56,7 +56,7 @@ export async function researchSeeker(
     return a;
   });
 
-  const ownership = checkOwnership(artifacts, links);
+  const ownership = checkOwnership(artifacts, links, profile.seekerId);
 
   const results = await mapLimit(artifacts, CONCURRENCY, async (a): Promise<SeekerResearchLink> => {
     const owned = ownership[a.inputId] ?? "unconfirmed";

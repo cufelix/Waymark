@@ -1,3 +1,4 @@
+import { sha256 } from "../../ids";
 // Light ownership check (docs/user-research.md §4): does a link plausibly belong to the seeker?
 // Pure function. Without a signal, content still shows, but its skills stay "stated".
 import type { SeekerLink } from "../../contracts";
@@ -39,19 +40,34 @@ const pointsAt = (href: string, target: SeekerLink): boolean => {
   return h === t || h.startsWith(t + "/");
 };
 
+/** The code a seeker puts in a bio or page they control to prove it is theirs. Derived from the seeker id, so it can't be guessed for another seeker. */
+export const proofToken = (seekerId: string): string => `ethera-${sha256(`ethera-proof:${seekerId}`).slice(0, 10)}`;
+
 /**
- * Confirmed only by a mutual link: A's page links to B AND B's page links to A. Both pages are the seeker's to
- * edit, so the two directions together are hard to fake; one direction alone is not (anyone can link to a victim).
- * A shared handle on two platforms is a hint only and never confirms.
+ * Confirmed only when tied to this seeker: the page shows the seeker's proof token, or it links both ways with a
+ * page that does. Mutual links alone only prove two accounts belong to the same person, not to the seeker
+ * (a seeker could submit a stranger's GitHub and that stranger's own site). One-way links and shared handles never confirm.
  */
-export function checkOwnership(artifacts: Artifact[], links: SeekerLink[]): Record<string, Ownership> {
+export function checkOwnership(artifacts: Artifact[], links: SeekerLink[], seekerId: string): Record<string, Ownership> {
   const read = new Map(artifacts.filter((a) => a.status === "extracted" || a.status === "partial").map((a) => [a.inputId, a]));
   const result: Record<string, Ownership> = Object.fromEntries(links.map((l) => [l.id, "unconfirmed" as Ownership]));
-  const links_ = (from: SeekerLink, to: SeekerLink) => (read.get(from.id)?.owner?.links ?? []).some((href) => pointsAt(href, to));
+  const token = proofToken(seekerId);
+  const showsToken = (l: SeekerLink) => {
+    const a = read.get(l.id);
+    return !!a && (a.text.includes(token) || JSON.stringify(a.owner ?? {}).includes(token));
+  };
+  const linksTo = (from: SeekerLink, to: SeekerLink) => (read.get(from.id)?.owner?.links ?? []).some((href) => pointsAt(href, to));
 
-  for (const a of links) {
+  // Anchors: pages showing the token. Then spread along mutual links, so one token covers a seeker's linked profiles.
+  const queue = links.filter(showsToken);
+  for (const l of queue) result[l.id] = "confirmed";
+  while (queue.length) {
+    const a = queue.shift()!;
     for (const b of links) {
-      if (a.id < b.id && links_(a, b) && links_(b, a)) result[a.id] = result[b.id] = "confirmed";
+      if (result[b.id] !== "confirmed" && linksTo(a, b) && linksTo(b, a)) {
+        result[b.id] = "confirmed";
+        queue.push(b);
+      }
     }
   }
   return result;
