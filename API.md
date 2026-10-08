@@ -92,6 +92,7 @@ sequenceDiagram
 | `GET /v1/research-runs/{runId}/companies` | Companies researched in this run, dream companies first | | `Company[]` (paged) |
 | `GET /v1/research-runs/{runId}/vacancies` | Vacancies found in this run. Filters: `?occupation=` `?companyId=` | | `Vacancy[]` (paged) |
 | `GET /v1/research-runs/{runId}/market` | Job market per career path: demand per skill, vacancy counts, salary ranges | | `JobMarket[]` |
+| `GET /v1/research-runs/{runId}/trends` | Then vs now per target occupation: each skill's demand about ten years ago against the last 12 months and today's vacancies, labelled rising, stable or fading, with quotes. Keeps advice built on older career paths current. | | `OccupationTrends[]` |
 | `GET /v1/research-runs/{runId}/seeker-research` | User research: what the seeker's links show, plus the opt-in name search | | `SeekerResearch` |
 | `DELETE /v1/research-runs/{runId}` | Cancel a running run or delete a finished one | | `{ deleted: true }` |
 | `GET /v1/seekers/{seekerId}/research-runs` | All runs stored for a seeker, with results (used by Part 1's export) | | `ResearchRun[]` |
@@ -224,6 +225,7 @@ type ResearchRun = {
 
 type ResearchResult = {
   careerPaths: CareerPath[];
+  trends: OccupationTrends[];
   companyIds: string[];
   vacancyIds: string[];
   market: JobMarket[];
@@ -290,9 +292,28 @@ type JobMarket = {
   salaryRange?: { p25: number; median: number; p75: number; currency: string; period: "month" | "year"; sampleSize: number };
 };
 
+type OccupationTrends = {
+  occupation: Occupation;
+  then: { from: ISODate; to: ISODate };   // about 10 to 7 years ago
+  now: { from: ISODate; to: ISODate };    // the last 12 months
+  thenDocs: number;                       // dated job ads and career articles read per era
+  nowDocs: number;
+  skills: {
+    skill: Skill;
+    thenShare: number;                    // share of then-era documents asking for it
+    nowShare: number;                     // share of now-era documents or today's vacancies, whichever is higher
+    trend: "rising" | "stable" | "fading";
+    sources: Source[];                    // verbatim quotes from both eras
+  }[];
+};
+
 type SeekerResearch = {
   links: {
     linkId: string;
+    platform: string;             // detected by Part 2: "github", "tiktok", "soundcloud", "web"…
+    status: "extracted" | "partial" | "unsupported" | "failed";
+    reason?: string;              // why partial, unsupported or failed, in plain words for the seeker
+    ownership: "confirmed" | "unconfirmed";   // unconfirmed: skills stay tier "stated", never proof
     reachable: boolean;
     fetchedAt: ISODate;
     provenSkills: Claim[];        // what the page actually shows, tier "single-source" or better, source tool "seeker-link"

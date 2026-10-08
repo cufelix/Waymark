@@ -1,0 +1,36 @@
+{
+  "seekerId": "skr_fixture_backend",
+  "profileVersion": 3,
+  "status": "complete",
+  "consent": { "dataProcessing": true, "nameSearch": false, "givenAt": "2026-10-08T20:00:00Z", "policyVersion": "2026-10" },
+  "preferences": {
+    "targetOccupations": [
+      { "uri": "http://data.europa.eu/esco/occupation/f2b15a0e-e65a-438a-affb-29b9d50b77d1", "label": "software developer", "lang": "en" }
+    ],
+    "locations": [{ "country": "CZ", "city": "Prague" }],
+    "remote": "ok",
+    "goal": "learn-fast",
+    "dreamCompanies": [{ "name": "Apify", "url": "https://apify.com" }],
+    "dealBreakers": ["no unpaid overtime"],
+    "languages": [{ "lang": "cs", "level": "native" }, { "lang": "en", "level": "fluent" }]
+  },
+  "statedSkills": [
+    {
+      "id": "clm_fixture_ts",
+      "subject": { "kind": "seeker", "id": "skr_fixture_backend" },
+      "statement": "Knows TypeScript",
+      "skill": { "uri": "http://data.europa.eu/esco/skill/typescript", "label": "TypeScript", "lang": "en" },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        { "id": "src_fixture_cv", "url": "seeker-upload://doc_fixture_cv", "title": "CV", "fetchedAt": "2026-10-08T20:01:00Z", "tool": "seeker-upload", "quote": "TypeScript", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      ]
+    }
+  ],
+  "documents": [],
+  "links": [
+    { "id": "lnk_fixture_gh", "url": "https://github.com/octocat", "kind": "github", "addedAt": "2026-10-08T20:02:00Z" },
+    { "id": "lnk_fixture_pf", "url": "https://octocat.github.io/", "addedAt": "2026-10-08T20:02:00Z" }
+  ],
+  "updatedAt": "2026-10-08T20:03:00Z"
+}
