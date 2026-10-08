@@ -262,6 +262,7 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 | B4 | Link check: fetch each link the seeker gave (A's Firecrawl client), read it, turn what it shows into *proven* claims; optional opt-in name search with Exa | a shared project link proves its skill with a stored snapshot |
 | B5 | Account privacy: view, export, delete everything | delete removes all seeker rows and snapshots |
 | B6 | Career choice: the seeker picks one of the run's top 3 career paths (`PUT /v1/seekers/{seekerId}/career-choice`), checked against Part 2 and stored as `profile.careerChoice` | an occupation the run did not return is rejected; the choice is in the profile and the export |
+| B7 | Salary lookup in the interview: when the seeker asks about pay, one quick Exa search answers with an indicative range, every figure backed by a verbatim quote from a linked page (API.md "Salary lookup in the interview") | an invented or unquoted number never reaches the seeker; the pages are in the interview turn and the export |
 
 ### App UI (owner to be decided)
 | # | Issue | Done when |

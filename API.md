@@ -71,7 +71,7 @@ sequenceDiagram
 | Method and path | Does | Body | Returns |
 |---|---|---|---|
 | `POST /v1/seekers` | Create a seeker. Consent is required here. | `{ consent: Consent }` | `{ seekerId }` |
-| `POST /v1/seekers/{seekerId}/interview/messages` | One turn of the intake interview. The agent asks; the client sends the seeker's answer. Send an empty `text` to get the first question. | `{ text: string }` | `{ reply: string, done: boolean, preferences: CareerPreferencesDraft }` |
+| `POST /v1/seekers/{seekerId}/interview/messages` | One turn of the intake interview. The agent asks; the client sends the seeker's answer. Send an empty `text` to get the first question. When the seeker asks about pay, the agent may run a quick salary lookup on the web and answer with an indicative range (see "Salary lookup in the interview" below). | `{ text: string }` (max 4,000 characters) | `{ reply: string, done: boolean, preferences: CareerPreferencesDraft, sources?: Source[] }` |
 | `GET /v1/seekers/{seekerId}/interview` | Full interview transcript | | `InterviewTurn[]` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
 | `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
@@ -81,6 +81,24 @@ sequenceDiagram
 | `GET /v1/seekers/{seekerId}/profile` | **The handoff object.** `status` is `"complete"` once preferences have at least one target occupation and consent is given. | | `SeekerProfile` |
 | `GET /v1/seekers/{seekerId}/export` | Everything stored about the seeker in both parts (GDPR). Part 1 adds the runs from Part 2's `GET /v1/seekers/{seekerId}/research-runs`. | | `SeekerExport` |
 | `DELETE /v1/seekers/{seekerId}` | Hard delete in both parts (GDPR). Part 1 calls Part 2's `DELETE /v1/seekers/{seekerId}/research` first. If that fails, it answers `upstream_failed`, marks the seeker `deletion-pending` and retries until both are gone. | | `{ deleted: true }` |
+
+### Salary lookup in the interview
+
+Seekers ask "what does this pay?" during the interview, long before the research run has market data. The agent can answer with a quick web lookup instead of putting them off:
+
+- **When:** only when the seeker asks about pay for an occupation. At most 2 lookups per interview.
+- **How:**
+  - One Exa search (`POST https://api.exa.ai/search`, header `x-api-key` from env `EXA_API_KEY`, `numResults` 5, `contents.text`) for the occupation and the seeker's location. That is about $0.007 per search with page text.
+  - The fast model then pulls salary figures out of the returned page text, each with a quote.
+- **Checks before anything reaches the seeker:**
+  - Each salary figure needs a quote that appears verbatim in the fetched page text; figures without one are dropped.
+  - Every number in the reply must come from a figure that survived.
+  - If nothing survives, the agent says it found no reliable figure.
+- **What the seeker sees:** an indicative range for the occupation and place, labelled as a quick web lookup, with the pages linked. The pages are returned in `sources` (tool `"exa"`) and kept on the agent's `InterviewTurn`, so they appear in the export.
+- **What it is not:**
+  - not a claim: nothing is added to `statedSkills` or `preferences`;
+  - not the market data: the sourced salary ranges come from Part 2 (`JobMarket.salaryRange`, `CareerStep.salary`);
+  - never a statement about the seeker's own chances or worth.
 
 ## Part 2: Research (@cufelix)
 
@@ -166,7 +184,12 @@ type CareerPreferences = {
 
 type CareerPreferencesDraft = Partial<CareerPreferences>;   // what the interview has filled in so far
 
-type InterviewTurn = { role: "agent" | "seeker"; text: string; at: ISODate };
+type InterviewTurn = {
+  role: "agent" | "seeker";
+  text: string;
+  at: ISODate;
+  sources?: Source[];             // agent turns only: the pages behind a salary lookup, tool "exa"
+};
 
 type SeekerDocument = {
   id: string;                     // "doc_…"
