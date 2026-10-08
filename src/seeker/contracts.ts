@@ -53,7 +53,7 @@ export type CareerPreferences = {
 
 export type CareerPreferencesDraft = Partial<CareerPreferences>;
 
-export type InterviewTurn = { role: "agent" | "seeker"; text: string; at: ISODate };
+export type InterviewTurn = { role: "agent" | "seeker"; text: string; at: ISODate; sources?: Source[] };
 
 export type SeekerDocument = {
   id: string; // "doc_…"
