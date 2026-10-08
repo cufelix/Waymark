@@ -2,8 +2,13 @@ import { ApiError } from "../core/errors.ts";
 
 export type ChatMessage =
   | { role: "system" | "user" | "assistant"; content: string }
-  // PDF CVs go to the model as a file part (OpenRouter parses PDFs itself).
-  | { role: "user"; content: ({ type: "text"; text: string } | { type: "file"; file: { filename: string; file_data: string } })[] };
+  // PDF CVs go to the model as a file part (OpenRouter parses PDFs itself); photos of a CV as an image part.
+  | { role: "user"; content: ContentPart[] };
+
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "file"; file: { filename: string; file_data: string } } // data:application/pdf;base64,…
+  | { type: "image_url"; image_url: { url: string } }; // data:image/png;base64,…
 
 export type ChatRequest = { model: string; messages: ChatMessage[]; json?: boolean; temperature?: number };
 
