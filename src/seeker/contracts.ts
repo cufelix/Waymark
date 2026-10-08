@@ -80,8 +80,40 @@ export type SeekerProfile = {
   statedSkills: Claim[]; // merged from CV and interview, tier "stated"
   documents: SeekerDocument[];
   links: SeekerLink[];
+  careerChoice?: CareerChoice; // set once the seeker picks one of a run's career paths
   updatedAt: ISODate;
+};
+
+export type CareerChoice = {
+  occupation: Occupation; // one of the run's CareerPath.occupation
+  runId: string; // the run whose career paths were shown
+  chosenAt: ISODate;
 };
 
 // ResearchRun is Part 2's type; Part 1 only passes it through in the export.
 export type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: unknown[] };
+
+// ---------- Part 2: research ----------
+export type CareerPath = {
+  occupation: Occupation;
+  why: Claim[]; // sourced reasons, e.g. demand in the seeker's locations
+  vacancyCount: number; // in the seeker's locations
+  ladder?: CareerStep[]; // ordered from entry to the top; absent until the run has found it
+  // no fit score: order comes from market demand and the seeker's goal, never from how "good" the seeker is
+};
+
+export type CareerStep = {
+  level: "entry" | "junior" | "mid" | "senior" | "lead" | "executive";
+  title: string; // "Junior backend developer", "Chief technology officer"
+  occupation?: Occupation; // only when the step is its own ESCO occupation (e.g. chief technology officer)
+  typicalExperienceYears?: { min: number; max?: number }; // from the ads' requirements, e.g. "5+ years"
+  salary?: { // omitted when no source gives one; never estimated without a source
+    p25?: number; median: number; p75?: number;
+    currency: string;
+    period: "month" | "year";
+    sampleSize: number;
+    location: { country: Country; city?: string };
+  };
+  claims: Claim[]; // sources for the step, its experience and its salary (job ads, salary sites);
+  // a ladder shape drawn from those ads is kind "inference"
+};
