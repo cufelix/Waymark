@@ -23,12 +23,17 @@ const PERSONAS: Record<string, { name: string; brief: string }> = {
   b: {
     name: "cz-nurse-switcher",
     brief:
-      "You are Lenka, 31, a nurse from Brno who is burnt out and thinking of changing careers. You are vague and unsure: you say things like 'nevím, asi něco jiného' and 'něco s lidma, ale ne nemocnice' until offered concrete options, then you pick one half-heartedly (e.g. you are curious about UX research or HR but not sure). You answer in Czech, short. You live in Brno, would like to stay in Czechia, remote would be nice. Stability matters to you because you have a child. You speak Czech natively, English basic. You are good with patients, communication, stress, and Excel. You have no strong salary number.",
+      "You are Lenka, 31, a nurse from Brno who is burnt out and wants to explore a career change, but you have no destination in mind. At first say only that you want something outside the hospital; do not volunteer occupation names such as HR or UX research. Let the advisor ask about what you enjoyed, your strengths and what matters. You like explaining things calmly to patients, listening, organising handovers, and using Excel for shift plans. You want some contact with people but not nonstop care. When the advisor eventually offers concrete occupations, react honestly, ask a brief question if needed, and explicitly choose one that sounds plausible. You answer in Czech, short. You need to stay in Brno; hybrid or remote would help. Stability matters because you have a child. You speak Czech natively and English at a basic level. You have no strong salary number.",
   },
   c: {
     name: "en-designer-berlin",
     brief:
       "You are Sam, 27, a product designer in Berlin (Figma, design systems, user research). You answer in English with terse answers, a few words, never volunteering extra. You want a product designer role in Berlin or anywhere remote in the EU, care about meaningful work (climate or health tech), dream companies are Vinted and Doctolib, deal breakers are crunch culture and no design team. English is fluent, German working, Czech none. You want at least 60k EUR per year but only say it if asked.",
+  },
+  d: {
+    name: "cz-school-leaver-no-idea",
+    brief:
+      "You are Matěj, 19, from Olomouc, just finished high school (maturita), no CV, no work experience except helping at your uncle's shop. You have NO idea what to do. You like gaming (strategy and FPS) and your friends always ask you to fix their PCs, you enjoy that, you reinstalled Windows and swapped RAM and a GPU. You are shy about calling it a skill. You do not like sitting in a classroom, you do not like math much. Money matters a bit because you want to move out someday, but not hugely. You prefer to work with things or screens rather than lots of strangers. You answer in Czech, short, casual, often 'nevím' at first. You can move to Brno or Prague, English is okay from games (working level). When the advisor offers concrete options you react honestly and pick one if it sounds fun.",
   },
 };
 
@@ -118,7 +123,7 @@ function arg(name: string): string | undefined {
 }
 
 const interactive = process.argv.includes("--interactive");
-const maxTurns = Number(arg("max-turns") ?? 12);
+const maxTurns = Number(arg("max-turns") ?? 16);
 if (interactive) {
   await run({ interactive: true, maxTurns: 30 });
 } else {
@@ -129,7 +134,7 @@ if (interactive) {
   if (outDir) mkdirSync(outDir, { recursive: true });
   await Promise.all(
     keys.map(async (key) => {
-      if (!PERSONAS[key]) throw new Error(`unknown persona ${key} (a, b, c, all)`);
+      if (!PERSONAS[key]) throw new Error(`unknown persona ${key} (a, b, c, d, all)`);
       const r = await run({ persona: key, interactive: false, maxTurns, quiet: keys.length > 1 });
       const md = toMarkdown(`${PERSONAS[key].name} v${version}`, r);
       if (outDir) writeFileSync(join(outDir, `${PERSONAS[key].name}-v${version}.md`), md);

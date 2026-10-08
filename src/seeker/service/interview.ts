@@ -12,13 +12,19 @@ import type { LlmClient } from "../llm/llm.ts";
 import { MODELS } from "../llm/llm.ts";
 import type { SeekerStore } from "../store/store.ts";
 import { findOccupation, findSkill } from "../taxonomy.ts";
-import { FIRST_INTERVIEW_QUESTION, interviewMessages } from "./interview.prompts.ts";
+import {
+  DIRECT_MAX_AGENT_QUESTIONS,
+  EXPLORE_MAX_AGENT_QUESTIONS,
+  FIRST_INTERVIEW_QUESTION,
+  interviewMessages,
+} from "./interview.prompts.ts";
 
 export type Deps = { store: SeekerStore; llm: LlmClient };
 
 type ModelResult = {
   reply: string;
   done: boolean;
+  mode: "direct" | "explore";
   draftPatch: Record<string, unknown>;
   statedSkills: { label: string; quote: string }[];
 };
@@ -45,7 +51,10 @@ function parseModelResult(raw: string): ModelResult {
   } catch {
     throw new Error("invalid JSON");
   }
-  if (!isObject(value) || typeof value.reply !== "string" || value.reply.trim() === "" || typeof value.done !== "boolean") {
+  if (
+    !isObject(value) || typeof value.reply !== "string" || value.reply.trim() === "" ||
+    typeof value.done !== "boolean" || (value.mode !== "direct" && value.mode !== "explore")
+  ) {
     throw new Error("invalid interview response");
   }
 
@@ -54,10 +63,10 @@ function parseModelResult(raw: string): ModelResult {
     ? value.statedSkills
         .filter(isObject)
         .filter((item) => typeof item.label === "string" && typeof item.quote === "string")
-        .map((item) => ({ label: (item.label as string).trim(), quote: item.quote as string }))
+        .map((item) => ({ label: (item.label as string).trim(), quote: (item.quote as string).trim() }))
         .filter((item) => item.label !== "" && item.quote !== "")
     : [];
-  return { reply: value.reply.trim(), done: value.done, draftPatch, statedSkills };
+  return { reply: value.reply.trim(), done: value.done, mode: value.mode, draftPatch, statedSkills };
 }
 
 async function askLlm(deps: Deps, transcript: InterviewTurn[], draft: CareerPreferencesDraft, text: string): Promise<ModelResult> {
@@ -117,9 +126,25 @@ async function validateDraftPatch(raw: Record<string, unknown>): Promise<CareerP
 
   if (Array.isArray(raw.targetOccupations)) {
     const found: Occupation[] = [];
-    for (const term of raw.targetOccupations) {
-      if (typeof term !== "string" || term.trim() === "") continue;
-      for (const occupation of await findOccupation(term.trim())) {
+    for (const item of raw.targetOccupations) {
+      const label = typeof item === "string"
+        ? item.trim()
+        : isObject(item) && typeof item.label === "string" ? item.label.trim() : "";
+      if (!label) continue;
+      const lookup = isObject(item) && typeof item.lookup === "string" && item.lookup.trim()
+        ? item.lookup.trim()
+        : label;
+      const lang = isObject(item) ? canonicalLanguage(item.lang) ?? "en" : "en";
+      const normalizedLookup = lookup.toLowerCase();
+      const matches = (await findOccupation(lookup)).filter((occupation) => {
+        const normalizedLabel = occupation.label.toLowerCase();
+        return normalizedLookup.includes(normalizedLabel) || normalizedLabel.includes(normalizedLookup);
+      });
+      if (matches.length === 0) {
+        const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        matches.push({ uri: `urn:stub:occupation:${slug}`, label, lang });
+      }
+      for (const occupation of matches) {
         if (occupation.uri && !found.some((item) => item.uri === occupation.uri)) found.push(occupation);
       }
     }
@@ -192,20 +217,19 @@ async function validateStatedSkills(items: ModelResult["statedSkills"], seekerTe
   return valid;
 }
 
-function completePreferences(draft: CareerPreferencesDraft): CareerPreferences | undefined {
-  if (
-    !draft.targetOccupations?.length || !draft.locations || !draft.remote || !draft.goal ||
-    !draft.dreamCompanies || !draft.dealBreakers || !draft.languages
-  ) return undefined;
+function preferencesFromDraft(draft: CareerPreferencesDraft, current: CareerPreferences): CareerPreferences | undefined {
+  if (!draft.targetOccupations) return undefined;
   return {
     targetOccupations: draft.targetOccupations,
-    locations: draft.locations,
-    remote: draft.remote,
-    goal: draft.goal,
-    dreamCompanies: draft.dreamCompanies,
-    dealBreakers: draft.dealBreakers,
-    languages: draft.languages,
-    ...(draft.salaryExpectation ? { salaryExpectation: draft.salaryExpectation } : {}),
+    locations: draft.locations ?? current.locations,
+    remote: draft.remote ?? current.remote,
+    goal: draft.goal ?? current.goal,
+    dreamCompanies: draft.dreamCompanies ?? current.dreamCompanies,
+    dealBreakers: draft.dealBreakers ?? current.dealBreakers,
+    languages: draft.languages ?? current.languages,
+    ...(draft.salaryExpectation ?? current.salaryExpectation
+      ? { salaryExpectation: draft.salaryExpectation ?? current.salaryExpectation! }
+      : {}),
   };
 }
 
@@ -249,7 +273,8 @@ export async function interviewTurn(
     assertVisible(current, seekerId);
     const seekerTurnNumber = current.interview.length + 1;
     const nextDraft = { ...current.draft, ...draftPatch };
-    done = done || current.interview.filter((turn) => turn.role === "agent").length + 1 >= 8;
+    const maxAgentQuestions = modelResult.mode === "explore" ? EXPLORE_MAX_AGENT_QUESTIONS : DIRECT_MAX_AGENT_QUESTIONS;
+    done = done || current.interview.filter((turn) => turn.role === "agent").length + 1 >= maxAgentQuestions;
 
     const claims = statedSkills.map(({ skill, quote }) =>
       statedSkillClaim(seekerId, skill, interviewSource(seekerId, seekerTurnNumber, text, quote))
@@ -259,7 +284,7 @@ export async function interviewTurn(
     let profileChanged = JSON.stringify(mergedSkills) !== JSON.stringify(current.profile.statedSkills);
     if (profileChanged) profile = { ...profile, statedSkills: mergedSkills };
 
-    const preferences = done ? completePreferences(nextDraft) : undefined;
+    const preferences = preferencesFromDraft(nextDraft, profile.preferences);
     if (preferences && JSON.stringify(preferences) !== JSON.stringify(profile.preferences)) {
       profile = { ...profile, preferences };
       profileChanged = true;

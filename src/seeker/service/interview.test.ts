@@ -31,7 +31,7 @@ async function setup(answers: string[] = [], options: { deletionPending?: boolea
 }
 
 function answer(value: Record<string, unknown>): string {
-  return JSON.stringify({ reply: "Next question?", done: false, draftPatch: {}, statedSkills: [], ...value });
+  return JSON.stringify({ reply: "Next question?", done: false, mode: "direct", draftPatch: {}, statedSkills: [], ...value });
 }
 
 test("empty first turn asks and stores the fixed first question without an LLM call", async () => {
@@ -79,6 +79,80 @@ test("invented skill quote is dropped", async () => {
   await interviewTurn(deps, "skr_test", "I use TypeScript every day.");
 
   assert.deepEqual((await store.get("skr_test"))?.profile.statedSkills, []);
+});
+
+test("concrete skills from one answer are stored with trimmed verbatim quotes", async () => {
+  const { deps, store } = await setup([
+    answer({
+      statedSkills: [
+        { label: "Node.js", quote: " Node.js " },
+        { label: "TypeScript", quote: "TypeScript" },
+        { label: "PostgreSQL", quote: "PostgreSQL" },
+        { label: "Docker", quote: "Docker" },
+      ],
+    }),
+  ]);
+  await interviewTurn(deps, "skr_test", "I build APIs with Node.js and TypeScript, backed by PostgreSQL and Docker.");
+
+  const skills = (await store.get("skr_test"))?.profile.statedSkills ?? [];
+  assert.deepEqual(skills.map((claim) => claim.skill?.label), ["Node.js", "TypeScript", "PostgreSQL", "Docker"]);
+  assert.deepEqual(skills.map((claim) => claim.sources[0].quote), ["Node.js", "TypeScript", "PostgreSQL", "Docker"]);
+  assert.ok(skills.every((claim) => claim.tier === "stated" && claim.sources[0].tool === "seeker-interview"));
+});
+
+test("unknown confirmed occupation gets a provisional URI and completes the profile", async () => {
+  const { deps, store } = await setup([
+    answer({ mode: "explore", draftPatch: { targetOccupations: ["HR"] } }),
+  ]);
+  const result = await interviewTurn(deps, "skr_test", "I choose HR.");
+  const record = await store.get("skr_test");
+
+  assert.equal(result.done, false);
+  assert.deepEqual(record?.draft.targetOccupations, [{ uri: "urn:stub:occupation:hr", label: "HR", lang: "en" }]);
+  assert.deepEqual(record?.profile.preferences.targetOccupations, record?.draft.targetOccupations);
+  assert.equal(record?.profile.status, "complete");
+});
+
+test("loosely matched taxonomy result does not replace a different occupation", async () => {
+  const { deps, store } = await setup([
+    answer({ mode: "explore", draftPatch: { targetOccupations: ["software tester"] } }),
+  ]);
+  await interviewTurn(deps, "skr_test", "I choose software tester.");
+
+  assert.deepEqual((await store.get("skr_test"))?.profile.preferences.targetOccupations, [
+    { uri: "urn:stub:occupation:software-tester", label: "software tester", lang: "en" },
+  ]);
+});
+
+test("provisional occupation preserves the seeker's wording and language", async () => {
+  const { deps, store } = await setup([
+    answer({
+      mode: "explore",
+      draftPatch: { targetOccupations: [{ label: "elektrikář", lookup: "electrician", lang: "cs" }] },
+    }),
+  ]);
+  await interviewTurn(deps, "skr_test", "Vybral bych si elektrikáře.");
+
+  assert.deepEqual((await store.get("skr_test"))?.profile.preferences.targetOccupations, [
+    { uri: "urn:stub:occupation:elektrik-", label: "elektrikář", lang: "cs" },
+  ]);
+});
+
+test("direct and explore modes use separate agent-turn caps", async () => {
+  const direct = await setup(Array.from({ length: 7 }, () => answer({ mode: "direct" })));
+  await interviewTurn(direct.deps, "skr_test", "");
+  let directResult;
+  for (let i = 0; i < 7; i++) directResult = await interviewTurn(direct.deps, "skr_test", `direct ${i}`);
+  assert.equal(directResult?.done, true);
+
+  const explore = await setup(Array.from({ length: 14 }, () => answer({ mode: "explore" })));
+  await interviewTurn(explore.deps, "skr_test", "");
+  let exploreResult;
+  for (let i = 0; i < 14; i++) {
+    exploreResult = await interviewTurn(explore.deps, "skr_test", `explore ${i}`);
+    if (i === 6) assert.equal(exploreResult.done, false, "explore mode must continue past turn 8");
+  }
+  assert.equal(exploreResult?.done, true);
 });
 
 test("garbage JSON is retried once and then becomes upstream_failed", async () => {
