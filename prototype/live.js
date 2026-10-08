@@ -7,7 +7,7 @@ const Live = (() => {
   };
 
   async function api(method, path, body) {
-    const opts = { method, headers: {} };
+    const opts = { method, headers: { 'X-Ethera-UI': '1' } };
     if (body instanceof FormData) opts.body = body;
     else if (body !== undefined) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
     const res = await fetch('/ui/api' + path, opts);

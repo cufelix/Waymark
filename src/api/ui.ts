@@ -13,7 +13,15 @@ const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 export function mountUi(app: Hono<any>): void {
   app.all("/ui/api/*", async (c) => {
     const remote = getConnInfo(c).remote.address ?? "";
-    if (!config.UI_LOCAL || !LOOPBACK.has(remote)) return c.json({ ok: false, data: null, error: { code: "unauthorized", message: "The local UI bridge is off" }, meta: {} }, 401);
+    const deny = (message: string) => c.json({ ok: false, data: null, error: { code: "unauthorized", message }, meta: {} }, 401);
+    if (!config.UI_LOCAL || !LOOPBACK.has(remote)) return deny("The local UI bridge is off");
+    // Other websites open in the same browser also reach localhost, so a loopback address is not enough:
+    // Host must be localhost (stops DNS rebinding), the browser must not mark the request cross-site, and the
+    // custom header can only be sent cross-origin after a CORS preflight, which this server never approves.
+    if (!/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(c.req.header("host") ?? "")) return deny("Bad host");
+    const site = c.req.header("sec-fetch-site");
+    if (site && site !== "same-origin" && site !== "none") return deny("Cross-site request");
+    if (c.req.header("x-ethera-ui") !== "1") return deny("Missing UI header");
     const url = new URL(c.req.url);
     url.pathname = url.pathname.replace(/^\/ui\/api/, "");
     const headers = new Headers(c.req.raw.headers);
