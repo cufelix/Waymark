@@ -51,7 +51,8 @@ const TEXT = ["description", "text", "caption", "body", "desc", "summary", "bio"
 const METRIC = /count|plays|views|likes|stars|forks|followers|playback|digg|share|comment|reposts|downloads/i;
 const NAME = ["displayName", "display_name", "full_name", "fullName", "name", "nickname", "authorName"];
 const HANDLE = ["login", "username", "uniqueId", "permalink", "handle", "screen_name", "userName", "ownerUsername"];
-const LINK = ["website", "blog", "website_url", "externalUrl", "bioLink", "homepage"];
+const LINK = ["website", "blog", "website_url", "externalUrl", "bioLink", "bio_link", "homepage"];
+const PROFILE_TEXT = ["bio", "signature"]; // profile-level text; a repo, video or post description is not
 const URL_RE = /https?:\/\/[^\s"'<>)\]]+/g;
 
 function toItem(o: Record<string, unknown>): ArtifactItem | null {
@@ -84,6 +85,19 @@ function ownerCandidates(raw: unknown): Record<string, unknown>[] {
   return out;
 }
 
+/** Objects that describe the account itself: the raw object and nested author/user/owner objects, but not the first record's own fields (a repo's homepage, a post's links). */
+function profileCandidates(raw: unknown): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  const visit = (o: unknown, depth: number, self: boolean) => {
+    if (!isObj(o) || depth > 2) return;
+    if (self) out.push(o);
+    for (const k of ["author", "user", "owner", "authorMeta", "channel", "profile", "artist", "metadata"]) visit(o[k], depth + 1, true);
+  };
+  visit(raw, 0, true);
+  visit(records(raw)[0], 1, false);
+  return out;
+}
+
 export function findOwner(raws: unknown[]): Artifact["owner"] {
   let displayName: string | undefined;
   let handle: string | undefined;
@@ -92,11 +106,13 @@ export function findOwner(raws: unknown[]): Artifact["owner"] {
     for (const o of ownerCandidates(raw)) {
       displayName ??= pick(o, NAME);
       handle ??= pick(o, HANDLE);
+    }
+    for (const o of profileCandidates(raw)) {
       for (const k of LINK) {
         const v = str(o[k]);
         if (v && /^https?:\/\//.test(v)) links.add(v);
       }
-      for (const k of ["bio", "description", "signature"]) for (const m of str(o[k])?.match(URL_RE) ?? []) links.add(m);
+      for (const k of PROFILE_TEXT) for (const m of str(o[k])?.match(URL_RE) ?? []) links.add(m);
     }
     if (isObj(raw) && Array.isArray(raw.links)) for (const l of raw.links) if (typeof l === "string" && /^https?:\/\//.test(l)) links.add(l);
   }

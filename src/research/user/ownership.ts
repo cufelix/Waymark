@@ -2,14 +2,9 @@
 // Pure function. Without a signal, content still shows, but its skills stay "stated".
 import type { SeekerLink } from "../../contracts";
 import type { Artifact } from "./artifact";
-import { platformOf, varsFor } from "./key";
+import { platformOf } from "./key";
 
 export type Ownership = "confirmed" | "unconfirmed";
-
-const norm = (h: string | undefined): string | undefined => {
-  const v = h?.toLowerCase().replace(/^@/, "").replace(/[^a-z0-9]/g, "");
-  return v && v.length >= 3 ? v : undefined;
-};
 
 /** host + path, lowercase, no www, no trailing slash: "github.com/jan". */
 const normUrl = (url: string): string | undefined => {
@@ -22,37 +17,41 @@ const normUrl = (url: string): string | undefined => {
   }
 };
 
-/** True when `href` points at the link `target` (the same page, or a page under it; any page of a personal site). */
+// Hosts where many people share one domain and the account is the first path segment ("medium.com/@jan").
+// A link to the bare host proves nothing, and a link needs the same first segment to point at the same account.
+// Per-account subdomains (jan.github.io, jan.substack.com, jan.notion.site) are not listed: the host alone is the account.
+const SHARED_HOSTS = new Set([
+  "linktr.ee", "sites.google.com", "notion.site", "medium.com", "substack.com", "github.com", "gitlab.com", "linkedin.com",
+  "twitter.com", "x.com", "facebook.com", "instagram.com", "youtube.com", "tiktok.com", "soundcloud.com", "behance.net",
+  "dribbble.com", "google.com", "wikipedia.org", "bsky.app", "mastodon.social",
+]);
+
+/** True when `href` points at the account behind the link `target`. */
 const pointsAt = (href: string, target: SeekerLink): boolean => {
   const h = normUrl(href);
   const t = normUrl(target.url);
   if (!h || !t) return false;
-  if (platformOf(target.url) === "web") return h.split("/")[0] === t.split("/")[0];
+  const [hHost = "", ...hPath] = h.split("/").filter(Boolean);
+  const [tHost = "", ...tPath] = t.split("/").filter(Boolean);
+  if (hHost !== tHost) return false;
+  if (SHARED_HOSTS.has(tHost)) return tPath.length > 0 && hPath[0] === tPath[0];
+  if (platformOf(target.url) === "web") return true; // own domain or per-account subdomain: any page of it
   return h === t || h.startsWith(t + "/");
 };
 
+/**
+ * Confirmed only by a mutual link: A's page links to B AND B's page links to A. Both pages are the seeker's to
+ * edit, so the two directions together are hard to fake; one direction alone is not (anyone can link to a victim).
+ * A shared handle on two platforms is a hint only and never confirms.
+ */
 export function checkOwnership(artifacts: Artifact[], links: SeekerLink[]): Record<string, Ownership> {
   const read = new Map(artifacts.filter((a) => a.status === "extracted" || a.status === "partial").map((a) => [a.inputId, a]));
   const result: Record<string, Ownership> = Object.fromEntries(links.map((l) => [l.id, "unconfirmed" as Ownership]));
-  const confirm = (...ids: string[]) => ids.forEach((id) => (result[id] = "confirmed"));
+  const links_ = (from: SeekerLink, to: SeekerLink) => (read.get(from.id)?.owner?.links ?? []).some((href) => pointsAt(href, to));
 
-  // (a) the same handle on two or more different platforms
-  const handles = links.map((l) => {
-    const a = read.get(l.id);
-    const platform = platformOf(l.url);
-    return { id: l.id, platform, handle: norm(a?.owner?.handle) ?? (platform === "web" ? undefined : norm(varsFor(l.url).handle)) };
-  });
-  for (const x of handles) {
-    for (const y of handles) {
-      if (x.id !== y.id && x.handle && x.handle === y.handle && x.platform !== y.platform) confirm(x.id, y.id);
-    }
-  }
-
-  // (b) one input links to another input the seeker gave us
-  for (const from of links) {
-    const outbound = read.get(from.id)?.owner?.links ?? [];
-    for (const to of links) {
-      if (to.id !== from.id && outbound.some((href) => pointsAt(href, to))) confirm(from.id, to.id);
+  for (const a of links) {
+    for (const b of links) {
+      if (a.id < b.id && links_(a, b) && links_(b, a)) result[a.id] = result[b.id] = "confirmed";
     }
   }
   return result;
