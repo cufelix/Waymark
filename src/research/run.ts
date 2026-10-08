@@ -145,7 +145,10 @@ export async function processRun(runId: string): Promise<void> {
   try {
     // ponytail: cancellation is checked between steps, an in-flight research call finishes first; add an AbortSignal to the research modules if runs get long
     const [market, seekerResearch] = await Promise.all([
-      researchMarket(row.profile, options, runId, report),
+      researchMarket(row.profile, options, runId, report, async (careerPaths) => {
+        // Early career paths, readable while the run continues (API.md: career-paths during the run).
+        await query("UPDATE research_runs SET result = jsonb_build_object('careerPaths', $2::jsonb) WHERE id = $1 AND status = 'running'", [runId, JSON.stringify(careerPaths)]);
+      }),
       researchSeeker(row.profile, options, runId, (done, total) => report("seeker-research", done, total)),
     ]);
     await flush(true);

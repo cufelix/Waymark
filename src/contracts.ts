@@ -89,6 +89,7 @@ export const SeekerProfile = z.object({
   statedSkills: z.array(Claim),
   documents: z.array(SeekerDocument),
   links: z.array(SeekerLink),
+  careerChoice: z.object({ occupation: Occupation, runId: z.string(), chosenAt: ISODate }).optional(),
   updatedAt: ISODate,
 });
 export type SeekerProfile = z.infer<typeof SeekerProfile>;
@@ -112,10 +113,25 @@ export const StartRunBody = z.strictObject({
 export type RunStatus = "queued" | "running" | "done" | "failed" | "cancelled";
 export type RunStep = "career-paths" | "companies" | "vacancies" | "market" | "seeker-research";
 
+export type CareerStep = {
+  level: "entry" | "junior" | "mid" | "senior" | "lead" | "executive";
+  title: string;
+  occupation?: Occupation;
+  typicalExperienceYears?: { min: number; max?: number };
+  salary?: {
+    p25?: number; median: number; p75?: number;
+    currency: string; period: "month" | "year";
+    sampleSize: number;
+    location: { country: string; city?: string };
+  };
+  claims: Claim[];
+};
+
 export type CareerPath = {
   occupation: Occupation;
   why: Claim[];
   vacancyCount: number;
+  ladder?: CareerStep[];   // entry to top; only the steps today's ads actually show
 };
 
 export type Company = {

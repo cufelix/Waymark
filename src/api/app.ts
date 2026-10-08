@@ -96,9 +96,14 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
 
   const paging = (c: Ctx) => Paging.safeParse({ page: c.req.query("page"), pageSize: c.req.query("pageSize") });
 
+  // Career paths are available as soon as the run publishes them, before the run is done.
   app.get("/v1/research-runs/:runId/career-paths", async (c) => {
-    const r = await doneRun(c);
-    return "error" in r ? r.error : ok(c, r.result.careerPaths);
+    const runId = c.req.param("runId");
+    const row = await getRunRow(runId);
+    if (!row) return fail(c, "not_found", `Run ${runId} does not exist`);
+    const paths = row.result?.careerPaths;
+    if (!paths) return fail(c, "conflict", `Run ${runId} has no career paths yet (${row.status})`);
+    return ok(c, paths);
   });
 
   app.get("/v1/research-runs/:runId/trends", async (c) => {

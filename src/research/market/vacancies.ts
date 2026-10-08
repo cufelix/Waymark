@@ -245,8 +245,9 @@ export async function findVacancies(
   max: number,
   runId: string,
   sources: string[] = ["apify"],
+  termsOverride?: string[],
 ): Promise<string[]> {
-  const terms = await searchTerms(occupation, location.country, runId);
+  const terms = termsOverride?.length ? termsOverride : await searchTerms(occupation, location.country, runId);
   // Job boards are searched in the country's language, so a nurse in Germany is found as "Pflegefachkraft".
   const vars: Vars = { query: terms[0]!, location: location.city ?? countryName(location.country), country: location.country };
   const batches: { items: unknown[]; map: Record<string, string>; tool: Source["tool"] }[] = [];
