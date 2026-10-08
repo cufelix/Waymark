@@ -9,3 +9,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# agent tooling state
+.claude-flow/
+.swarm/

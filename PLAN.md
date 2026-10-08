@@ -248,6 +248,7 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 | A9 | Validation layer: provenance and verbatim-quote check, evidence tiers, freshness, double extraction on a sample | invalid claims never reach the API (tests) |
 | A10 | Ghost-job signals from post history | shown only after the minimum observation window |
 | A11 | Gap engine: `SkillDemand` per city and role, `Gap` per seeker, goal-based ordering (never by fit) | API returns gaps for a real seeker |
+| A15 | Top 3 career paths early in the run: the `career-paths` step first, each path with its career ladder (junior → mid → senior → lead → executive) and a sourced salary per step from job ads and salary sites (API.md `CareerStep`), so the seeker has something to read and choose while the rest of the research runs | `GET /v1/research-runs/{runId}/career-paths` answers while the run is `running`; no salary without a source |
 | A12 | API endpoints for companies, demand, gaps, roadmap, review queue; rate limiting | the app's screens run on the real API |
 | A13 | Cost ledger: every Apify, Firecrawl, Exa and Claude call recorded, with a hard monthly cap per tool | a run stops at the cap and alerts |
 | A14 | Monitoring: Sentry, scraper health (null-rate drift, zero items, canaries), alerts | an induced failure alerts and pauses the source |
@@ -260,6 +261,7 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 | B3 | Intake interview plus CV upload: Claude reads the CV and answers into *stated* skills (ESCO) | a real CV gives a list of stated skills with the CV as source |
 | B4 | Link check: fetch each link the seeker gave (A's Firecrawl client), read it, turn what it shows into *proven* claims; optional opt-in name search with Exa | a shared project link proves its skill with a stored snapshot |
 | B5 | Account privacy: view, export, delete everything | delete removes all seeker rows and snapshots |
+| B6 | Career choice: the seeker picks one of the run's top 3 career paths (`PUT /v1/seekers/{seekerId}/career-choice`), checked against Part 2 and stored as `profile.careerChoice` | an occupation the run did not return is rejected; the choice is in the profile and the export |
 
 ### App UI (owner to be decided)
 | # | Issue | Done when |
