@@ -96,6 +96,63 @@ test("export includes Part 2's research runs", async () => {
   assert.equal((await call("GET", `/v1/seekers/${id}/export`)).status, 502);
 });
 
+test("career choice is authenticated, validated, and appears in profile and export", async () => {
+  const { call, create, research } = setup();
+  const id = await create();
+  const occupation = { uri: "urn:stub:occupation:fake-starlight-engineer", label: "fake starlight engineer", lang: "en" };
+  research.seedRun("run_fake_starlight", id, [{ occupation, why: [], vacancyCount: 4 }]);
+
+  const noAuth = await call(
+    "PUT",
+    `/v1/seekers/${id}/career-choice`,
+    { runId: "run_fake_starlight", occupationUri: occupation.uri },
+    {},
+  );
+  assert.equal(noAuth.status, 401);
+  const unknown = await call("PUT", `/v1/seekers/${id}/career-choice`, {
+    runId: "run_fake_starlight",
+    occupationUri: occupation.uri,
+    score: 99,
+  });
+  assert.equal(unknown.status, 422);
+  assert.match(unknown.body.error!.message, /score: unknown field/);
+
+  const put = await call("PUT", `/v1/seekers/${id}/career-choice`, {
+    runId: "run_fake_starlight",
+    occupationUri: occupation.uri,
+  });
+  assert.equal(put.status, 200);
+  assert.deepEqual((put.body.data as any).occupation, occupation);
+  const profile = (await call("GET", `/v1/seekers/${id}/profile`)).body.data as any;
+  assert.deepEqual(profile.careerChoice, put.body.data);
+  const exported = (await call("GET", `/v1/seekers/${id}/export`)).body.data as any;
+  assert.deepEqual(exported.profile.careerChoice, put.body.data);
+});
+
+test("career choice returns sanitized 502 when Part 2 fails", async () => {
+  const { call, create, research } = setup();
+  const id = await create();
+  research.failRunGets = true;
+  const response = await call("PUT", `/v1/seekers/${id}/career-choice`, {
+    runId: "run_fake_upstream_secret",
+    occupationUri: "urn:stub:occupation:fake-secret-reader",
+  });
+  assert.equal(response.status, 502);
+  assert.equal(errCode(response), "upstream_failed");
+  assert.doesNotMatch(JSON.stringify(response.body), /password|api.?key|upstream response body/i);
+
+  research.failRunGets = false;
+  research.seedRun("run_fake_paths_failure", id);
+  research.failCareerPathGets = true;
+  const pathsFailure = await call("PUT", `/v1/seekers/${id}/career-choice`, {
+    runId: "run_fake_paths_failure",
+    occupationUri: "urn:stub:occupation:fake-secret-reader",
+  });
+  assert.equal(pathsFailure.status, 502);
+  assert.equal(errCode(pathsFailure), "upstream_failed");
+  assert.doesNotMatch(JSON.stringify(pathsFailure.body), /password|api.?key|upstream response body/i);
+});
+
 test("delete with failing Part 2 is 502, seeker is gone for reads, retry succeeds", async () => {
   const { call, create, research, deps } = setup();
   const id = await create();

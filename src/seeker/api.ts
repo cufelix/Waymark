@@ -1,9 +1,10 @@
 import { authenticate, parseApiKeys, type Headers } from "./core/auth.ts";
 import { ApiError, fail, ok, type Envelope } from "./core/errors.ts";
 import { newId } from "./core/ids.ts";
-import { validateCreateSeeker, validateInterviewMessage, validateLinks, validatePreferences } from "./core/validate.ts";
+import { validateCareerChoice, validateCreateSeeker, validateInterviewMessage, validateLinks, validatePreferences } from "./core/validate.ts";
 import type { LlmClient } from "./llm/llm.ts";
 import type { ResearchClient } from "./research-client.ts";
+import { setCareerChoice } from "./service/career-choice.ts";
 import { deleteSeeker, exportSeeker } from "./service/gdpr.ts";
 import { createSeeker, getProfile, loadSeeker, putLinks, setPreferences } from "./service/seekers.ts";
 import type { SeekerStore } from "./store/store.ts";
@@ -56,6 +57,12 @@ const ROUTES: Route[] = [
     pattern: route("/v1/seekers/{seekerId}/links"),
     seekerScoped: true,
     handler: async (req, deps, p) => putLinks(deps, p.seekerId, validateLinks(req.body)),
+  },
+  {
+    method: "PUT",
+    pattern: route("/v1/seekers/{seekerId}/career-choice"),
+    seekerScoped: true,
+    handler: async (req, deps, p) => setCareerChoice(deps, p.seekerId, validateCareerChoice(req.body)),
   },
   { method: "GET", pattern: route("/v1/seekers/{seekerId}/profile"), seekerScoped: true, handler: async (_r, deps, p) => getProfile(deps, p.seekerId) },
   { method: "GET", pattern: route("/v1/seekers/{seekerId}/export"), handler: async (_r, deps, p) => exportSeeker(deps, p.seekerId) },

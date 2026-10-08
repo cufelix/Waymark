@@ -1,4 +1,5 @@
 import type {
+  CareerChoice,
   CareerPreferences,
   Claim,
   Consent,
@@ -147,6 +148,12 @@ function prefixedId(v: unknown, path: string, prefix: string): string {
   return v;
 }
 
+function runId(v: unknown, path: string): string {
+  const id = string(v, path);
+  if (!/^run_.+/.test(id)) bad(path, 'must start with "run_"');
+  return id;
+}
+
 // ---------- Part 1 request bodies ----------
 
 // POST /v1/seekers body. Missing consent or dataProcessing !== true is consent_required (403),
@@ -256,6 +263,12 @@ export function validateInterviewMessage(body: unknown): { text: string } {
   return { text: o.text };
 }
 
+// PUT /v1/seekers/{id}/career-choice body: the run and one occupation URI it returned.
+export function validateCareerChoice(body: unknown): { runId: string; occupationUri: string } {
+  const o = object(body, "", ["runId", "occupationUri"]);
+  return { runId: runId(o.runId, "runId"), occupationUri: string(o.occupationUri, "occupationUri", 500) };
+}
+
 // ---------- SeekerProfile (fixtures and the handoff object) ----------
 
 function source(v: unknown, path: string, seekerId: string): Source {
@@ -334,13 +347,25 @@ function link(v: unknown, path: string): SeekerLink {
   };
 }
 
+function careerChoice(v: unknown, path: string): CareerChoice {
+  const o = object(v, path, ["occupation", "runId", "chosenAt"]);
+  return {
+    occupation: taxonomyEntry(o.occupation, at(path, "occupation")),
+    runId: runId(o.runId, at(path, "runId")),
+    chosenAt: isoDate(o.chosenAt, at(path, "chosenAt")),
+  };
+}
+
 // Full SeekerProfile check, used on fixtures and anywhere a profile crosses a boundary.
 // Preferences may be incomplete here (a fresh seeker has none), but status must agree with them.
 export function validateSeekerProfile(v: unknown, path = ""): SeekerProfile {
-  const o = object(v, path, ["seekerId", "profileVersion", "status", "consent", "preferences", "statedSkills", "documents", "links", "updatedAt"]);
+  const o = object(v, path, ["seekerId", "profileVersion", "status", "consent", "preferences", "statedSkills", "documents", "links", "updatedAt"], [
+    "careerChoice",
+  ]);
   const seekerId = prefixedId(o.seekerId, at(path, "seekerId"), "skr");
   const prefsRaw = o.preferences as Obj;
   const hasOccupations = Array.isArray(prefsRaw?.targetOccupations) && prefsRaw.targetOccupations.length > 0;
+  const choice = optional(o, "careerChoice", path, careerChoice);
   const profile: SeekerProfile = {
     seekerId,
     profileVersion: integer(o.profileVersion, at(path, "profileVersion"), 1),
@@ -350,6 +375,7 @@ export function validateSeekerProfile(v: unknown, path = ""): SeekerProfile {
     statedSkills: array(o.statedSkills, at(path, "statedSkills"), (x, p) => statedClaim(x, p, seekerId), { max: 1000 }),
     documents: array(o.documents, at(path, "documents"), (x, p) => document(x, p, seekerId), { max: 20 }),
     links: array(o.links, at(path, "links"), link, { max: 50 }),
+    ...(choice !== undefined ? { careerChoice: choice } : {}),
     updatedAt: isoDate(o.updatedAt, at(path, "updatedAt")),
   };
   if (computeStatus(profile) !== profile.status) bad(at(path, "status"), `must be "${computeStatus(profile)}" for these preferences and consent`);

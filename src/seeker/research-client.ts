@@ -1,10 +1,14 @@
 import { ApiError } from "./core/errors.ts";
+import type { CareerPath } from "./contracts.ts";
 
-// Part 1's only runtime dependency on Part 2: the GDPR cascade (API.md "How the parts connect").
+// Part 1's runtime dependency on Part 2: the GDPR cascade and career choice validation
+// (API.md "How the parts connect").
 // ResearchRun is Part 2's type, so runs pass through as unknown.
 export interface ResearchClient {
   listRuns(seekerId: string): Promise<unknown[]>; // GET /v1/seekers/{id}/research-runs
   deleteResearch(seekerId: string): Promise<void>; // DELETE /v1/seekers/{id}/research
+  getRun(runId: string): Promise<{ runId: string; seekerId: string } | null>; // GET /v1/research-runs/{runId}
+  getCareerPaths(runId: string): Promise<CareerPath[] | null>; // GET /v1/research-runs/{runId}/career-paths
 }
 
 type Envelope = { ok: boolean; data: unknown; error: { code: string; message: string } | null; meta?: { page?: number; pageSize?: number; total?: number } };
@@ -53,6 +57,40 @@ export class HttpResearchClient implements ResearchClient {
     if (env && (env.data as { deleted?: unknown } | null)?.deleted !== true) throw new ApiError("upstream_failed", "Part 2 did not confirm the delete");
   }
 
+  async getRun(runId: string): Promise<{ runId: string; seekerId: string } | null> {
+    const env = await this.call("GET", `/v1/research-runs/${encodeURIComponent(runId)}`);
+    if (!env) return null;
+    if (typeof env.data !== "object" || env.data === null) throw new ApiError("upstream_failed", "Part 2 research run: data is not an object");
+    const run = env.data as { runId?: unknown; seekerId?: unknown };
+    if (typeof run.runId !== "string" || typeof run.seekerId !== "string") {
+      throw new ApiError("upstream_failed", "Part 2 research run: runId or seekerId is missing");
+    }
+    if (run.runId !== runId) throw new ApiError("upstream_failed", "Part 2 research run: runId does not match the request");
+    return { runId: run.runId, seekerId: run.seekerId };
+  }
+
+  async getCareerPaths(runId: string): Promise<CareerPath[] | null> {
+    const env = await this.call("GET", `/v1/research-runs/${encodeURIComponent(runId)}/career-paths`);
+    if (!env) return null;
+    if (!Array.isArray(env.data)) throw new ApiError("upstream_failed", "Part 2 career-paths: data is not an array");
+    for (const path of env.data) {
+      if (
+        typeof path !== "object" ||
+        path === null ||
+        typeof (path as { occupation?: { uri?: unknown } }).occupation !== "object" ||
+        (path as { occupation?: { uri?: unknown } }).occupation === null ||
+        typeof (path as { occupation: { uri?: unknown } }).occupation.uri !== "string" ||
+        typeof (path as { occupation: { label?: unknown } }).occupation.label !== "string" ||
+        typeof (path as { occupation: { lang?: unknown } }).occupation.lang !== "string" ||
+        !Array.isArray((path as { why?: unknown }).why) ||
+        typeof (path as { vacancyCount?: unknown }).vacancyCount !== "number"
+      ) {
+        throw new ApiError("upstream_failed", "Part 2 career-paths: path occupation is missing");
+      }
+    }
+    return env.data as CareerPath[];
+  }
+
   // Returns the ok envelope, null for a not_found envelope, throws upstream_failed otherwise.
   async call(method: string, path: string): Promise<Envelope | null> {
     let res: Response;
@@ -73,17 +111,29 @@ export class HttpResearchClient implements ResearchClient {
     }
     if (!isEnvelope(body)) throw new ApiError("upstream_failed", `Part 2 ${method} ${path.split("?")[0]}: HTTP ${res.status}, no envelope`);
     if (body.ok && res.ok) return body;
-    if (body.error?.code === "not_found") return null;
-    throw new ApiError("upstream_failed", `Part 2 ${method} ${path.split("?")[0]}: ${body.error?.code ?? `HTTP ${res.status}`}`);
+    if (res.status === 404 && body.error?.code === "not_found") return null;
+    throw new ApiError("upstream_failed", `Part 2 ${method} ${path.split("?")[0]}: HTTP ${res.status}`);
   }
 }
 
 // Tests: runs per seeker, and a switch to make deletes fail N times.
 export class FakeResearchClient implements ResearchClient {
   runs = new Map<string, unknown[]>();
+  runsById = new Map<string, { runId: string; seekerId: string }>();
+  careerPaths = new Map<string, CareerPath[]>();
   failDeletes = 0;
   failLists = false;
+  failRunGets = false;
+  failCareerPathGets = false;
   deleted: string[] = [];
+
+  seedRun(runId: string, seekerId: string, paths: CareerPath[] = []): void {
+    const run = { runId, seekerId };
+    this.runsById.set(runId, run);
+    this.careerPaths.set(runId, structuredClone(paths));
+    const seekerRuns = this.runs.get(seekerId) ?? [];
+    this.runs.set(seekerId, [...seekerRuns.filter((candidate) => (candidate as { runId?: unknown })?.runId !== runId), run]);
+  }
 
   async listRuns(seekerId: string): Promise<unknown[]> {
     if (this.failLists) throw new ApiError("upstream_failed", "Part 2 is down (fake)");
@@ -96,6 +146,22 @@ export class FakeResearchClient implements ResearchClient {
       throw new ApiError("upstream_failed", "Part 2 is down (fake)");
     }
     this.runs.delete(seekerId);
+    for (const [runId, run] of this.runsById) {
+      if (run.seekerId !== seekerId) continue;
+      this.runsById.delete(runId);
+      this.careerPaths.delete(runId);
+    }
     this.deleted.push(seekerId);
+  }
+
+  async getRun(runId: string): Promise<{ runId: string; seekerId: string } | null> {
+    if (this.failRunGets) throw new ApiError("upstream_failed", "Part 2 is down (fake)");
+    return structuredClone(this.runsById.get(runId) ?? null);
+  }
+
+  async getCareerPaths(runId: string): Promise<CareerPath[] | null> {
+    if (this.failCareerPathGets) throw new ApiError("upstream_failed", "Part 2 is down (fake)");
+    const paths = this.careerPaths.get(runId);
+    return paths ? structuredClone(paths) : null;
   }
 }
