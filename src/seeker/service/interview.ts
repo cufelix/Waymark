@@ -1,0 +1,288 @@
+import type {
+  CareerPreferences,
+  CareerPreferencesDraft,
+  InterviewTurn,
+  Occupation,
+  Skill,
+} from "../contracts.ts";
+import { interviewSource, now, statedSkillClaim } from "../core/claims.ts";
+import { ApiError } from "../core/errors.ts";
+import { mergeStatedSkills, touch } from "../core/profile.ts";
+import type { LlmClient } from "../llm/llm.ts";
+import { MODELS } from "../llm/llm.ts";
+import type { SeekerStore } from "../store/store.ts";
+import { findOccupation, findSkill } from "../taxonomy.ts";
+import { FIRST_INTERVIEW_QUESTION, interviewMessages } from "./interview.prompts.ts";
+
+export type Deps = { store: SeekerStore; llm: LlmClient };
+
+type ModelResult = {
+  reply: string;
+  done: boolean;
+  draftPatch: Record<string, unknown>;
+  statedSkills: { label: string; quote: string }[];
+};
+
+type ValidatedSkill = { skill: Skill; quote: string };
+
+const ISO_COUNTRIES = new Set(
+  "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW".split(" "),
+);
+
+const SUPPORTED_CURRENCIES = new Set(Intl.supportedValuesOf("currency"));
+const REMOTE_VALUES = new Set(["only", "ok", "no"]);
+const GOAL_VALUES = new Set(["learn-fast", "stability", "mission"]);
+const LANGUAGE_LEVELS = new Set(["basic", "working", "fluent", "native"]);
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseModelResult(raw: string): ModelResult {
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new Error("invalid JSON");
+  }
+  if (!isObject(value) || typeof value.reply !== "string" || value.reply.trim() === "" || typeof value.done !== "boolean") {
+    throw new Error("invalid interview response");
+  }
+
+  const draftPatch = isObject(value.draftPatch) ? value.draftPatch : {};
+  const statedSkills = Array.isArray(value.statedSkills)
+    ? value.statedSkills
+        .filter(isObject)
+        .filter((item) => typeof item.label === "string" && typeof item.quote === "string")
+        .map((item) => ({ label: (item.label as string).trim(), quote: item.quote as string }))
+        .filter((item) => item.label !== "" && item.quote !== "")
+    : [];
+  return { reply: value.reply.trim(), done: value.done, draftPatch, statedSkills };
+}
+
+async function askLlm(deps: Deps, transcript: InterviewTurn[], draft: CareerPreferencesDraft, text: string): Promise<ModelResult> {
+  const baseMessages = interviewMessages(transcript, draft, text);
+  let invalidAnswer = "";
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const messages = attempt === 0
+      ? baseMessages
+      : [
+          ...baseMessages,
+          { role: "assistant" as const, content: invalidAnswer },
+          { role: "user" as const, content: "Your previous response was invalid. Return only the required strict JSON object." },
+        ];
+    try {
+      invalidAnswer = await deps.llm.chat({ model: MODELS.interview, messages, json: true, temperature: 0.2 });
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError("upstream_failed", "Interview model request failed");
+    }
+    try {
+      return parseModelResult(invalidAnswer);
+    } catch {
+      // Retry once below. Model output is not included in the API error.
+    }
+  }
+  throw new ApiError("upstream_failed", "Interview model returned invalid JSON");
+}
+
+function cleanStrings(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const cleaned = [...new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))];
+  return value.length === 0 || cleaned.length > 0 ? cleaned : undefined;
+}
+
+function validHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function canonicalLanguage(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    return Intl.getCanonicalLocales(value)[0];
+  } catch {
+    return undefined;
+  }
+}
+
+async function validateDraftPatch(raw: Record<string, unknown>): Promise<CareerPreferencesDraft> {
+  const patch: CareerPreferencesDraft = {};
+
+  if (Array.isArray(raw.targetOccupations)) {
+    const found: Occupation[] = [];
+    for (const term of raw.targetOccupations) {
+      if (typeof term !== "string" || term.trim() === "") continue;
+      for (const occupation of await findOccupation(term.trim())) {
+        if (occupation.uri && !found.some((item) => item.uri === occupation.uri)) found.push(occupation);
+      }
+    }
+    if (raw.targetOccupations.length === 0 || found.length > 0) patch.targetOccupations = found;
+  }
+
+  if (Array.isArray(raw.locations)) {
+    const locations = raw.locations.flatMap((item) => {
+      if (!isObject(item) || typeof item.country !== "string") return [];
+      const country = item.country.trim().toUpperCase();
+      if (!ISO_COUNTRIES.has(country)) return [];
+      const city = typeof item.city === "string" ? item.city.trim() : "";
+      return [{ country, ...(city ? { city } : {}) }];
+    });
+    if (raw.locations.length === 0 || locations.length > 0) patch.locations = locations;
+  }
+
+  if (typeof raw.remote === "string" && REMOTE_VALUES.has(raw.remote)) {
+    patch.remote = raw.remote as CareerPreferences["remote"];
+  }
+  if (typeof raw.goal === "string" && GOAL_VALUES.has(raw.goal)) {
+    patch.goal = raw.goal as CareerPreferences["goal"];
+  }
+
+  if (Array.isArray(raw.dreamCompanies)) {
+    const dreamCompanies = raw.dreamCompanies.flatMap((item) => {
+      if (!isObject(item) || typeof item.name !== "string" || item.name.trim() === "") return [];
+      const url = validHttpUrl(item.url);
+      return [{ name: item.name.trim(), ...(url ? { url } : {}) }];
+    });
+    if (raw.dreamCompanies.length === 0 || dreamCompanies.length > 0) patch.dreamCompanies = dreamCompanies;
+  }
+
+  const dealBreakers = cleanStrings(raw.dealBreakers);
+  if (dealBreakers) patch.dealBreakers = dealBreakers;
+
+  if (Array.isArray(raw.languages)) {
+    const languages = raw.languages.flatMap((item) => {
+      if (!isObject(item)) return [];
+      const lang = canonicalLanguage(item.lang);
+      if (!lang || typeof item.level !== "string" || !LANGUAGE_LEVELS.has(item.level)) return [];
+      return [{ lang, level: item.level as CareerPreferences["languages"][number]["level"] }];
+    });
+    if (raw.languages.length === 0 || languages.length > 0) patch.languages = languages;
+  }
+
+  if (isObject(raw.salaryExpectation)) {
+    const currency = typeof raw.salaryExpectation.currency === "string" ? raw.salaryExpectation.currency.toUpperCase() : "";
+    const period = raw.salaryExpectation.period;
+    const min = raw.salaryExpectation.min;
+    if (
+      typeof min === "number" && Number.isFinite(min) && min >= 0 &&
+      SUPPORTED_CURRENCIES.has(currency) && (period === "month" || period === "year")
+    ) {
+      patch.salaryExpectation = { min, currency, period };
+    }
+  }
+
+  return patch;
+}
+
+async function validateStatedSkills(items: ModelResult["statedSkills"], seekerText: string): Promise<ValidatedSkill[]> {
+  const valid: ValidatedSkill[] = [];
+  for (const item of items) {
+    if (!seekerText.includes(item.quote)) continue;
+    const skill = await findSkill(item.label);
+    if (!skill.uri || valid.some((entry) => entry.skill.uri === skill.uri && entry.quote === item.quote)) continue;
+    valid.push({ skill, quote: item.quote });
+  }
+  return valid;
+}
+
+function completePreferences(draft: CareerPreferencesDraft): CareerPreferences | undefined {
+  if (
+    !draft.targetOccupations?.length || !draft.locations || !draft.remote || !draft.goal ||
+    !draft.dreamCompanies || !draft.dealBreakers || !draft.languages
+  ) return undefined;
+  return {
+    targetOccupations: draft.targetOccupations,
+    locations: draft.locations,
+    remote: draft.remote,
+    goal: draft.goal,
+    dreamCompanies: draft.dreamCompanies,
+    dealBreakers: draft.dealBreakers,
+    languages: draft.languages,
+    ...(draft.salaryExpectation ? { salaryExpectation: draft.salaryExpectation } : {}),
+  };
+}
+
+function assertVisible(record: { deletionPending?: boolean } | null, seekerId: string): asserts record is { deletionPending?: boolean } {
+  if (!record || record.deletionPending) throw new ApiError("not_found", `Seeker ${seekerId} does not exist`);
+}
+
+export async function interviewTurn(
+  deps: Deps,
+  seekerId: string,
+  text: string,
+): Promise<{ reply: string; done: boolean; preferences: CareerPreferencesDraft }> {
+  const record = await deps.store.get(seekerId);
+  assertVisible(record, seekerId);
+
+  if (text === "") {
+    if (record.interview.length > 0) {
+      const lastAgentTurn = record.interview.findLast((turn) => turn.role === "agent");
+      return { reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION, done: false, preferences: record.draft };
+    }
+    const updated = await deps.store.update(seekerId, (current) => {
+      assertVisible(current, seekerId);
+      if (current.interview.length > 0) return current;
+      return {
+        ...current,
+        interview: [...current.interview, { role: "agent", text: FIRST_INTERVIEW_QUESTION, at: now() }],
+      };
+    });
+    const lastAgentTurn = updated.interview.findLast((turn) => turn.role === "agent");
+    return { reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION, done: false, preferences: updated.draft };
+  }
+
+  const modelResult = await askLlm(deps, record.interview, record.draft, text);
+  const [draftPatch, statedSkills] = await Promise.all([
+    validateDraftPatch(modelResult.draftPatch),
+    validateStatedSkills(modelResult.statedSkills, text),
+  ]);
+  let done = modelResult.done;
+
+  const updated = await deps.store.update(seekerId, (current) => {
+    assertVisible(current, seekerId);
+    const seekerTurnNumber = current.interview.length + 1;
+    const nextDraft = { ...current.draft, ...draftPatch };
+    done = done || current.interview.filter((turn) => turn.role === "agent").length + 1 >= 8;
+
+    const claims = statedSkills.map(({ skill, quote }) =>
+      statedSkillClaim(seekerId, skill, interviewSource(seekerId, seekerTurnNumber, text, quote))
+    );
+    const mergedSkills = mergeStatedSkills(current.profile.statedSkills, claims);
+    let profile = current.profile;
+    let profileChanged = JSON.stringify(mergedSkills) !== JSON.stringify(current.profile.statedSkills);
+    if (profileChanged) profile = { ...profile, statedSkills: mergedSkills };
+
+    const preferences = done ? completePreferences(nextDraft) : undefined;
+    if (preferences && JSON.stringify(preferences) !== JSON.stringify(profile.preferences)) {
+      profile = { ...profile, preferences };
+      profileChanged = true;
+    }
+    if (profileChanged) profile = touch(profile);
+
+    return {
+      ...current,
+      profile,
+      draft: nextDraft,
+      interview: [
+        ...current.interview,
+        { role: "seeker", text, at: now() },
+        { role: "agent", text: modelResult.reply, at: now() },
+      ],
+    };
+  });
+
+  return { reply: modelResult.reply, done, preferences: updated.draft };
+}
+
+export async function getInterview(deps: Deps, seekerId: string): Promise<InterviewTurn[]> {
+  const record = await deps.store.get(seekerId);
+  assertVisible(record, seekerId);
+  return record.interview;
+}
