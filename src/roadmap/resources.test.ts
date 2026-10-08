@@ -32,8 +32,8 @@ function candidate(pageIndex: number, overrides: Record<string, unknown> = {}): 
   const page = EXA_PAGES[pageIndex]!;
   return {
     pageIndex,
-    title: page.title,
-    provider: "Example Learning",
+    title: pageIndex === 0 ? "Python basics course" : pageIndex === 1 ? "beginner book" : "Python Starter Practice",
+    provider: "Python",
     format: pageIndex === 1 ? "book" : "course",
     cost: pageIndex === 1 ? "paid" : "free",
     level: "beginner",
@@ -84,6 +84,103 @@ test("findResources drops a resource with a fabricated quote", async () => {
   assert.deepEqual(result, { resources: [] });
 });
 
+test("findResources stores the exact page substring after whitespace-normalised quote matching", async () => {
+  const page: ExaResult = {
+    url: "https://example.com/course",
+    title: "Python Basics",
+    text: "Python Basics course   access\nis free.",
+  };
+  const llm = new FakeLlm([answer([{
+    pageIndex: 0,
+    title: "Python Basics course",
+    provider: "Python",
+    format: "course",
+    cost: "free",
+    lang: "en",
+    quote: "Python Basics course access is free.",
+  }])]);
+
+  const result = await findResources(chapter(), context, {
+    exa: new FakeExa([page]),
+    llm,
+    cache: new MemoryResourceCache(),
+  });
+
+  assert.equal(result.resources[0]!.source.quote, "Python Basics course   access\nis free.");
+});
+
+test("findResources rejects empty zero-width quotes and ungrounded titles and providers", async () => {
+  const page: ExaResult = {
+    url: "https://example.com/course",
+    title: "Python Basics",
+    text: "Python Basics course is free.",
+  };
+  const llm = new FakeLlm([answer([
+    {
+      pageIndex: 0,
+      title: "Python Basics course",
+      provider: "Python",
+      format: "course",
+      cost: "free",
+      lang: "en",
+      quote: "\u200b",
+    },
+    {
+      pageIndex: 0,
+      title: "Invented Academy course",
+      provider: "Invented Academy",
+      format: "course",
+      cost: "free",
+      lang: "en",
+      quote: page.text,
+    },
+  ])]);
+
+  const result = await findResources(chapter(), context, {
+    exa: new FakeExa([page]),
+    llm,
+    cache: new MemoryResourceCache(),
+  });
+
+  assert.deepEqual(result, { resources: [] });
+});
+
+test("free cost needs quote or heading support and ambiguous mixed pricing becomes freemium", async () => {
+  const pages: ExaResult[] = [
+    {
+      url: "https://example.com/unrelated-free",
+      title: "Python Basics",
+      text: "Python Basics course teaches syntax. Another unrelated course is free.",
+    },
+    {
+      url: "https://example.com/mixed",
+      title: "Python Core",
+      text: "Python Core course includes lessons. A free audit is available. Certificates cost EUR 20.",
+    },
+    {
+      url: "https://example.com/free-heading",
+      title: "Free Python Workshop",
+      text: "Free Python Workshop\nLearn Python syntax with exercises.",
+    },
+  ];
+  const llm = new FakeLlm([answer([
+    { pageIndex: 0, title: "Python Basics course", provider: "Python", format: "course", cost: "free", lang: "en", quote: "Python Basics course teaches syntax." },
+    { pageIndex: 1, title: "Python Core course", provider: "Python", format: "course", cost: "free", lang: "en", quote: "Python Core course includes lessons." },
+    { pageIndex: 2, title: "Free Python Workshop", provider: "Python", format: "course", cost: "free", lang: "en", quote: "Learn Python syntax with exercises." },
+  ])]);
+
+  const result = await findResources(chapter(), context, {
+    exa: new FakeExa(pages),
+    llm,
+    cache: new MemoryResourceCache(),
+  });
+
+  assert.deepEqual(result.resources.map(({ title, cost }) => [title, cost]), [
+    ["Free Python Workshop", "free"],
+    ["Python Core course", "freemium"],
+  ]);
+});
+
 test("findResources ignores a model-written URL and uses the matching Exa result URL", async () => {
   const selected = candidate(0, { url: "https://attacker.example/fabricated" });
   delete selected.pageIndex;
@@ -122,10 +219,10 @@ test("findResources drops unsupported price, scope and effort metadata but keeps
 
 test("findResources orders free before freemium before paid and prefers active free material for learn-fast", async () => {
   const pages: ExaResult[] = [
-    { url: "https://example.com/paid", title: "Paid book", text: "This paid Python book costs EUR 24." },
-    { url: "https://example.com/free-course", title: "Free course", text: "This beginner Python course is free." },
-    { url: "https://example.com/freemium", title: "Freemium videos", text: "These Python videos use a freemium plan." },
-    { url: "https://example.com/free-practice", title: "Free practice", text: "This beginner Python practice lab is free." },
+    { url: "https://example.com/paid", title: "Paid book", text: "Paid book: this Python book costs EUR 24." },
+    { url: "https://example.com/free-course", title: "Free course", text: "Free course: this beginner Python course is free." },
+    { url: "https://example.com/freemium", title: "Freemium videos", text: "Freemium videos use a freemium plan for Python." },
+    { url: "https://example.com/free-practice", title: "Free practice", text: "Free practice: this beginner Python lab is free." },
   ];
   const llm = new FakeLlm([answer([
     { pageIndex: 0, title: "Paid book", provider: "Example", format: "book", cost: "paid", level: "beginner", lang: "en", quote: pages[0]!.text },
@@ -224,8 +321,8 @@ test("findResources returns empty when the model fails", async () => {
 
 test("findResources can top-pick intermediate review material for a chapter done by evidence", async () => {
   const pages: ExaResult[] = [
-    { url: "https://example.com/beginner", title: "Beginner course", text: "This beginner Python course is free." },
-    { url: "https://example.com/intermediate", title: "Intermediate practice", text: "This intermediate Python practice lab is free." },
+    { url: "https://example.com/beginner", title: "Beginner course", text: "Beginner course: this Python course is free." },
+    { url: "https://example.com/intermediate", title: "Intermediate practice", text: "Intermediate practice: this Python lab is free." },
   ];
   const llm = new FakeLlm([answer([
     { pageIndex: 0, title: pages[0]!.title, provider: "Example", format: "course", cost: "free", level: "beginner", lang: "en", quote: pages[0]!.text },
@@ -245,7 +342,7 @@ test("findResources keeps supported price, scope and hour effort metadata", asyn
   const page: ExaResult = {
     url: "https://example.com/course",
     title: "Detailed paid course",
-    text: "This paid course costs EUR 24 and takes 12 hours. Module A covers variables and logic.",
+    text: "Detailed paid course costs EUR 24 and takes 12 hours. Module A covers variables and logic.",
   };
   const llm = new FakeLlm([answer([{
     pageIndex: 0,

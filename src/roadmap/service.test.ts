@@ -214,3 +214,24 @@ test("list and delete are seeker-scoped", async () => {
   assert.deepEqual(await deleteRoadmaps(service, PROFILE.seekerId), { deleted: true, roadmaps: 2 });
   assert.deepEqual(await listRoadmaps(service, PROFILE.seekerId), []);
 });
+
+test("a background build does not resurrect a roadmap deleted while planning", async () => {
+  let release!: () => void;
+  const wait = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const builders = fakeBuilders();
+  builders.planModules = async () => {
+    await wait;
+    return modules();
+  };
+  const service = deps();
+  const created = await createRoadmap(service, request(), builders);
+
+  assert.deepEqual(await deleteRoadmaps(service, PROFILE.seekerId), { deleted: true, roadmaps: 1 });
+  release();
+  await created.buildPromise;
+
+  assert.equal(await service.store.get(created.roadmapId), undefined);
+  assert.deepEqual(await listRoadmaps(service, PROFILE.seekerId), []);
+});

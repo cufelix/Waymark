@@ -43,10 +43,12 @@ type ResourceCandidate = {
 const FORMATS = new Set<LearningResource["format"]>(["course", "video", "book", "practice", "docs", "article"]);
 const COSTS = new Set<LearningResource["cost"]>(["free", "freemium", "paid"]);
 const LEVELS = new Set<NonNullable<LearningResource["level"]>>(["beginner", "intermediate", "advanced"]);
-const WHITESPACE = /[\s\u00a0\u1680\u2000-\u200b\u2028\u2029\u202f\u205f\u3000]+/gu;
+const WHITESPACE = /[\s\u00a0\u1680\u2000-\u200f\u2028\u2029\u202f\u205f\u2060\u3000\ufeff]+/gu;
+const WHITESPACE_CHAR = /^[\s\u00a0\u1680\u2000-\u200f\u2028\u2029\u202f\u205f\u2060\u3000\ufeff]$/u;
 const FREE_WORD = /\b(?:free|gratis|gratuit(?:e|ement)?|gratuito|gratuita|kostenlos|kostenfrei|zdarma|bezplatn(?:e|ě|y|ý)?|darmowy|darmowa|бесплатн\p{L}*)\b/iu;
 const FREEMIUM_WORD = /\bfreemium\b/iu;
 const PAID_WORD = /\b(?:paid|costs?|priced?|pricing|price|purchase|subscription|tuition|fee|premium|placen(?:y|ý|a|á|e|é))\b/iu;
+const CURRENCY_AMOUNT = /(?:[$€£¥₹]|\b(?:USD|EUR|GBP|CZK|CAD|AUD|JPY|CNY|INR)\b)\s*\d|\d\s*(?:[$€£¥₹]|\b(?:USD|EUR|GBP|CZK|CAD|AUD|JPY|CNY|INR)\b)/iu;
 const HOURS_AFTER_NUMBER = /(\d+(?:[.,]\d+)?)\s*(?:hours?|hrs?|hodin(?:a|y)?|stunden?)\b/giu;
 const HOURS_BEFORE_NUMBER = /\b(?:hours?|hrs?)\s*(?:of\s+)?(\d+(?:[.,]\d+)?)/giu;
 
@@ -56,6 +58,46 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function normalizeWhitespace(value: string): string {
   return value.replace(WHITESPACE, " ").trim();
+}
+
+function normalizedSubstring(text: string, quoted: string): string | undefined {
+  const needle = normalizeWhitespace(quoted);
+  if (needle === "") return undefined;
+
+  let normalized = "";
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let pendingWhitespace: number | undefined;
+  for (let index = 0; index < text.length;) {
+    const point = String.fromCodePoint(text.codePointAt(index)!);
+    const next = index + point.length;
+    if (WHITESPACE_CHAR.test(point)) {
+      pendingWhitespace ??= index;
+      index = next;
+      continue;
+    }
+    if (normalized.length > 0 && pendingWhitespace !== undefined) {
+      normalized += " ";
+      starts.push(pendingWhitespace);
+      ends.push(index);
+    }
+    pendingWhitespace = undefined;
+    normalized += point;
+    for (let unit = 0; unit < point.length; unit++) {
+      starts.push(index);
+      ends.push(next);
+    }
+    index = next;
+  }
+
+  const at = normalized.indexOf(needle);
+  if (at < 0) return undefined;
+  return text.slice(starts[at], ends[at + needle.length - 1]);
+}
+
+function normalizedIncludes(text: string, value: string): boolean {
+  const needle = normalizeWhitespace(value).toLocaleLowerCase();
+  return needle !== "" && normalizeWhitespace(text).toLocaleLowerCase().includes(needle);
 }
 
 function slug(value: string): string {
@@ -87,12 +129,12 @@ function parseCandidates(raw: string): ResourceCandidate[] {
   const candidates: ResourceCandidate[] = [];
   for (const item of parsed.resources) {
     if (
-      !isObject(item) || typeof item.title !== "string" || item.title.trim() === "" ||
-      typeof item.provider !== "string" || item.provider.trim() === "" ||
+      !isObject(item) || typeof item.title !== "string" || normalizeWhitespace(item.title) === "" ||
+      typeof item.provider !== "string" || normalizeWhitespace(item.provider) === "" ||
       typeof item.format !== "string" || !FORMATS.has(item.format as LearningResource["format"]) ||
       typeof item.cost !== "string" || !COSTS.has(item.cost as LearningResource["cost"]) ||
       typeof item.lang !== "string" || item.lang.trim() === "" ||
-      typeof item.quote !== "string" || item.quote.trim() === ""
+      typeof item.quote !== "string" || normalizeWhitespace(item.quote) === ""
     ) continue;
     if (item.level !== undefined && (typeof item.level !== "string" || !LEVELS.has(item.level as NonNullable<LearningResource["level"]>))) continue;
     if (item.price !== undefined && (typeof item.price !== "string" || item.price.trim() === "")) continue;
@@ -102,8 +144,8 @@ function parseCandidates(raw: string): ResourceCandidate[] {
     candidates.push({
       ...(Number.isInteger(item.pageIndex) && (item.pageIndex as number) >= 0 ? { pageIndex: item.pageIndex as number } : {}),
       ...(typeof item.url === "string" ? { url: item.url } : {}),
-      title: item.title.trim(),
-      provider: item.provider.trim(),
+      title: normalizeWhitespace(item.title),
+      provider: normalizeWhitespace(item.provider),
       format: item.format as LearningResource["format"],
       cost: item.cost as LearningResource["cost"],
       ...(typeof item.price === "string" ? { price: item.price.trim() } : {}),
@@ -111,26 +153,56 @@ function parseCandidates(raw: string): ResourceCandidate[] {
       lang: item.lang.trim(),
       ...(typeof item.scope === "string" ? { scope: item.scope.trim() } : {}),
       ...(typeof item.effortHours === "number" ? { effortHours: item.effortHours } : {}),
-      quote: item.quote.trim(),
+      quote: item.quote,
     });
   }
   return candidates;
 }
 
 function quotedPage(candidate: ResourceCandidate, pages: Awaited<ReturnType<ExaClient["search"]>>) {
-  const quote = normalizeWhitespace(candidate.quote);
-  const containsQuote = (text: string) => normalizeWhitespace(text).includes(quote);
+  const match = (page: (typeof pages)[number]) => {
+    const quote = normalizedSubstring(page.text, candidate.quote);
+    return quote === undefined ? undefined : { page, quote };
+  };
   const indexed = candidate.pageIndex === undefined ? undefined : pages[candidate.pageIndex];
-  if (indexed && containsQuote(indexed.text)) return indexed;
+  const indexedMatch = indexed && match(indexed);
+  if (indexedMatch) return indexedMatch;
   const byUrl = candidate.url === undefined ? undefined : pages.find(({ url }) => url === candidate.url);
-  if (byUrl && containsQuote(byUrl.text)) return byUrl;
-  return pages.find(({ text }) => containsQuote(text));
+  const urlMatch = byUrl && match(byUrl);
+  if (urlMatch) return urlMatch;
+  for (const page of pages) {
+    const found = match(page);
+    if (found) return found;
+  }
+  return undefined;
 }
 
-function explicitlySupportsCost(cost: LearningResource["cost"], text: string): boolean {
-  if (cost === "free") return FREE_WORD.test(text);
-  if (cost === "freemium") return FREEMIUM_WORD.test(text);
-  return PAID_WORD.test(text) || /(?:[$€£¥₹]|\b(?:USD|EUR|GBP|CZK|CAD|AUD|JPY|CNY|INR)\b)\s*\d|\d\s*(?:[$€£¥₹]|\b(?:USD|EUR|GBP|CZK|CAD|AUD|JPY|CNY|INR)\b)/iu.test(text);
+function costSignals(text: string): { free: boolean; paid: boolean; freemium: boolean } {
+  return { free: FREE_WORD.test(text), paid: PAID_WORD.test(text) || CURRENCY_AMOUNT.test(text), freemium: FREEMIUM_WORD.test(text) };
+}
+
+function headingSupportsFree(candidate: ResourceCandidate, page: { title: string; text: string }): boolean {
+  const identities = [candidate.title, candidate.provider];
+  const segments = page.text.split(/[\r\n]+|(?<=[.!?])\s+/u);
+  const headings = [page.title, ...segments].filter((segment) => identities.some((identity) => normalizedIncludes(segment, identity)));
+  return headings.some((heading) => FREE_WORD.test(heading));
+}
+
+function verifiedCost(
+  candidate: ResourceCandidate,
+  page: { title: string; text: string },
+  quote: string,
+): LearningResource["cost"] | undefined {
+  const quoted = costSignals(quote);
+  if (quoted.freemium || (quoted.free && quoted.paid)) return "freemium";
+  if (quoted.free) return candidate.cost === "free" ? "free" : undefined;
+  if (quoted.paid) return candidate.cost === "paid" ? "paid" : undefined;
+
+  const wholePage = costSignals(page.text);
+  if (wholePage.freemium || (wholePage.free && wholePage.paid)) return "freemium";
+  if (candidate.cost === "free") return wholePage.free && headingSupportsFree(candidate, page) ? "free" : undefined;
+  if (candidate.cost === "freemium") return wholePage.freemium ? "freemium" : undefined;
+  return wholePage.paid ? "paid" : undefined;
 }
 
 function statesEffortHours(text: string, value: number): boolean {
@@ -145,8 +217,12 @@ function verifyCandidates(
 ): LearningResource[] {
   const resources: LearningResource[] = [];
   for (const candidate of candidates) {
-    const page = quotedPage(candidate, pages);
-    if (!page || !explicitlySupportsCost(candidate.cost, page.text)) continue;
+    const quoted = quotedPage(candidate, pages);
+    if (!quoted) continue;
+    const { page, quote } = quoted;
+    if (!normalizedIncludes(page.text, candidate.title) && !normalizedIncludes(page.text, candidate.provider)) continue;
+    const cost = verifiedCost(candidate, page, quote);
+    if (cost === undefined) continue;
     const normalizedText = normalizeWhitespace(page.text);
     const price = candidate.price !== undefined && page.text.includes(candidate.price)
       ? candidate.price
@@ -164,7 +240,7 @@ function verifyCandidates(
       provider: candidate.provider,
       url: page.url,
       format: candidate.format,
-      cost: candidate.cost,
+      cost,
       ...(price !== undefined ? { price } : {}),
       ...(candidate.level !== undefined ? { level: candidate.level } : {}),
       lang: candidate.lang,
@@ -176,7 +252,7 @@ function verifyCandidates(
         title: page.title,
         fetchedAt: new Date().toISOString(),
         tool: "exa",
-        quote: candidate.quote,
+        quote,
         contentHash: createHash("sha256").update(page.text).digest("hex"),
       },
     });

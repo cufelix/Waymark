@@ -114,6 +114,51 @@ test("retries unsupported free-text numbers, then removes offending sentences", 
   assert.doesNotMatch(JSON.stringify(modules), /productive in [79] days|task in [79] days/);
 });
 
+test("retries and strips forbidden seeker summaries even when their numbers are allowed demand facts", async () => {
+  const forbidden = "You have a 72% chance and are likely at level 72 with 72 of 120 modules plus XP.";
+  const first = answer([
+    chapter("Python practice", "code", [PYTHON.uri], `${forbidden} Build a Python task.`),
+    chapter("SQL practice", "data", [SQL.uri], "Use SQL in a task."),
+  ], { why: `Pravděpodobnost and šance are not facts. ${forbidden} Start with prerequisites.` });
+  const second = answer([
+    chapter("Python practice", "code", [PYTHON.uri], `${forbidden} Practice with feedback.`),
+    chapter("SQL practice", "data", [SQL.uri], "Use SQL in a task."),
+  ], { why: `${forbidden} Start with prerequisites.` });
+  const llm = new FakeLlm([first, second]);
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+  assert.equal(llm.calls.length, 2);
+  assert.equal(modules[0]!.why, "Start with prerequisites.");
+  assert.equal(bySkill(allChapters(modules), PYTHON.uri).outcome, "Practice with feedback.");
+  assert.doesNotMatch(JSON.stringify(modules), /%|probability|chance|likely|šance|pravděpodobnost|\blevel\s+\d|\bXP\b|\d+ of \d+ modules/iu);
+});
+
+test("retries the first planner request once after a transport failure", async () => {
+  const calls: unknown[] = [];
+  const llm = {
+    async chat(request: unknown): Promise<string> {
+      calls.push(request);
+      if (calls.length === 1) throw new ApiError("upstream_failed", "temporary provider failure");
+      return completeReply();
+    },
+  };
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+  assert.equal(calls.length, 2);
+  assert.ok(bySkill(allChapters(modules), PYTHON.uri));
+
+  let failedCalls = 0;
+  await assert.rejects(() => planModules(VALIDATION, PROFILE, {
+    llm: {
+      async chat(): Promise<string> {
+        failedCalls++;
+        throw new ApiError("upstream_failed", "provider unavailable");
+      },
+    },
+  }), (error) => error instanceof ApiError && error.code === "upstream_failed");
+  assert.equal(failedCalls, 2);
+});
+
 test("copies weakest evidence and starts only fully known chapters as done by evidence", async () => {
   const llm = new FakeLlm([answer([
     chapter("Foundation", "theory", [], "Understand a backend foundation."),

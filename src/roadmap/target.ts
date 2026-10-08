@@ -16,10 +16,11 @@ export function pickTarget(validation: Validation): RoadmapTarget | undefined {
   const ladder = validation.jobProfile.ladder;
   if (!ladder?.length) return undefined;
 
+  if (!validation.market.some(({ entryLevelVacancies }) => entryLevelVacancies > 0)) return undefined;
+
   const ordered = [...ladder].sort((left, right) => levelRank(left.level) - levelRank(right.level));
-  const hasEntryVacancies = validation.market.some(({ entryLevelVacancies }) => entryLevelVacancies > 0);
   const entryStep = ordered.find(({ level }) => level === "entry" || level === "junior");
-  const step = hasEntryVacancies && entryStep ? entryStep : ordered[0];
+  if (!entryStep) return undefined;
 
   const marketFacts: RoadmapTarget["facts"] = validation.market
     .filter(({ entryLevelVacancies, entryLevelSources }) => entryLevelVacancies > 0 && entryLevelSources.length > 0)
@@ -32,5 +33,7 @@ export function pickTarget(validation: Validation): RoadmapTarget | undefined {
       sources: [...market.entryLevelSources],
     }));
 
-  return { step, facts: [...marketFacts, ...step.claims.filter(({ kind }) => kind === "fact")] };
+  const stepFacts = entryStep.claims.filter(({ kind, sources }) => kind === "fact" && sources.length > 0);
+  const facts = [...marketFacts, ...stepFacts];
+  return facts.length === 0 ? undefined : { step: entryStep, facts };
 }

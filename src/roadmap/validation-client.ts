@@ -10,6 +10,7 @@ type HttpValidationReaderOptions = { baseUrl?: string; apiKey?: string; timeoutM
 type UpstreamEnvelope = { ok: boolean; data: unknown };
 
 const UNEXPECTED = "Validation service returned an unexpected response";
+const ULID = "[0-9A-HJKMNP-TV-Z]{26}";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -27,9 +28,13 @@ function isArrayOf(value: unknown, item: (entry: unknown) => boolean): boolean {
   return Array.isArray(value) && value.every(item);
 }
 
+function hasIdPrefix(value: unknown, prefix: "val" | "skr" | "run" | "clm" | "src"): value is string {
+  return typeof value === "string" && new RegExp(`^${prefix}_${ULID}$`).test(value);
+}
+
 function isSource(value: unknown): boolean {
   return isRecord(value)
-    && isString(value.id)
+    && hasIdPrefix(value.id, "src")
     && isString(value.url)
     && isString(value.title)
     && isString(value.fetchedAt)
@@ -47,7 +52,7 @@ const isSkill = isOccupation;
 
 function isClaim(value: unknown): boolean {
   return isRecord(value)
-    && isString(value.id)
+    && hasIdPrefix(value.id, "clm")
     && isRecord(value.subject)
     && isString(value.subject.kind)
     && isString(value.subject.id)
@@ -55,7 +60,9 @@ function isClaim(value: unknown): boolean {
     && (value.skill === undefined || isSkill(value.skill))
     && (value.kind === "fact" || value.kind === "inference")
     && ["verified", "corroborated", "single-source", "contradicted", "stated"].includes(String(value.tier))
-    && isArrayOf(value.sources, isSource)
+    && Array.isArray(value.sources)
+    && value.sources.length > 0
+    && value.sources.every(isSource)
     && (value.validUntil === undefined || isString(value.validUntil));
 }
 
@@ -162,8 +169,9 @@ function isJobProfile(value: unknown): boolean {
 function isValidation(value: unknown, validationId: string): value is Validation {
   return isRecord(value)
     && value.validationId === validationId
-    && isString(value.seekerId)
-    && isString(value.runId)
+    && hasIdPrefix(value.validationId, "val")
+    && hasIdPrefix(value.seekerId, "skr")
+    && hasIdPrefix(value.runId, "run")
     && isNumber(value.profileVersion)
     && isString(value.createdAt)
     && isOccupation(value.occupation)

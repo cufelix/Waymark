@@ -74,6 +74,42 @@ test("rejects successful envelopes whose validation shape is incomplete", async 
   }
 });
 
+test("rejects copied IDs with malformed prefixes and claims without sources", async () => {
+  const malformedValidation = structuredClone(VALIDATION);
+  malformedValidation.validationId = "validation_wrong";
+  const malformedSeeker = structuredClone(VALIDATION);
+  malformedSeeker.seekerId = "seeker_wrong";
+  const malformedRun = structuredClone(VALIDATION);
+  malformedRun.runId = "research_wrong";
+  const malformedClaim = structuredClone(VALIDATION);
+  malformedClaim.jobProfile.ladder![0]!.claims[0]!.id = "claim_wrong";
+  const malformedSource = structuredClone(VALIDATION);
+  malformedSource.skills[0]!.demand.sources[0]!.id = "source_wrong";
+  const emptyClaimSources = structuredClone(VALIDATION);
+  emptyClaimSources.jobProfile.ladder![0]!.claims[0]!.sources = [];
+
+  const cases = [
+    { requestedId: malformedValidation.validationId, data: malformedValidation },
+    { requestedId: VALIDATION.validationId, data: malformedSeeker },
+    { requestedId: VALIDATION.validationId, data: malformedRun },
+    { requestedId: VALIDATION.validationId, data: malformedClaim },
+    { requestedId: VALIDATION.validationId, data: malformedSource },
+    { requestedId: VALIDATION.validationId, data: emptyClaimSources },
+  ];
+  for (const { requestedId, data } of cases) {
+    const reader = new HttpValidationReader({
+      baseUrl: "https://validation.example",
+      apiKey: "key",
+      fetchImpl: async () => json({ ok: true, data, error: null }),
+    });
+    await assert.rejects(() => reader.getValidation(requestedId), (error) => (
+      error instanceof ApiError
+        && error.code === "upstream_failed"
+        && error.message === "Validation service returned an unexpected response"
+    ));
+  }
+});
+
 test("network errors are sanitized and environment configuration follows Part 3 fallbacks", async () => {
   const secret = "never-repeat-this-key";
   const reader = new HttpValidationReader({

@@ -36,3 +36,14 @@ test("returns undefined when the validation has no ladder", () => {
 
   assert.equal(pickTarget(validation), undefined);
 });
+
+test("returns undefined without entry-level vacancies or any sourced target fact", () => {
+  const noEntryVacancies = structuredClone(VALIDATION);
+  noEntryVacancies.market[0]!.entryLevelVacancies = 0;
+  assert.equal(pickTarget(noEntryVacancies), undefined);
+
+  const noSourcedFact = structuredClone(VALIDATION);
+  noSourcedFact.market[0]!.entryLevelSources = [];
+  noSourcedFact.jobProfile.ladder![0]!.claims = [];
+  assert.equal(pickTarget(noSourcedFact), undefined);
+});

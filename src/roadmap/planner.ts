@@ -9,6 +9,7 @@ export type PlannerDeps = { llm: LlmClient };
 const CATEGORIES = new Set<RoadmapChapter["category"]>(["code", "data", "theory", "tools", "project", "soft"]);
 const EVIDENCE_RANK: Record<Evidence, number> = { none: 0, stated: 1, proven: 2 };
 const NUMBER = /\d+/gu;
+const FORBIDDEN_SEEKER_SUMMARY = /%|\b(?:probability|chance|likely|xp)\b|šance|pravděpodobnost|\blevel\s+\d+\b|\b\d+\s+of\s+\d+\s+(?:chapters?|modules?)\b/iu;
 
 type ModelChapter = {
   title: string;
@@ -210,20 +211,28 @@ function hasUnsupportedNumber(text: string, allowed: Set<string>): boolean {
   return (text.match(NUMBER) ?? []).some((number) => !allowed.has(number));
 }
 
-function planHasUnsupportedNumbers(modules: RoadmapModule[]): boolean {
+function hasForbiddenSummary(text: string): boolean {
+  return FORBIDDEN_SEEKER_SUMMARY.test(text);
+}
+
+function hasUnsupportedText(text: string, allowed: Set<string>): boolean {
+  return hasUnsupportedNumber(text, allowed) || hasForbiddenSummary(text);
+}
+
+function planHasUnsupportedText(modules: RoadmapModule[]): boolean {
   return modules.some((module) => {
     const moduleNumbers = allowedNumbers(module.chapters);
-    return hasUnsupportedNumber(module.title, moduleNumbers) || hasUnsupportedNumber(module.subtitle, moduleNumbers) ||
-      hasUnsupportedNumber(module.why, moduleNumbers) || module.chapters.some((chapter) => {
+    return hasUnsupportedText(module.title, moduleNumbers) || hasUnsupportedText(module.subtitle, moduleNumbers) ||
+      hasUnsupportedText(module.why, moduleNumbers) || module.chapters.some((chapter) => {
         const chapterNumbers = allowedNumbers([chapter]);
-        return hasUnsupportedNumber(chapter.title, chapterNumbers) || hasUnsupportedNumber(chapter.outcome, chapterNumbers);
+        return hasUnsupportedText(chapter.title, chapterNumbers) || hasUnsupportedText(chapter.outcome, chapterNumbers);
       });
   });
 }
 
 function removeUnsupportedSentences(text: string, allowed: Set<string>, fallback: string): string {
   const sentences = text.match(/[^.!?\n]+[.!?]?/gu) ?? [];
-  const kept = sentences.filter((sentence) => !hasUnsupportedNumber(sentence, allowed)).join(" ").trim();
+  const kept = sentences.filter((sentence) => !hasUnsupportedText(sentence, allowed)).join(" ").trim();
   return kept || fallback;
 }
 
@@ -304,7 +313,13 @@ export async function planModules(
 ): Promise<RoadmapModule[]> {
   const messages = prompts(validation, profile);
   const catalog = skillCatalog(validation);
-  let firstRaw = await callPlanner(deps, messages);
+  let firstRaw: string;
+  try {
+    firstRaw = await callPlanner(deps, messages);
+  } catch {
+    const retryRaw = await callPlanner(deps, messages);
+    return sanitizeNumbers(materializePlan(parsePlan(retryRaw), catalog));
+  }
   let firstPlan: ModelModule[] | undefined;
   try {
     firstPlan = parsePlan(firstRaw);
@@ -321,16 +336,16 @@ export async function planModules(
   }
 
   const firstModules = materializePlan(firstPlan, catalog);
-  if (!planHasUnsupportedNumbers(firstModules)) return firstModules;
+  if (!planHasUnsupportedText(firstModules)) return firstModules;
 
   const secondRaw = await callPlanner(
     deps,
     messages,
     {
       previous: firstRaw,
-      instruction: "Your previous reply introduced a digit that was not copied from the supplied vacancy demand facts. Retry once. Remove unsupported numbers and return only the exact JSON schema.",
+      instruction: "Your previous reply introduced a digit that was not copied from demand facts or a forbidden seeker summary such as a percentage, probability, numeric level, progress count, or XP. Retry once. Remove it and return only the exact JSON schema.",
     },
   );
   const secondModules = materializePlan(parsePlan(secondRaw), catalog);
-  return planHasUnsupportedNumbers(secondModules) ? sanitizeNumbers(secondModules) : secondModules;
+  return planHasUnsupportedText(secondModules) ? sanitizeNumbers(secondModules) : secondModules;
 }

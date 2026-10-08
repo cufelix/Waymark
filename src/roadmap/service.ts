@@ -136,6 +136,7 @@ export async function createRoadmap(
         modules,
         updatedAt: timestamp(deps),
       };
+      if (await deps.store.get(roadmap.roadmapId) === undefined) return;
       await deps.store.put(ready);
     } catch (error) {
       const failed: Roadmap = {
@@ -144,6 +145,7 @@ export async function createRoadmap(
         error: safeBuildError(error),
         updatedAt: timestamp(deps),
       };
+      if (await deps.store.get(roadmap.roadmapId) === undefined) return;
       await deps.store.put(failed);
     }
   };
