@@ -10,14 +10,15 @@
 <body>
 <header id="top" data-step="1"></header>
 
-<main class="wrap" style="max-width: 1200px">
+<main class="wrap" style="max-width: 1240px">
   <section class="col-main">
+    <!-- What to expect -->
     <div>
-      <div class="phase-label"><span id="phaseLabel">Getting to know you</span><span id="phaseCount"></span></div>
-      <div class="progress"><div id="bar"></div></div>
+      <div class="expect" id="expect"></div>
+      <div class="expect-note" id="expectNote"></div>
     </div>
 
-    <!-- Phase 1: opening questions -->
+    <!-- Phase: warm up questions -->
     <div id="chatPhase" style="display: flex; flex-direction: column; gap: 24px">
       <div class="chat" id="chat" aria-live="polite"></div>
       <div class="typing" id="typing" hidden><span></span><span></span><span></span></div>
@@ -29,58 +30,99 @@
       </form>
     </div>
 
-    <!-- Phase 2: task cards -->
-    <div id="cardPhase" hidden style="display: flex; flex-direction: column; gap: 24px">
-      <div class="task-intro">
-        <h1 style="font: 700 28px/1.2 var(--display)">Would you enjoy doing this?</h1>
-        <p class="lead" style="font-size: 15px">Real tasks from real job ads in Prague. Go with your gut. We'll tell you which job it came from after you answer.</p>
-      </div>
-      <div class="task-wrap" id="taskWrap"></div>
-      <div class="rate">
-        <button class="no" type="button" data-rate="no">Not for me<kbd>←</kbd></button>
-        <button class="maybe" type="button" data-rate="maybe">Maybe<kbd>↓</kbd></button>
-        <button class="like" type="button" data-rate="like">I'd enjoy this<kbd>→</kbd></button>
+    <!-- Phase: bridge into task cards -->
+    <div id="bridgePhase" hidden>
+      <div class="bridge">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="lbl" style="color: var(--accent)">Warm up done</span>
+          <h1 style="font: 700 36px/1.15 var(--display)">Now the fun part.</h1>
+          <p class="lead">Talking about yourself only gets us so far. So instead, I'll show you real tasks pulled from real job ads in Prague. You just react with your gut. No right answers.</p>
+        </div>
+        <div class="how">
+          <div><b>👎</b>Not for me</div>
+          <div><b>🤷</b>Maybe, not sure</div>
+          <div><b>😍</b>I'd enjoy this</div>
+        </div>
+        <p class="hint" style="margin: 0">About 10 cards, around 2 minutes. I stop as soon as I'm confident, and after each one I'll tell you which job it came from.</p>
+        <div><button class="cta" type="button" id="startCards">Show me the first task <span data-icon="arrow"></span></button></div>
       </div>
     </div>
 
-    <!-- Phase 3: practical limits -->
+    <!-- Phase: task cards -->
+    <div id="cardsPhase" hidden style="display: flex; flex-direction: column; gap: 24px">
+      <h1 style="font: 700 28px/1.2 var(--display)">Would you enjoy doing this?</h1>
+      <div class="task-wrap" id="taskWrap"></div>
+      <div class="rate">
+        <button class="no" type="button" data-rate="no"><span class="emo">👎</span>Not for me</button>
+        <button class="maybe" type="button" data-rate="maybe"><span class="emo">🤷</span>Maybe</button>
+        <button class="like" type="button" data-rate="like"><span class="emo">😍</span>I'd enjoy this</button>
+      </div>
+    </div>
+
+    <!-- Phase: practical -->
     <div id="practicalPhase" hidden class="practical">
       <div class="task-intro">
-        <h1 style="font: 700 28px/1.2 var(--display)">Quick practical stuff</h1>
-        <p class="lead" style="font-size: 15px">This shapes your roadmap more than anything else: how fast it goes and what it costs.</p>
+        <h1 style="font: 700 28px/1.2 var(--display)">A few practical bits</h1>
+        <p class="lead" style="font-size: 15px">These shape your roadmap more than anything: where the jobs are, how fast you can go, and what it costs.</p>
       </div>
+      <div class="row"><span class="lbl">Where do you want to work?</span><div class="bubbles" style="padding: 0" data-group="place"></div></div>
       <div class="row"><span class="lbl">Time you can give it each week</span><div class="bubbles" style="padding: 0" data-group="hours"></div></div>
       <div class="row"><span class="lbl">Budget for courses</span><div class="bubbles" style="padding: 0" data-group="budget"></div></div>
       <div class="row"><span class="lbl">Education so far</span><div class="bubbles" style="padding: 0" data-group="degree"></div></div>
-      <div><button class="cta" type="button" id="practicalDone" disabled style="opacity: .4">See my results</button></div>
+      <div><button class="cta" type="button" id="practicalDone" disabled style="opacity: .4">Next <span data-icon="arrow"></span></button></div>
     </div>
 
-    <!-- Phase 4: done -->
-    <div id="donePhase" hidden style="display: flex; flex-direction: column; gap: 20px">
+    <!-- Phase: optional CV and links -->
+    <div id="cvPhase" hidden style="display: flex; flex-direction: column; gap: 24px; animation: rise .3s ease-out both">
       <div class="task-intro">
-        <h1 style="font: 700 32px/1.2 var(--display)">I've got a clear picture.</h1>
-        <p class="lead" style="font-size: 15px" id="doneLead"></p>
+        <span class="pill-optional">Optional</span>
+        <h1 style="font: 700 28px/1.2 var(--display)">Got anything you've made?</h1>
+        <p class="lead" style="font-size: 15px">A CV, a portfolio, a GitHub, a school project. We use it to skip what you already know, so your roadmap starts in the right place. No pressure if you have nothing yet. Most people don't.</p>
       </div>
-      <div id="results" style="display: flex; flex-direction: column; gap: 10px"></div>
-      <p class="hint" style="margin: 0">Next we check these against the real job market, then pick your final top 3.</p>
+      <label class="drop" id="drop" for="file">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#B8F25B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <span style="font-size: 16px; font-weight: 600">Drop your CV here or click to upload</span>
+        <span style="font-size: 13px; color: var(--muted)">PDF or DOCX, up to 10 MB</span>
+        <input id="file" type="file" accept=".pdf,.docx" class="sr-only">
+      </label>
+      <div class="file-card" id="fileCard" hidden>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B8F25B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+          <span id="fileName" style="font-weight: 600; flex: 1">cv.pdf</span>
+          <button class="icon-btn" type="button" id="removeCv" aria-label="Remove CV"></button>
+        </div>
+        <div style="font-size: 13px; color: var(--muted)" id="scanText">Reading your CV…</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px" id="skills"></div>
+      </div>
+      <form style="display: flex; flex-direction: column; gap: 12px" id="linkForm">
+        <label for="link" style="font-weight: 600">Links</label>
+        <div style="display: flex; gap: 10px">
+          <input id="link" class="field" type="text" placeholder="github.com/you, behance.net/you, your site…" autocomplete="off">
+          <button class="alt" type="submit" style="min-height: 44px; padding: 0 18px">Add</button>
+        </div>
+        <div id="links" style="display: flex; flex-direction: column; gap: 8px"></div>
+        <p style="margin: 0; font-size: 13px; color: var(--faint)">We only read what you give us. You can delete it any time.</p>
+      </form>
       <div style="display: flex; flex-wrap: wrap; gap: 12px">
-        <a class="cta" href="upload.html">Continue <span data-icon="arrow"></span></a>
-        <button class="ghost" type="button" id="restart">Start over</button>
+        <button class="cta" type="button" data-finish>Research the job market <span data-icon="arrow"></span></button>
+        <button class="alt" type="button" data-finish>I don't have anything yet</button>
       </div>
     </div>
+
   </section>
 
-  <aside class="col-side" style="display: flex; flex-direction: column; gap: 18px">
-    <div class="panel">
-      <div>
-        <div class="panel-title">Paths forming</div>
-        <p class="hint" id="formingHint">Moves with every answer. Lime = your current top 3.</p>
-      </div>
-      <div class="forming" id="forming"></div>
-    </div>
+  <aside class="col-side" style="flex-basis: 380px; display: flex; flex-direction: column; gap: 18px">
     <div class="panel" style="gap: 12px">
       <div class="panel-title">What I know about you</div>
       <div id="facts" style="display: flex; flex-wrap: wrap; gap: 8px"></div>
+    </div>
+    <div class="panel" style="gap: 12px">
+      <div>
+        <div class="panel-title">Your map</div>
+        <p class="hint">Paths that fit you pull closer to you. Every task you rate attaches to its job. Drag things around.</p>
+      </div>
+      <div class="map-box" id="mapBox"><svg id="map" aria-label="Map of career paths and how close they are to you"></svg></div>
+      <div class="map-legend"><span><i style="background: #B8F25B"></i>Top 3 right now</span><span><i style="background: #5A6452"></i>Other paths</span><span><i style="background: #D4FA92; width: 5px; height: 5px"></i>Task you liked</span></div>
     </div>
   </aside>
 </main>
@@ -91,24 +133,29 @@ const $ = (id) => document.getElementById(id);
 // ---------- data ----------
 const PATHS = {
   backend: 'Backend developer', frontend: 'Frontend developer', data: 'Data analyst', qa: 'QA engineer',
-  ux: 'UX designer', sales: 'Sales / business development', marketing: 'Marketing specialist', ops: 'Project coordinator'
+  ux: 'UX designer', sales: 'Sales', marketing: 'Marketing', ops: 'Project coordinator'
 };
 const KIND = { backend: 'coding', frontend: 'web building', data: 'data', qa: 'testing', ux: 'design research', sales: 'sales', marketing: 'marketing', ops: 'organising' };
 
 const OPENING = [
-  { key: 'drawn', label: 'Drawn to', q: "Let's start easy. When you lose track of time, what are you usually doing?",
+  { key: 'drawn', q: "Let's start easy. When you lose track of time, what are you usually doing?",
     opts: ['Making things look good', 'Figuring out why something broke', 'Convincing people', 'Organising chaos', 'Helping someone feel better'] },
-  { key: 'place', label: 'Where', q: 'Where do you want to work?', opts: ['Prague', 'Anywhere in Czechia', 'Remote', 'Abroad'] },
-  { key: 'goal', label: 'Right now', q: 'What matters most to you right now?', opts: ['Learn fast and grow', 'A stable job and salary', 'Work that means something'] }
+  { key: 'with', q: 'Which sounds more like you?',
+    opts: ['Working with people', 'Building things', 'Working with information and numbers', 'Playing with ideas and visuals'] },
+  { key: 'goal', q: 'Last warm up one. What matters most to you right now?',
+    opts: ['Learn fast and grow', 'A stable job and salary', 'Work that means something'] }
 ];
 const PRIORS = {
   'Making things look good': { ux: 2, frontend: 2, marketing: 1 },
   'Figuring out why something broke': { backend: 2, qa: 2, data: 1 },
   'Convincing people': { sales: 2, marketing: 2 },
   'Organising chaos': { ops: 2, data: 1, qa: 1 },
-  'Helping someone feel better': { ux: 1, sales: 1, ops: 1 }
+  'Helping someone feel better': { ux: 1, sales: 1, ops: 1 },
+  'Working with people': { sales: 1, ops: 1, ux: 1 },
+  'Building things': { backend: 1, frontend: 1, qa: .5 },
+  'Working with information and numbers': { data: 2, qa: .5 },
+  'Playing with ideas and visuals': { ux: 1, marketing: 1, frontend: .5 }
 };
-// Each task: text, source ad, main path, optional secondary paths with weights.
 const TASKS = [
   ['Build the part of an app that saves a customer’s order and sends the receipt.', 'backend'],
   ['Find out why the website gets slow every Monday morning, and fix it.', 'backend', { qa: .5 }],
@@ -137,23 +184,27 @@ const TASKS = [
 ].map(([text, path, extra], i) => ({ id: i, text, path, extra: extra || {} }));
 const RATE = { like: 2, maybe: .5, no: -1.5 };
 const PRACTICAL = {
+  place: ['Prague', 'Anywhere in Czechia', 'Remote', 'Abroad'],
   hours: ['Under 5h', '5 to 10h', '10 to 20h', 'Full time'],
   budget: ['Free only', 'A little', 'Happy to invest'],
   degree: ['High school', 'Studying now', "Bachelor's", "Master's"]
 };
+const CV_SKILLS = ['Excel', 'Basic HTML', 'Python (school)', 'Customer service'];
+const PHASES = ['chat', 'bridge', 'cards', 'practical', 'cv'];
 
 // ---------- state ----------
 let S;
 function fresh(more) {
   let prev = null;
   try { prev = more && JSON.parse(localStorage.getItem('interview') || 'null'); } catch (e) {}
-  if (prev) { prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; return prev; }
-  return { phase: 'chat', step: 0, answers: {}, practical: {}, score: Object.fromEntries(Object.keys(PATHS).map((k) => [k, 0])),
-    shownBy: {}, likedBy: {}, seen: [], extraUntil: 0 };
+  if (prev) { prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; prev.ratings = prev.ratings || []; return prev; }
+  return { phase: 'chat', step: 0, answers: {}, practical: {}, cv: null, links: [],
+    score: Object.fromEntries(Object.keys(PATHS).map((k) => [k, 0])), shownBy: {}, likedBy: {}, seen: [], ratings: [], extraUntil: 0 };
 }
 const ranked = () => Object.keys(PATHS).sort((a, b) => S.score[b] - S.score[a]);
+function addPrior(text) { Object.entries(PRIORS[text] || {}).forEach(([k, v]) => S.score[k] += v); }
 
-// ---------- phase 1: chat ----------
+// ---------- warm up chat ----------
 let busy = false;
 function agentSay(text) {
   const d = document.createElement('div');
@@ -165,7 +216,7 @@ function meSay(text) { const d = document.createElement('div'); d.className = 'm
 function renderBubbles() {
   $('bubbles').innerHTML = '';
   $('own').hidden = busy;
-  if (busy) return;
+  if (busy || S.step >= OPENING.length) { $('own').hidden = true; return; }
   OPENING[S.step].opts.forEach((label, i) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'bubble'; b.style.animationDelay = (i * .05) + 's'; b.textContent = label;
@@ -176,28 +227,27 @@ function renderBubbles() {
 function answer(text) {
   text = text.trim();
   if (!text || busy) return;
-  const q = OPENING[S.step];
-  S.answers[q.key] = text;
-  if (q.key === 'drawn') Object.entries(PRIORS[text] || {}).forEach(([k, v]) => S.score[k] += v);
+  S.answers[OPENING[S.step].key] = text;
+  addPrior(text);
   meSay(text);
   busy = true; $('typing').hidden = false; renderBubbles(); renderSide();
   setTimeout(() => {
     busy = false; $('typing').hidden = true; S.step += 1;
     if (S.step >= OPENING.length) {
-      agentSay('Thanks. Now the fun part: I’ll show you real tasks from real jobs. Just react.');
-      setTimeout(() => go('cards'), 1100);
+      agentSay('Thanks, that helps a lot.');
+      renderBubbles();
+      setTimeout(() => go('bridge'), 900);
     } else { agentSay(OPENING[S.step].q); renderBubbles(); }
     renderSide();
   }, 700);
 }
 
-// ---------- phase 2: cards ----------
+// ---------- task cards ----------
 let current = null, locked = false;
 function pickNext() {
   const shown = S.seen.length;
   const focus = ranked().slice(0, shown < 3 ? 6 : 4);
   const unseen = TASKS.filter((t) => !S.seen.includes(t.id));
-  // Target the focus path we know least about, then a task whose main path is that one.
   const target = [...focus].sort((a, b) => (S.shownBy[a] || 0) - (S.shownBy[b] || 0) || S.score[b] - S.score[a])[0];
   return unseen.find((t) => t.path === target) || unseen.find((t) => focus.includes(t.path)) || unseen[0];
 }
@@ -210,10 +260,10 @@ function confident() {
   return S.score[r[2]] - S.score[r[3]] >= 2;
 }
 function showCard() {
-  if (confident() || !(current = pickNext())) return go('practical');
+  if (confident() || !(current = pickNext())) return S.extraUntil && S.practical.place ? finish() : go('practical');
   locked = false;
   $('taskWrap').innerHTML = `<div class="task" id="task">
-    <div class="src"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>From a real job ad · Prague</div>
+    <div class="src"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>From a real job ad</div>
     <div class="text">${esc(current.text)}</div>
     <div class="reveal" id="reveal"></div></div>`;
   renderSide();
@@ -227,6 +277,7 @@ function rate(kind) {
   S.shownBy[current.path] = (S.shownBy[current.path] || 0) + 1;
   if (kind === 'like') S.likedBy[current.path] = (S.likedBy[current.path] || 0) + 1;
   S.seen.push(current.id);
+  S.ratings.push({ id: current.id, path: current.path, kind });
   $('reveal').textContent = 'That’s a ' + PATHS[current.path] + ' task.';
   renderSide();
   setTimeout(() => { $('task').classList.add('out-' + kind); }, 650);
@@ -238,8 +289,9 @@ document.addEventListener('keydown', (e) => {
   const k = { ArrowLeft: 'no', ArrowDown: 'maybe', ArrowRight: 'like' }[e.key];
   if (k) { e.preventDefault(); rate(k); }
 });
+$('startCards').onclick = () => go('cards');
 
-// ---------- phase 3: practical ----------
+// ---------- practical ----------
 function renderPractical() {
   document.querySelectorAll('[data-group]').forEach((g) => {
     const key = g.dataset.group;
@@ -250,66 +302,222 @@ function renderPractical() {
   $('practicalDone').disabled = !ready;
   $('practicalDone').style.opacity = ready ? 1 : .4;
 }
-$('practicalDone').onclick = () => go('done');
+$('practicalDone').onclick = () => go('cv');
 
-// ---------- phase 4: done ----------
-function renderDone() {
+// ---------- optional CV and links ----------
+function showFile(name) {
+  S.cv = { name, skills: [] };
+  $('drop').hidden = true; $('fileCard').hidden = false;
+  $('fileName').textContent = name; $('scanText').textContent = 'Reading your CV…'; $('skills').innerHTML = '';
+  CV_SKILLS.forEach((s, i) => setTimeout(() => {
+    if (!S.cv) return;
+    S.cv.skills.push(s);
+    const c = document.createElement('span');
+    c.className = 'chip'; c.style.animation = 'pop .3s ease-out both';
+    c.innerHTML = esc(s) + ' <small>from your CV</small>';
+    $('skills').appendChild(c);
+    if (i === CV_SKILLS.length - 1) $('scanText').textContent = 'Skills we found. Remove anything that isn’t right.';
+    renderSide();
+  }, 400 + i * 300));
+}
+$('file').addEventListener('change', (e) => { if (e.target.files[0]) showFile(e.target.files[0].name); });
+['dragover', 'dragenter'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) showFile(f.name); });
+$('removeCv').onclick = () => { S.cv = null; $('drop').hidden = false; $('fileCard').hidden = true; $('file').value = ''; renderSide(); };
+function renderLinks() {
+  $('links').innerHTML = S.links.map((u, i) => '<div class="link-row"><span style="flex: 1; font-size: 15px">' + esc(u) +
+    '</span><button class="icon-btn" type="button" data-i="' + i + '" aria-label="Remove link">' + ICON.x + '</button></div>').join('');
+  $('links').querySelectorAll('button').forEach((b) => b.onclick = () => { S.links.splice(Number(b.dataset.i), 1); renderLinks(); renderSide(); });
+}
+$('linkForm').addEventListener('submit', (e) => { e.preventDefault(); const u = $('link').value.trim(); if (u) { S.links.push(u); $('link').value = ''; renderLinks(); renderSide(); } });
+document.querySelectorAll('[data-finish]').forEach((b) => b.onclick = finish);
+
+// ---------- hand off to research ----------
+function finish() {
   const top = ranked().slice(0, 3);
-  $('doneLead').textContent = 'From ' + S.seen.length + ' real tasks you reacted to, these three stand out.';
-  $('results').innerHTML = top.map((k, i) => {
-    const shown = S.shownBy[k] || 0, liked = S.likedBy[k] || 0;
-    const ev = shown ? `You liked ${liked} of ${shown} ${KIND[k]} tasks` : 'Matches what you told me you enjoy';
-    return `<div class="result" style="animation-delay:${i * .12}s"><div class="n">${i + 1}</div><div><b>${PATHS[k]}</b><span>${ev}</span></div></div>`;
-  }).join('');
   try {
     localStorage.setItem('interview', JSON.stringify(S));
     localStorage.setItem('top3', JSON.stringify(top.map((k) => ({ key: k, name: PATHS[k], kind: KIND[k], liked: S.likedBy[k] || 0, shown: S.shownBy[k] || 0 }))));
   } catch (e) {}
+  location.href = 'research.html';
 }
-$('restart').onclick = () => { try { localStorage.removeItem('interview'); localStorage.removeItem('top3'); } catch (e) {} history.replaceState(null, '', 'index.html'); start(false); };
 
-// ---------- side panel + progress ----------
-function renderSide() {
-  const r = ranked();
-  const vals = r.map((k) => S.score[k]);
-  const max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
-  const started = S.answers.drawn !== undefined;
-  $('forming').innerHTML = r.slice(0, 6).map((k, i) => {
-    const pct = started ? 8 + ((S.score[k] - min) / span) * 92 : 8;
-    const shown = S.shownBy[k] || 0;
-    return `<div class="f-row ${started && i < 3 ? 'top3' : ''} ${!started ? 'dim' : ''}"><div class="f-top"><span>${PATHS[k]}</span><span>${shown ? (S.likedBy[k] || 0) + ' of ' + shown + ' liked' : ''}</span></div><div class="f-bar"><div style="width:${pct}%"></div></div></div>`;
+// ---------- what to expect ----------
+function renderExpect() {
+  const idx = { chat: 0, bridge: 1, cards: 1, practical: 2, cv: 3 }[S.phase];
+  const steps = [
+    ['Warm up', '3 questions', S.step / OPENING.length],
+    ['Task cards', 'about 10', S.phase === 'bridge' ? 0 : Math.min(S.seen.length / 10, 1)],
+    ['Practical', '4 quick ones', Object.keys(S.practical).length / 4],
+    ['Your stuff', 'optional', 0]
+  ];
+  $('expect').innerHTML = steps.map(([b, s, f], i) => {
+    const cls = i < idx ? 'done' : i === idx ? 'on' : '';
+    const w = i < idx ? 100 : i === idx ? Math.round(f * 100) : 0;
+    return `<div class="st ${cls}"><div class="ln"><div style="width:${w}%"></div></div><b>${b}</b><span>${s}</span></div>`;
   }).join('');
-  const facts = [...OPENING.map((q) => S.answers[q.key]), ...Object.values(S.practical)].filter(Boolean);
-  $('facts').innerHTML = facts.length ? facts.map((f) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(f)}</span>`).join('') : '<span class="chip-empty">Nothing yet</span>';
-
-  const labels = { chat: 'Getting to know you', cards: 'Narrowing it down…', practical: 'Almost done', done: 'Done' };
-  $('phaseLabel').textContent = labels[S.phase];
-  $('phaseCount').textContent = S.phase === 'cards' ? S.seen.length + ' tasks rated' : '';
-  const pct = { chat: (S.step / OPENING.length) * 20, cards: 20 + Math.min(S.seen.length / 10, 1) * 60, practical: 85, done: 100 }[S.phase];
-  $('bar').style.width = pct + '%';
+  let note = '';
+  if (S.phase === 'chat') note = (OPENING.length - S.step) + (OPENING.length - S.step === 1 ? ' question' : ' questions') + ' left in the warm up · about 3 minutes in total';
+  if (S.phase === 'bridge') note = 'Next: about 10 task cards, then a few practical bits';
+  if (S.phase === 'cards') {
+    const n = S.seen.length;
+    const left = S.extraUntil ? S.extraUntil - n : Math.max(8 - n, 0);
+    note = left > 0 ? 'About ' + left + ' more ' + (left === 1 ? 'card' : 'cards') : 'Almost there, just checking the close ones';
+  }
+  if (S.phase === 'practical') note = (4 - Object.keys(S.practical).length) + ' left, then you’re basically done';
+  if (S.phase === 'cv') note = 'Last step, and you can skip it';
+  $('expectNote').textContent = note;
 }
 
+// ---------- facts ----------
+function renderFacts() {
+  const facts = [...OPENING.map((q) => S.answers[q.key]), ...Object.keys(PRACTICAL).map((k) => S.practical[k])].filter(Boolean)
+    .map((f) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(f)}</span>`);
+  if (S.cv) S.cv.skills.forEach((s) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(s)} <small>CV</small></span>`));
+  S.links.forEach((u) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(u)} <small>link</small></span>`));
+  $('facts').innerHTML = facts.length ? facts.join('') : '<span class="chip-empty">Nothing yet. Answer the first question.</span>';
+}
+
+// ---------- map (Obsidian style graph) ----------
+const SVGNS = 'http://www.w3.org/2000/svg';
+const M = { nodes: [], links: [], byId: {}, w: 340, h: 340, drag: null, hover: null };
+function mkNode(id, kind, label, x, y) {
+  const g = document.createElementNS(SVGNS, 'g');
+  const c = document.createElementNS(SVGNS, 'circle'); c.setAttribute('class', 'nd'); g.appendChild(c);
+  if (label) { const t = document.createElementNS(SVGNS, 'text'); t.setAttribute('text-anchor', 'middle'); t.textContent = label; g.appendChild(t); }
+  const n = { id, kind, label, x, y, vx: 0, vy: 0, r: 4, g, c, t: g.querySelector('text') };
+  $('map').appendChild(g);
+  g.addEventListener('pointerdown', (e) => { M.drag = n; g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointerenter', () => { M.hover = n; paintHover(); });
+  g.addEventListener('pointerleave', () => { M.hover = null; paintHover(); });
+  M.nodes.push(n); M.byId[id] = n;
+  return n;
+}
+function mkLink(a, b, kind) {
+  const l = document.createElementNS(SVGNS, 'line');
+  l.setAttribute('class', 'lnk ' + kind);
+  $('map').insertBefore(l, $('map').firstChild);
+  const link = { a, b, kind, el: l, len: 100 };
+  M.links.push(link);
+  return link;
+}
+function initMap() {
+  $('map').innerHTML = ''; M.nodes = []; M.links = []; M.byId = {};
+  const box = $('mapBox').getBoundingClientRect();
+  M.w = box.width || 340; M.h = box.height || 340;
+  $('map').setAttribute('viewBox', `0 0 ${M.w} ${M.h}`);
+  const you = mkNode('you', 'you', 'You', M.w / 2, M.h / 2);
+  Object.keys(PATHS).forEach((k, i) => {
+    const a = (i / 8) * Math.PI * 2;
+    const n = mkNode(k, 'path', PATHS[k], M.w / 2 + Math.cos(a) * 130, M.h / 2 + Math.sin(a) * 130);
+    mkLink(you, n, 'path');
+  });
+}
+function syncMap() {
+  // add a dot for each newly rated task
+  S.ratings.forEach((r) => {
+    const id = 't' + r.id;
+    if (M.byId[id]) return;
+    const p = M.byId[r.path];
+    const n = mkNode(id, 'task', '', p.x + (Math.random() - .5) * 20, p.y + (Math.random() - .5) * 20);
+    n.rating = r.kind;
+    const tl = document.createElementNS(SVGNS, 'title'); tl.textContent = TASKS[r.id].text; n.g.appendChild(tl);
+    mkLink(p, n, 'task').len = 26;
+  });
+  const r = ranked(), top = r.slice(0, 3);
+  const vals = r.map((k) => S.score[k]), max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
+  const started = Object.keys(S.answers).length > 0;
+  M.nodes.forEach((n) => {
+    if (n.kind === 'you') { n.r = 9; n.c.setAttribute('fill', '#0D0F0C'); n.c.setAttribute('stroke', '#B8F25B'); n.c.setAttribute('stroke-width', 2.5); n.g.classList.add('top'); }
+    if (n.kind === 'path') {
+      const fit = started ? (S.score[n.id] - min) / span : 0;
+      n.fit = fit;
+      n.r = 5 + fit * 8;
+      const isTop = started && top.includes(n.id);
+      n.c.setAttribute('fill', isTop ? '#B8F25B' : '#5A6452');
+      n.g.classList.toggle('top', isTop);
+    }
+    if (n.kind === 'task') { n.r = 3; n.c.setAttribute('fill', n.rating === 'like' ? '#D4FA92' : n.rating === 'maybe' ? '#6F7869' : '#3A3F37'); }
+    n.c.setAttribute('r', n.r);
+    if (n.t) n.t.setAttribute('dy', n.r + 13);
+  });
+  M.links.forEach((l) => {
+    if (l.kind === 'path') {
+      const fit = l.b.fit || 0;
+      l.len = 140 - fit * 95;
+      l.el.setAttribute('stroke-width', .6 + fit * 1.8);
+      l.el.style.stroke = top.includes(l.b.id) && started ? '#5C8F2A' : '#3A4134';
+    }
+  });
+}
+function paintHover() {
+  const box = $('mapBox');
+  box.classList.toggle('hovering', !!M.hover);
+  M.nodes.forEach((n) => n.g.classList.remove('hl'));
+  M.links.forEach((l) => l.el.classList.remove('hl'));
+  if (!M.hover) return;
+  M.hover.g.classList.add('hl');
+  M.links.forEach((l) => { if (l.a === M.hover || l.b === M.hover) { l.el.classList.add('hl'); l.a.g.classList.add('hl'); l.b.g.classList.add('hl'); } });
+}
+$('map').addEventListener('pointermove', (e) => {
+  if (!M.drag) return;
+  const b = $('map').getBoundingClientRect();
+  M.drag.x = (e.clientX - b.left) * (M.w / b.width); M.drag.y = (e.clientY - b.top) * (M.h / b.height);
+  M.drag.vx = M.drag.vy = 0;
+});
+window.addEventListener('pointerup', () => { M.drag = null; });
+function stepMap() {
+  const N = M.nodes;
+  for (let i = 0; i < N.length; i++) for (let j = i + 1; j < N.length; j++) {
+    const a = N[i], b = N[j];
+    let dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy || .01;
+    const k = (a.kind === 'task' || b.kind === 'task') ? 120 : 900;
+    const f = k / d2, d = Math.sqrt(d2);
+    dx /= d; dy /= d;
+    a.vx -= dx * f; a.vy -= dy * f; b.vx += dx * f; b.vy += dy * f;
+  }
+  M.links.forEach((l) => {
+    const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y, d = Math.sqrt(dx * dx + dy * dy) || .01;
+    const f = (d - l.len) * .03, fx = dx / d * f, fy = dy / d * f;
+    l.a.vx += fx; l.a.vy += fy; l.b.vx -= fx; l.b.vy -= fy;
+  });
+  N.forEach((n) => {
+    if (n.kind === 'you' && n !== M.drag) { n.vx += (M.w / 2 - n.x) * .05; n.vy += (M.h / 2 - n.y) * .05; }
+    if (n === M.drag) return;
+    n.vx *= .82; n.vy *= .82;
+    const mx = n.kind === 'path' ? 52 : n.r + 4;
+    n.x = Math.max(mx, Math.min(M.w - mx, n.x + n.vx));
+    n.y = Math.max(n.r + 4, Math.min(M.h - n.r - 18, n.y + n.vy));
+  });
+  N.forEach((n) => n.g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`));
+  M.links.forEach((l) => { l.el.setAttribute('x1', l.a.x); l.el.setAttribute('y1', l.a.y); l.el.setAttribute('x2', l.b.x); l.el.setAttribute('y2', l.b.y); });
+  requestAnimationFrame(stepMap);
+}
+
+// ---------- shell ----------
+function renderSide() { renderFacts(); renderExpect(); syncMap(); }
 function go(phase) {
   S.phase = phase;
-  $('chatPhase').hidden = phase !== 'chat';
-  $('cardPhase').hidden = phase !== 'cards';
-  $('practicalPhase').hidden = phase !== 'practical';
-  $('donePhase').hidden = phase !== 'done';
+  PHASES.forEach((p) => { $(p + 'Phase').hidden = p !== phase; });
   if (phase === 'cards') showCard();
   if (phase === 'practical') renderPractical();
-  if (phase === 'done') renderDone();
   renderSide();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function start(more) {
   S = fresh(more); busy = false;
-  $('chat').innerHTML = '';
+  $('chat').innerHTML = ''; $('links').innerHTML = '';
+  $('drop').hidden = false; $('fileCard').hidden = true;
+  initMap();
   if (S.phase === 'chat') { agentSay(OPENING[0].q); renderBubbles(); }
   go(S.phase);
 }
 $('own').addEventListener('submit', (e) => { e.preventDefault(); answer($('ownInput').value); $('ownInput').value = ''; });
 document.querySelectorAll('[data-icon]').forEach((el) => el.innerHTML = ICON[el.dataset.icon]);
+$('removeCv').innerHTML = ICON.x;
 start(new URLSearchParams(location.search).has('more'));
+requestAnimationFrame(stepMap);
 </script>
 </body>
 </html>

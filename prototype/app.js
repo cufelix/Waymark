@@ -31,7 +31,7 @@ function renderHeader() {
   const el = document.getElementById('top');
   if (!el) return;
   const step = Number(el.dataset.step || 0);
-  const steps = [['index.html', 'Interview'], ['upload.html', 'Your stuff'], ['research.html', 'Research'], ['paths.html', 'Paths'], ['roadmap.html', 'Roadmap']];
+  const steps = [['index.html', 'Interview'], ['research.html', 'Research'], ['paths.html', 'Paths'], ['roadmap.html', 'Roadmap']];
   el.className = 'top';
   el.innerHTML =
     '<a class="brand" href="index.html">' + LOGO + '[Product name]</a>' +

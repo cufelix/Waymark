@@ -233,3 +233,32 @@ button { font-family: var(--body); }
 .result span { font-size: 14px; color: var(--muted); }
 .result .n { flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--accent); color: var(--bg); display: flex; align-items: center; justify-content: center; font: 700 16px var(--display); }
 @keyframes cardIn { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* 1c Expectation stepper, bridge, map */
+.expect { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.expect .st { display: flex; flex-direction: column; gap: 6px; }
+.expect .st .ln { height: 4px; border-radius: 4px; background: var(--raised); overflow: hidden; }
+.expect .st .ln div { height: 4px; background: var(--accent); width: 0; transition: width .4s; }
+.expect .st b { font: 600 13px var(--body); color: var(--faint); }
+.expect .st span { font-size: 12px; color: #4A5244; }
+.expect .st.on b { color: var(--text); }
+.expect .st.on span { color: var(--muted); }
+.expect .st.done b { color: var(--muted); }
+.expect-note { font-size: 13px; color: var(--accent-hover); min-height: 18px; margin-top: 10px; }
+.bridge { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 24px; padding: 40px; display: flex; flex-direction: column; gap: 24px; animation: cardIn .4s ease-out both; }
+.bridge .how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bridge .how div { background: var(--surface); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--muted); }
+.bridge .how div b { font-size: 26px; }
+.rate .emo { font-size: 26px; line-height: 1; }
+.map-box { position: relative; height: 340px; border-radius: 12px; background: radial-gradient(circle at 50% 50%, #151813 0%, #101210 70%); border: 1px solid var(--line); overflow: hidden; touch-action: none; }
+.map-box svg { width: 100%; height: 100%; display: block; }
+.map-box .lnk { stroke: #3A4134; }
+.map-box .lnk.task { stroke: #2C3228; }
+.map-box text { font: 500 11px var(--body); fill: var(--muted); pointer-events: none; }
+.map-box .nd { cursor: grab; transition: fill .3s; }
+.map-box .nd:active { cursor: grabbing; }
+.map-box g.top text { fill: var(--text); font-weight: 600; }
+.map-box.hovering g:not(.hl) { opacity: .25; }
+.map-box.hovering line:not(.hl) { opacity: .15; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--faint); }
+.map-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
