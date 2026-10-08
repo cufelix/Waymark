@@ -63,7 +63,8 @@ export type RoadmapChapter = {
   estimatedHours?: number;        // the planner's estimate, shown as "about"
   resources: LearningResource[];  // free first
   topPickId?: string;
-  done: boolean;                  // the seeker's own tick, never proof
+  done: boolean;                  // never proof
+  doneBy?: "evidence" | "seeker"; // evidence: the seeker already has every skill (stated or proven); seeker: their own tick
   doneAt?: ISODate;
 };
 
