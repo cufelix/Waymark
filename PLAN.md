@@ -200,6 +200,7 @@ type RoadmapNode = {
 };
 
 type Roadmap = { seekerId: string; occupation: string; goal: "learn-fast" | "stability" | "mission"; modules: { name: string; nodes: RoadmapNode[] }[] };
+// Superseded by API.md "Part 4: Roadmap" (Roadmap, RoadmapModule, RoadmapChapter, LearningResource).
 ```
 
 **Guardrail baked into the contracts:** there is no number that summarises a person. That means:
@@ -264,6 +265,7 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 | B6 | Career choice: the seeker picks one of the run's top 3 career paths (`PUT /v1/seekers/{seekerId}/career-choice`), checked against Part 2 and stored as `profile.careerChoice` | an occupation the run did not return is rejected; the choice is in the profile and the export |
 | B7 | Salary lookup in the interview: when the seeker asks about pay, one quick Exa search answers with an indicative range, every figure backed by a verbatim quote from a linked page (API.md "Salary lookup in the interview") | an invented or unquoted number never reaches the seeker; the pages are in the interview turn and the export |
 | B8 | Stage 3 validation in `src/gap/` (API.md "Part 3: Validation"): per-skill demand next to the seeker's evidence, company requirements, the typical job across markets, market facts instead of a chance number; mounted through `src/api/part3.ts`; included in Part 1's export and delete | a real run and profile give a validation where every fact has a source and nothing summarises the seeker in one number |
+| B9 | Stage 4 roadmap in `src/roadmap/` (API.md "Part 4: Roadmap"): modules in prerequisite order, chapters per skill with demand and the seeker's evidence copied from the validation, a target ladder step backed by market facts, learning resources found with Exa and labelled from the page (free first, top pick), the seeker's own done tick; mounted through `src/api/part4.ts`; included in Part 1's export and delete | a real validation gives a roadmap where every number and every resource has a source, and nothing summarises the seeker in one number |
 
 ### App UI (owner to be decided)
 | # | Issue | Done when |

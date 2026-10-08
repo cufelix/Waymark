@@ -7,7 +7,7 @@ The single source of truth for how the parts talk to each other. If an endpoint 
 | 1. User input: interview, career preferences, dream companies, CV, portfolio, GitHub and socials | @Dymyt-ry | building now, API only, no UI |
 | 2. Research: user research, company research, vacancy listing, job market, top career paths | @cufelix | building now |
 | 3. Validation: company requirements, requirement vs evidence per skill, the typical job across markets, market facts | @Dymyt-ry | building now |
-| 4. Output: roadmap, curated resources | not assigned | names reserved below |
+| 4. Output: roadmap of modules and chapters, curated learning resources | @Dymyt-ry | building now |
 
 ## How the parts connect
 
@@ -51,7 +51,7 @@ sequenceDiagram
 
   Lists add `meta.page`, `meta.pageSize`, `meta.total`, and take `?page=` and `?pageSize=` (max 100).
 - **Error codes:** `bad_request` (400), `unauthorized` (401), `consent_required` (403), `not_found` (404), `conflict` (409), `unprocessable` (422, input fails validation), `rate_limited` (429), `upstream_failed` (502, a scraper or API failed), `internal` (500).
-- **IDs** are prefixed strings: `skr_` seeker, `doc_` document, `lnk_` link, `run_` research run, `cmp_` company, `vac_` vacancy, `clm_` claim, `src_` source.
+- **IDs** are prefixed strings: `skr_` seeker, `doc_` document, `lnk_` link, `run_` research run, `cmp_` company, `vac_` vacancy, `clm_` claim, `src_` source, `val_` validation, `rmp_` roadmap, `mod_` roadmap module, `chp_` chapter, `res_` learning resource.
 - **Standards:**
   - Timestamps: ISO 8601 UTC, `2026-10-08T21:00:00Z`.
   - Countries: ISO 3166-1 alpha-2, `CZ`.
@@ -151,10 +151,45 @@ Each fact carries its sources. A skill without evidence says `none`; it is never
 - By ESCO URI first.
 - Part 1 still uses stub URIs (`urn:stub:skill:…`) until it moves to `src/shared/taxonomy/`, so the fallback is the same `slug()` of the label.
 
-## Part 4: reserved, not designed yet
+## Part 4: Roadmap (@Dymyt-ry)
 
-This name is taken so the first parts don't use it for something else.
-- `POST /v1/roadmaps { validationId }` → `Roadmap`.
+Stage 4 of the whiteboard. It turns a validation into a learning roadmap for the occupation the seeker picked.
+- **Modules** come in prerequisite order, for example "Python + Mathematics: core foundations", then "Data + SQL".
+- Each module holds **chapters**, for example "Variables and logic". The UI prototype calls modules "sections" and chapters "modules".
+- Each chapter lists **learning resources** found on the web: free resources first, and one marked as the top pick.
+- Its inputs are the validation from Part 3 (over HTTP) and the seeker's profile. It finds resources with Exa: one search per chapter, then the fast model picks and labels them from the page text.
+- Code lives in `src/roadmap/`. It is mounted the same way as Part 3, through `src/api/part4.ts`.
+
+| Method and path | Does | Body | Returns |
+|---|---|---|---|
+| `POST /v1/roadmaps` | Start building a roadmap from a validation. `profile.seekerId` must own the validation (otherwise `unprocessable`). Returns `202` with `status: "building"`; poll `GET`. | `RoadmapRequest` | `Roadmap` |
+| `GET /v1/roadmaps/{roadmapId}` | One roadmap, while it is building or once it is ready | | `Roadmap` |
+| `PUT /v1/roadmaps/{roadmapId}/chapters/{chapterId}/progress` | The seeker ticks a chapter as done, or un-ticks it | `{ done: boolean }` | `RoadmapChapter` |
+| `GET /v1/seekers/{seekerId}/roadmaps` | All roadmaps stored for a seeker (used by Part 1's export) | | `Roadmap[]` |
+| `DELETE /v1/seekers/{seekerId}/roadmaps` | Hard delete of every roadmap for a seeker (used by Part 1's delete) | | `{ deleted: true, roadmaps: number }` |
+
+What the whiteboard's two steps become:
+
+| Whiteboard | Roadmap field |
+|---|---|
+| Position the user has the biggest chance to get | `target`: the first step of the chosen occupation's ladder that the market hires into, for example "Junior backend developer". It is backed by facts from the validation, such as the number of entry-level ads and the salary for that step. It is not a probability, and it is never compared with other occupations by fit. |
+| Curate best possible resources for the user | `modules[].chapters[].resources`: courses, videos, books and practice sites, free first, in the seeker's languages, each with the page it came from |
+
+**How the roadmap is built:**
+- **What decides the content:**
+  - The chapters come from the skills that employers ask for, in the validation's `jobProfile` and `skills`.
+  - A chapter may also cover a foundation that no ad names, such as "How the web works". Its `skills` is then empty and it has no `demand`.
+  - The seeker's `goal` changes the order within the prerequisite constraints and the choice of top pick.
+- **Numbers are copied, never generated:** every number in a chapter (`demand`) comes from the validation with its sources. The model writes no numbers into `why` or `outcome` that are not in those facts.
+- **What the seeker already has:**
+  - The chapter carries `evidence` and `claims` from the validation. A chapter that is `proven` or `stated` stays on the map as "you've got this", with an option to review it.
+  - `done` is the seeker's own tick and is never proof. Proof still comes only from a link the seeker owns (Part 2).
+- **Resources:**
+  - Every resource has a `source` (the page, tool `exa`) whose `quote` appears on that page.
+  - `price`, `effortHours` and `scope` are filled only when the page states them.
+  - Resources are cached per skill and language across seekers, because they hold nothing personal.
+
+**Guardrail:** the same as in Part 3. The roadmap has no progress percentage, no XP and no level. The API returns no "3 of 16 chapters" count, and nothing compares the seeker with other people.
 
 Guardrail for Parts 3 and 4: no single score, match percentage or ranking of a person. That comes from the brief.
 The same holds for career paths: the ladder and its salaries describe the occupation in the seeker's locations, never the seeker's chance of reaching a step. The seeker's `careerChoice` is their pick, not ours.
@@ -255,7 +290,7 @@ type CareerChoice = {
   chosenAt: ISODate;
 };
 
-type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: ResearchRun[]; validations: Validation[] };
+type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: ResearchRun[]; validations: Validation[]; roadmaps: Roadmap[] };
 
 // ---------- Part 2: research ----------
 type ResearchOptions = {
@@ -455,6 +490,75 @@ type MarketFacts = {              // how open the market is; never a probability
   medianDaysOpen?: number;        // from firstSeenAt to lastSeenAt
   repostedVacancies: number;      // repostCount of at least 1
   salaryRange?: SalaryRange;
+};
+
+// ---------- Part 4: roadmap ----------
+type RoadmapRequest = {
+  validationId: string;
+  profile: SeekerProfile;         // for goal, languages and the latest claims
+};
+
+type Roadmap = {
+  roadmapId: string;              // "rmp_…"
+  seekerId: string;
+  validationId: string;
+  runId: string;
+  occupation: Occupation;
+  goal: "learn-fast" | "stability" | "mission";
+  status: "building" | "ready" | "failed";
+  error?: { code: string; message: string };      // only when failed, as on ResearchRun
+  target?: RoadmapTarget;         // set once ready, when the ladder has a step the market hires into
+  modules: RoadmapModule[];       // prerequisite order; empty while building
+  createdAt: ISODate;
+  updatedAt: ISODate;
+};
+
+type RoadmapTarget = {
+  step: CareerStep;               // from the validation's jobProfile.ladder
+  facts: Claim[];                 // e.g. "38 of 120 ads in Prague are for juniors", with the ads as sources; never a probability
+};
+
+type RoadmapModule = {
+  moduleId: string;               // "mod_…"
+  title: string;                  // "Python + Mathematics"
+  subtitle: string;               // "Core foundations"
+  why: string;                    // why it comes at this point; numbers only from its chapters' demand
+  chapters: RoadmapChapter[];
+};
+
+type RoadmapChapter = {
+  chapterId: string;              // "chp_…"
+  title: string;                  // "Variables and logic"
+  category: "code" | "data" | "theory" | "tools" | "project" | "soft";
+  skills: Skill[];                // the ESCO skills it teaches; empty for a foundation no ad names
+  demand?: {                      // copied from the validation's SkillCheck, never computed by the model
+    vacanciesRequiring: number;
+    vacanciesTotal: number;
+    sources: Source[];
+  };
+  evidence: Evidence;             // from the validation: proven or stated = "you've got this"
+  claims: Claim[];
+  outcome: string;                // "After this you can write a small program that …"
+  estimatedHours?: number;        // the planner's estimate, shown as "about"
+  resources: LearningResource[];  // free first
+  topPickId?: string;             // resourceId of the one to start with
+  done: boolean;                  // the seeker's own tick, never proof
+  doneAt?: ISODate;
+};
+
+type LearningResource = {
+  resourceId: string;             // "res_…"
+  title: string;                  // "CS50's Introduction to Programming with Python"
+  provider: string;               // "Harvard"
+  url: string;
+  format: "course" | "video" | "book" | "practice" | "docs" | "article";
+  cost: "free" | "freemium" | "paid";
+  price?: string;                 // only when the page states it
+  level?: "beginner" | "intermediate" | "advanced";
+  lang: string;
+  scope?: string;                 // the part that covers this chapter, e.g. "Lectures 0 to 1", only when the page states it
+  effortHours?: number;           // only when the page states it
+  source: Source;                 // the page, tool "exa"; quote = the sentence the labels rest on
 };
 ```
 
