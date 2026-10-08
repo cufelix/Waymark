@@ -32,3 +32,24 @@ test("fake llm returns queued answers", async () => {
   const llm = new FakeLlm(["a"]);
   assert.equal(await llm.chat({ model: "m", messages: [] }), "a");
 });
+
+import { mergeStatedSkills, removeSources, touch, emptyPreferences } from "./profile.ts";
+
+test("touch bumps version and computes status", () => {
+  const p: any = { seekerId: "skr_1", profileVersion: 1, status: "incomplete", consent: { dataProcessing: true }, preferences: emptyPreferences(), statedSkills: [], documents: [], links: [], updatedAt: "" };
+  assert.equal(touch(p).status, "incomplete");
+  p.preferences.targetOccupations = [{ uri: "u", label: "x", lang: "en" }];
+  const t = touch(p);
+  assert.equal(t.status, "complete");
+  assert.equal(t.profileVersion, 2);
+});
+
+test("stated skills merge by uri and drop when sources are removed", () => {
+  const skill = { uri: "s:docker", label: "Docker", lang: "en" };
+  const c = (url: string): any => ({ id: url, skill, sources: [{ url, quote: "q" }] });
+  const merged = mergeStatedSkills([c("seeker-upload://doc_A")], [c("seeker-interview://skr_1#turn-2")]);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].sources.length, 2);
+  assert.equal(removeSources(merged, "seeker-upload://doc_A")[0].sources.length, 1);
+  assert.equal(removeSources(removeSources(merged, "seeker-upload://doc_A"), "seeker-interview://").length, 0);
+});

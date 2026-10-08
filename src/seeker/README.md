@@ -13,7 +13,7 @@ Next.js routes get wired once the skeleton exists. `api.ts` exposes one framewor
 
 | Path | Owner | What |
 |---|---|---|
-| `contracts.ts`, `core/ids.ts`, `core/errors.ts`, `core/claims.ts`, `llm/llm.ts`, `store/store.ts`, `store/memory.ts`, `taxonomy.ts` | base (orchestrator) | shared. Ask in your task thread to change them |
+| `contracts.ts`, `core/ids.ts`, `core/errors.ts`, `core/claims.ts`, `core/profile.ts`, `llm/llm.ts`, `store/store.ts`, `store/memory.ts`, `taxonomy.ts` | base (orchestrator) | shared. Ask in your task thread to change them |
 | `core/validate.ts`, `core/auth.ts`, `service/seekers.ts`, `service/gdpr.ts`, `api.ts`, `fixtures/profiles/` | Claude worker | create seeker, preferences, links, profile handoff, export/delete, request handling |
 | `service/interview.ts`, `service/interview.prompts.ts` | Codex 1 | interview turns via OpenRouter, preferences draft, stated skills from answers |
 | `service/documents.ts`, `cv/extract.ts` | Codex 2 | CV upload (PDF/DOCX), parse into stated skills, experience, education; delete |
@@ -27,3 +27,4 @@ Tests live next to the file they test (`service/interview.test.ts`).
 - Seeker skills are always `tier: "stated"` with a `seeker-upload://` or `seeker-interview://` source (`core/claims.ts`). Never "proven" in Part 1.
 - No single score, match percentage or ranking of a person anywhere.
 - Secrets only from env (`OPENROUTER_API_KEY`, `SEEKER_API_KEYS`); `.env*` is gitignored.
+- After changing a profile, always `touch()` it (`core/profile.ts`): version +1, `updatedAt`, status. Merge stated skills with `mergeStatedSkills()`, remove a document's or turn's evidence with `removeSources()`.
