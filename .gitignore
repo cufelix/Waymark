@@ -1,2 +1,9 @@
 # .remember/ is local assistant state, not project content
 .remember/
+
+.env
+.env.*
+!.env.example
+node_modules/
+.claude-flow/
+.swarm/
