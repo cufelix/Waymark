@@ -64,6 +64,16 @@ test("ODT reader validates its mimetype and handles paragraphs, headings, spaces
   assert.equal(await extractCvText(new FakeLlm([]), { fileName: "jane.odt", mimeType: ODT_MIME, bytes }, "odt"), expected);
 });
 
+test("ODT space expansion is capped across the whole document", () => {
+  const xml = '<text:p><text:s text:c="10485760"/><text:s text:c="10485761"/></text:p>';
+  assert.throws(() => odtXmlToText(xml), (error: unknown) => {
+    assert.ok(error instanceof ApiError);
+    assert.equal(error.code, "unprocessable");
+    assert.match(error.message, /space count/);
+    return true;
+  });
+});
+
 test("PDF transcription is sent as a file part using the fast model", async () => {
   const llm = new FakeLlm(["Jane Example\nTypeScript"]);
   const bytes = Buffer.from("%PDF-1.7\ntiny test payload");

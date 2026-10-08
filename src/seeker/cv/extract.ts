@@ -231,13 +231,15 @@ export function docxXmlToText(xml: string): string {
 }
 
 export function odtXmlToText(xml: string): string {
+  let expandedSpaces = 0;
   const withWhitespace = xml
     .replace(/<text:s\b([^>]*)\/?\s*>/gi, (_match, attributes: string) => {
       const countMatch = attributes.match(/\btext:c\s*=\s*(["'])(\d+)\1/i);
       const count = countMatch ? Number.parseInt(countMatch[2], 10) : 1;
-      if (!Number.isSafeInteger(count) || count < 1 || count > MAX_DOCUMENT_XML_BYTES) {
+      if (!Number.isSafeInteger(count) || count < 1 || expandedSpaces + count > MAX_DOCUMENT_XML_BYTES) {
         return unprocessable("ODT space count is invalid");
       }
+      expandedSpaces += count;
       return " ".repeat(count);
     })
     .replace(/<text:tab\b[^>]*\/?\s*>/gi, "\t")
