@@ -220,7 +220,9 @@ function verifyCandidates(
     const quoted = quotedPage(candidate, pages);
     if (!quoted) continue;
     const { page, quote } = quoted;
-    if (!normalizedIncludes(page.text, candidate.title) && !normalizedIncludes(page.text, candidate.provider)) continue;
+    // The page's own title counts too: Exa's extracted text often drops the heading.
+    const pageIdentity = `${page.title}\n${page.text}`;
+    if (!normalizedIncludes(pageIdentity, candidate.title) && !normalizedIncludes(pageIdentity, candidate.provider)) continue;
     const cost = verifiedCost(candidate, page, quote);
     if (cost === undefined) continue;
     const normalizedText = normalizeWhitespace(page.text);

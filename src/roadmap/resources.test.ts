@@ -368,3 +368,25 @@ test("findResources keeps supported price, scope and hour effort metadata", asyn
   assert.equal(result.resources[0]!.scope, "Module A covers variables and logic.");
   assert.equal(result.resources[0]!.effortHours, 12);
 });
+
+test("a title found only in the page's own title still counts as grounded", async () => {
+  const page: ExaResult = {
+    url: "https://example.com/heading-only",
+    title: "Example Python Primer",
+    text: "This free primer covers variables and loops.",
+  };
+  const llm = new FakeLlm([answer([{
+    pageIndex: 0,
+    title: "Example Python Primer",
+    provider: "Example School",
+    format: "course",
+    cost: "free",
+    lang: "en",
+    quote: page.text,
+  }])]);
+
+  const result = await findResources(chapter(), context, { exa: new FakeExa([page]), llm, cache: new MemoryResourceCache() });
+
+  assert.equal(result.resources.length, 1);
+  assert.equal(result.resources[0]!.title, "Example Python Primer");
+});
