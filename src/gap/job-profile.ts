@@ -1,17 +1,5 @@
 import type { CareerPath, JobMarket, JobProfile, Occupation, OccupationTrends, Skill, Source, Vacancy } from "./contracts.ts";
-
-function slug(label: string): string {
-  return label
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function sameSkill(left: Skill, right: Skill): boolean {
-  return left.uri === right.uri || slug(left.label) === slug(right.label);
-}
+import { canonicalSkillKey, escoKeysByLabel, sameSkill, skillKey } from "./evidence.ts";
 
 function uniqueSources(sources: Source[]): Source[] {
   const seen = new Set<string>();
@@ -33,7 +21,21 @@ export function buildJobProfile(input: {
   careerPath?: CareerPath; // for the ladder
 }): JobProfile {
   const markets = new Map<string, JobProfile["markets"][number]>();
-  const skillGroups: { skill: Skill; vacancyIds: Set<string>; sources: Source[] }[] = [];
+  const allSkills = input.vacancies.flatMap((vacancy) => vacancy.requirements.map((requirement) => requirement.skill));
+  const escoIndex = escoKeysByLabel(allSkills);
+  const canonicalSkills = new Map<string, Skill>();
+  for (const skill of [...allSkills].sort((left, right) => {
+    const leftKey = canonicalSkillKey(left, escoIndex);
+    const rightKey = canonicalSkillKey(right, escoIndex);
+    return leftKey.localeCompare(rightKey)
+      || Number(skillKey(right) === rightKey) - Number(skillKey(left) === leftKey)
+      || left.uri.localeCompare(right.uri)
+      || left.label.localeCompare(right.label);
+  })) {
+    const key = canonicalSkillKey(skill, escoIndex);
+    if (!canonicalSkills.has(key)) canonicalSkills.set(key, skill);
+  }
+  const skillGroups = new Map<string, { skill: Skill; vacancyIds: Set<string>; sources: Source[] }>();
 
   for (const vacancy of input.vacancies) {
     const marketKey = `${vacancy.location.country}\u0000${vacancy.location.city ?? ""}`;
@@ -48,10 +50,11 @@ export function buildJobProfile(input: {
     }
 
     for (const requirement of vacancy.requirements) {
-      let group = skillGroups.find(({ skill }) => sameSkill(skill, requirement.skill));
+      const key = canonicalSkillKey(requirement.skill, escoIndex);
+      let group = skillGroups.get(key);
       if (!group) {
-        group = { skill: requirement.skill, vacancyIds: new Set<string>(), sources: [] };
-        skillGroups.push(group);
+        group = { skill: canonicalSkills.get(key)!, vacancyIds: new Set<string>(), sources: [] };
+        skillGroups.set(key, group);
       }
       group.vacancyIds.add(vacancy.id);
       group.sources.push(requirement.source);
@@ -59,17 +62,17 @@ export function buildJobProfile(input: {
   }
 
   const vacanciesTotal = input.vacancies.length;
-  const skills: JobProfile["skills"] = skillGroups.map((group) => {
+  const skills: JobProfile["skills"] = [...skillGroups.values()].map((group) => {
     const vacanciesRequiring = group.vacancyIds.size;
     const share = vacanciesTotal === 0 ? 0 : vacanciesRequiring / vacanciesTotal;
-    const trend = input.trends?.skills.find(({ skill }) => sameSkill(skill, group.skill))?.trend;
+    const trend = input.trends?.skills.find(({ skill }) => sameSkill(skill, group.skill));
 
     return {
       skill: group.skill,
       vacanciesRequiring,
       vacanciesTotal,
       band: share >= 0.5 ? "most" : share >= 0.2 ? "many" : "some",
-      ...(trend === undefined ? {} : { trend }),
+      ...(trend === undefined ? {} : { trend: trend.trend, trendSources: trend.sources }),
       sources: uniqueSources(group.sources),
     };
   });

@@ -65,6 +65,33 @@ test("non-OK responses become sanitized upstream_failed errors", async () => {
   ));
 });
 
+test("successful responses with unexpected shapes become a consistent upstream_failed error", async () => {
+  const expected = (error: unknown) => error instanceof ApiError
+    && error.code === "upstream_failed"
+    && error.message === "Research service returned an unexpected response";
+  const cases: { data: unknown; call: (client: HttpPart2Client) => Promise<unknown> }[] = [
+    { data: null, call: (client) => client.getRun(RUN.runId) },
+    { data: { ...RUN, profileVersion: "3" }, call: (client) => client.getRun(RUN.runId) },
+    { data: { ...RUN, runId: "run_OTHER" }, call: (client) => client.getRun(RUN.runId) },
+    { data: {}, call: (client) => client.getCareerPaths(RUN.runId) },
+    { data: {}, call: (client) => client.getMarket(RUN.runId) },
+    { data: {}, call: (client) => client.getTrends(RUN.runId) },
+    { data: {}, call: (client) => client.listCompanies(RUN.runId) },
+    { data: {}, call: (client) => client.listVacancies(RUN.runId, OCC.uri) },
+    { data: {}, call: (client) => client.getSeekerResearch(RUN.runId) },
+    { data: { links: {} }, call: (client) => client.getSeekerResearch(RUN.runId) },
+  ];
+
+  for (const entry of cases) {
+    const client = new HttpPart2Client({
+      baseUrl: "https://research.example",
+      apiKey: "key",
+      fetchImpl: async () => json({ ok: true, data: entry.data, error: null }),
+    });
+    await assert.rejects(() => entry.call(client), expected);
+  }
+});
+
 test("missing Part 2 configuration fails fast", () => {
   const oldUrl = process.env.PART2_BASE_URL;
   const oldKey = process.env.PART2_API_KEY;

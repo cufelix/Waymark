@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { JobMarket, MarketFacts, Source, Vacancy } from "./contracts.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
@@ -8,10 +7,6 @@ const OPEN_WINDOW_MS = 14 * DAY_MS;
 // below intentionally use their ASCII forms.
 const ENTRY_LEVEL_PATTERN =
   /(?:^|[^\p{L}\p{N}])(?:junior|trainee|intern|internship|graduate|entry level|entry-level|no experience|without experience|absolvent|staz|stazista|praktikant|bez praxe|bez zkusenosti|zacinajici|berufseinsteiger|einsteiger|praktikum|ohne berufserfahrung)(?=$|[^\p{L}\p{N}])/u;
-
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
 
 function normaliseForEntryLevelMatch(value: string): string {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ");
@@ -41,16 +36,24 @@ function marketIsForLocation(item: JobMarket, location: { country: string; city?
   return item.location.city !== undefined && sameCity(item.location.city, location.city);
 }
 
-function titleSource(vacancy: Vacancy): Source {
+function titleSource(vacancy: Vacancy): Source | undefined {
+  const source = vacancy.requirements[0]?.source ?? vacancy.salary?.source;
+  if (!source) return undefined;
   return {
-    id: `src_${sha256(`${vacancy.canonicalUrl}\0${vacancy.title}`)}`,
-    url: vacancy.canonicalUrl,
-    title: vacancy.title,
-    fetchedAt: vacancy.firstSeenAt,
-    tool: "apify",
+    id: source.id,
+    url: source.url,
+    title: source.title,
+    fetchedAt: source.fetchedAt,
+    tool: source.tool,
     quote: vacancy.title,
-    contentHash: sha256(vacancy.title),
+    contentHash: source.contentHash,
+    ...(source.snapshotKey === undefined ? {} : { snapshotKey: source.snapshotKey }),
   };
+}
+
+function isEntryLevel(vacancy: Vacancy): boolean {
+  return mentionsEntryLevel(vacancy.title)
+    || vacancy.requirements.some(({ source }) => mentionsEntryLevel(source.quote));
 }
 
 function entryLevelSource(vacancy: Vacancy): Source | undefined {
@@ -81,7 +84,8 @@ export function buildMarketFacts(input: {
 
   return input.locations.map((location) => {
     const vacancies = input.vacancies.filter((vacancy) => vacancyIsInLocation(vacancy, location));
-    const entryLevelSources = vacancies.map(entryLevelSource).filter((source): source is Source => source !== undefined);
+    const entryLevelVacancies = vacancies.filter(isEntryLevel);
+    const entryLevelSources = entryLevelVacancies.map(entryLevelSource).filter((source): source is Source => source !== undefined);
     const salaryRange = input.market.find((item) => marketIsForLocation(item, location))?.salaryRange;
     const median = medianDaysOpen(vacancies);
 
@@ -91,7 +95,7 @@ export function buildMarketFacts(input: {
         const age = nowMs - Date.parse(vacancy.lastSeenAt);
         return age >= 0 && age <= OPEN_WINDOW_MS;
       }).length,
-      entryLevelVacancies: entryLevelSources.length,
+      entryLevelVacancies: entryLevelVacancies.length,
       entryLevelSources,
       ...(median === undefined ? {} : { medianDaysOpen: median }),
       repostedVacancies: vacancies.filter((vacancy) => vacancy.repostCount >= 1).length,

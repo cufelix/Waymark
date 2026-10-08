@@ -5,7 +5,7 @@ import { handle, type GapDeps } from "./api.ts";
 import type { Validation } from "./contracts.ts";
 import { FakePart2Client } from "./part2-client.ts";
 import { MemoryGapStore } from "./store.ts";
-import { CAREER_PATHS, COMPANIES, MARKET, OCC, RUN, SEEKER_RESEARCH, TRENDS, VACANCIES } from "./testdata/run.ts";
+import { CAREER_PATHS, COMPANIES, MARKET, OCC, PROFILE, RUN, SEEKER_RESEARCH, TRENDS, VACANCIES } from "./testdata/run.ts";
 
 function deps(store = new MemoryGapStore()): GapDeps {
   return {
@@ -93,12 +93,7 @@ test("Part 2 errors return 502 without leaking the upstream body", async () => {
     path: "/v1/validations",
     headers: auth,
     body: {
-      profile: {
-        seekerId: RUN.seekerId,
-        status: "complete",
-        profileVersion: RUN.profileVersion,
-        preferences: { targetOccupations: [OCC], locations: [] },
-      },
+      profile: PROFILE,
       runId: RUN.runId,
     },
   }, api);

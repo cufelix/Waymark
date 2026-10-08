@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ApiError } from "../seeker/core/errors.ts";
-import type { Occupation, ValidationRequest } from "./contracts.ts";
+import type { Occupation, SeekerProfile, ValidationRequest } from "./contracts.ts";
 import { FakePart2Client } from "./part2-client.ts";
 import { createValidation, deleteValidations, getValidation, listValidations, type ValidationBuilders } from "./service.ts";
 import { MemoryGapStore } from "./store.ts";
@@ -84,6 +84,47 @@ test("rejects incomplete profiles, unknown occupations, and unknown request fiel
     () => createValidation({ store, part2: part2() }, { ...request(), extra: true } as ValidationRequest, builders),
     "unprocessable",
   );
+});
+
+test("rejects missing, wrongly typed, and unknown top-level profile fields", async () => {
+  const store = new MemoryGapStore();
+  const requiredFields = ["seekerId", "profileVersion", "status", "consent", "preferences", "statedSkills", "documents", "links", "updatedAt"];
+  for (const field of requiredFields) {
+    const profile = structuredClone(PROFILE) as unknown as Record<string, unknown>;
+    delete profile[field];
+    await expectApiError(
+      () => createValidation({ store, part2: part2() }, request({ profile: profile as unknown as SeekerProfile }), builders),
+      "unprocessable",
+    );
+  }
+
+  const invalidProfiles: Record<string, unknown>[] = [
+    { ...PROFILE, seekerId: 1 },
+    { ...PROFILE, profileVersion: "3" },
+    { ...PROFILE, consent: { dataProcessing: false } },
+    { ...PROFILE, preferences: [] },
+    { ...PROFILE, statedSkills: {} },
+    { ...PROFILE, documents: {} },
+    { ...PROFILE, links: {} },
+    { ...PROFILE, careerChoice: "not an object" },
+    { ...PROFILE, updatedAt: 123 },
+    { ...PROFILE, unexpected: true },
+  ];
+  for (const profile of invalidProfiles) {
+    await expectApiError(
+      () => createValidation({ store, part2: part2() }, request({ profile: profile as unknown as SeekerProfile }), builders),
+      "unprocessable",
+    );
+  }
+});
+
+test("profile validation does not inspect claim internals", async () => {
+  const profile = structuredClone(PROFILE);
+  profile.statedSkills = [null] as unknown as SeekerProfile["statedSkills"];
+
+  const validation = await createValidation({ store: new MemoryGapStore(), part2: part2() }, request({ profile }), builders);
+
+  assert.equal(validation.seekerId, PROFILE.seekerId);
 });
 
 test("defaults to careerChoice before the first target occupation", async () => {

@@ -51,30 +51,18 @@ test("builds Prague market facts from the shared run and keeps an empty location
     entryLevelVacancies: 2,
     entryLevelSources: [
       {
-        id: facts[0]?.entryLevelSources[0]?.id,
-        url: VACANCIES[0]?.canonicalUrl,
-        title: "Junior Backend Developer",
-        fetchedAt: VACANCIES[0]?.firstSeenAt,
-        tool: "apify",
+        ...VACANCIES[0]!.requirements[0]!.source,
         quote: "Junior Backend Developer",
-        contentHash: createHash("sha256").update("Junior Backend Developer").digest("hex"),
       },
       {
-        id: facts[0]?.entryLevelSources[1]?.id,
-        url: VACANCIES[3]?.canonicalUrl,
-        title: "Backend Developer (no experience needed)",
-        fetchedAt: VACANCIES[3]?.firstSeenAt,
-        tool: "apify",
+        ...VACANCIES[3]!.requirements[0]!.source,
         quote: "Backend Developer (no experience needed)",
-        contentHash: createHash("sha256").update("Backend Developer (no experience needed)").digest("hex"),
       },
     ],
     medianDaysOpen: 37,
     repostedVacancies: 1,
     salaryRange: MARKET[0]?.salaryRange,
   });
-  assert.match(facts[0]?.entryLevelSources[0]?.id ?? "", /^src_[0-9a-f]+$/);
-  assert.match(facts[0]?.entryLevelSources[1]?.id ?? "", /^src_[0-9a-f]+$/);
   assert.deepEqual(facts[1], {
     location: { country: "SK", city: "Bratislava" },
     openVacancies: 0,
@@ -97,6 +85,7 @@ test("recognises Czech requirement wording and German title wording without matc
       id: "vac_de_entry",
       title: "Berufseinsteiger Backend-Entwickler",
       location: { country: "DE", city: "Berlin", remote: false },
+      requirements: [{ skill: DOCKER, required: true, source: source("https://jobs.example.com/de-entry", "Docker required.") }],
     }),
     vacancy({
       id: "vac_not_entry",
@@ -155,11 +144,22 @@ test("counts remote vacancies for every city in their country and uses an inclus
   assert.equal(country?.medianDaysOpen, 9);
 });
 
-test("returns stable title-source IDs", () => {
-  const input = { vacancies: [VACANCIES[0]!], market: MARKET, locations: [{ country: "CZ", city: "Prague" }], now: NOW };
+test("counts an entry-level title without a source but does not fabricate provenance", () => {
+  const unsourced = vacancy({ id: "vac_unsourced", title: "Junior Backend Developer", requirements: [] });
+  const facts = buildMarketFacts({ vacancies: [unsourced], market: [], locations: [{ country: "CZ", city: "Prague" }], now: NOW })[0]!;
 
-  const first = buildMarketFacts(input)[0]?.entryLevelSources[0]?.id;
-  const second = buildMarketFacts(input)[0]?.entryLevelSources[0]?.id;
+  assert.equal(facts.entryLevelVacancies, 1);
+  assert.deepEqual(facts.entryLevelSources, []);
+});
 
-  assert.equal(first, second);
+test("title evidence copies real salary-source metadata including snapshotKey", () => {
+  const salarySource = { ...source("https://jobs.example.com/intern", "50 000 CZK"), snapshotKey: "snapshots/intern.json" };
+  const sourced = vacancy({
+    id: "vac_salary_source",
+    title: "Backend Intern",
+    salary: { min: 50_000, currency: "CZK", period: "month", source: salarySource },
+  });
+  const facts = buildMarketFacts({ vacancies: [sourced], market: [], locations: [{ country: "CZ", city: "Prague" }], now: NOW })[0]!;
+
+  assert.deepEqual(facts.entryLevelSources, [{ ...salarySource, quote: sourced.title }]);
 });

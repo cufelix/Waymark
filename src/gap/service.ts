@@ -40,13 +40,36 @@ function validateRequest(value: unknown): ValidationRequest {
   if (typeof body.profile !== "object" || body.profile === null || Array.isArray(body.profile)) invalid("profile must be an object");
 
   const profile = body.profile as Record<string, unknown>;
+  const allowedProfile = new Set([
+    "seekerId",
+    "profileVersion",
+    "status",
+    "consent",
+    "preferences",
+    "statedSkills",
+    "documents",
+    "links",
+    "careerChoice",
+    "updatedAt",
+  ]);
+  const unknownProfileField = Object.keys(profile).find((key) => !allowedProfile.has(key));
+  if (unknownProfileField) invalid(`Unknown profile field: ${unknownProfileField}`);
   if (typeof profile.seekerId !== "string") invalid("profile.seekerId must be a string");
   if (profile.status !== "complete" && profile.status !== "incomplete") invalid("profile.status is invalid");
   if (typeof profile.profileVersion !== "number" || !Number.isFinite(profile.profileVersion)) invalid("profile.profileVersion must be a number");
+  if (typeof profile.consent !== "object" || profile.consent === null || Array.isArray(profile.consent)) invalid("profile.consent must be an object");
+  if ((profile.consent as Record<string, unknown>).dataProcessing !== true) invalid("profile.consent.dataProcessing must be true");
   if (typeof profile.preferences !== "object" || profile.preferences === null || Array.isArray(profile.preferences)) invalid("profile.preferences must be an object");
   const preferences = profile.preferences as Record<string, unknown>;
   if (!Array.isArray(preferences.targetOccupations)) invalid("profile.preferences.targetOccupations must be an array");
   if (!Array.isArray(preferences.locations)) invalid("profile.preferences.locations must be an array");
+  if (!Array.isArray(profile.statedSkills)) invalid("profile.statedSkills must be an array");
+  if (!Array.isArray(profile.documents)) invalid("profile.documents must be an array");
+  if (!Array.isArray(profile.links)) invalid("profile.links must be an array");
+  if (profile.careerChoice !== undefined && (typeof profile.careerChoice !== "object" || profile.careerChoice === null || Array.isArray(profile.careerChoice))) {
+    invalid("profile.careerChoice must be an object");
+  }
+  if (typeof profile.updatedAt !== "string") invalid("profile.updatedAt must be a string");
   return body as unknown as ValidationRequest;
 }
 

@@ -5,7 +5,7 @@ import type { Claim, Evidence, OccupationTrends, SeekerProfile, SeekerResearch, 
 
 // Key used to compare skills: the ESCO URI, or slug(label) for stub URIs (see API.md "Matching skills").
 export function skillKey(skill: Skill): string {
-  if (/^https?:\/\/\S*esco\S*$/i.test(skill.uri)) return skill.uri;
+  if (skill.uri && !/^urn:stub:/i.test(skill.uri)) return skill.uri;
   return `label:${slug(skill.label)}`;
 }
 
@@ -19,7 +19,41 @@ function slug(label: string): string {
 }
 
 export function sameSkill(a: Skill, b: Skill): boolean {
-  return a.uri === b.uri || slug(a.label) === slug(b.label);
+  if (a.uri && a.uri === b.uri) return true;
+  const hasFallbackUri = (skill: Skill): boolean => !skill.uri || /^urn:stub:/i.test(skill.uri);
+  return (hasFallbackUri(a) || hasFallbackUri(b)) && slug(a.label) === slug(b.label);
+}
+
+// Stub skills inherit a real ESCO key when their normalized label identifies one.
+// Sorting makes the mapping deterministic even if malformed upstream data gives
+// the same label to more than one ESCO URI.
+export function escoKeysByLabel(skills: Skill[]): Map<string, string> {
+  const index = new Map<string, string>();
+  const escoSkills = skills
+    .filter((skill) => /^https?:\/\/\S*esco\S*$/i.test(skill.uri))
+    .sort((left, right) => left.uri.localeCompare(right.uri));
+  for (const skill of escoSkills) {
+    const labelKey = `label:${slug(skill.label)}`;
+    if (!index.has(labelKey)) index.set(labelKey, skill.uri);
+  }
+  return index;
+}
+
+export function canonicalSkillKey(skill: Skill, escoIndex: ReadonlyMap<string, string>): string {
+  const key = skillKey(skill);
+  return key.startsWith("label:") ? escoIndex.get(key) ?? key : key;
+}
+
+function representativeSkill(skills: Skill[], key: string, escoIndex: ReadonlyMap<string, string>): Skill {
+  return [...skills]
+    .filter((skill) => canonicalSkillKey(skill, escoIndex) === key)
+    .sort((left, right) => {
+      const leftCanonical = Number(skillKey(left) === key);
+      const rightCanonical = Number(skillKey(right) === key);
+      return rightCanonical - leftCanonical
+        || left.uri.localeCompare(right.uri)
+        || left.label.localeCompare(right.label);
+    })[0]!;
 }
 
 function uniqueClaims(claims: Claim[]): Claim[] {
@@ -64,40 +98,41 @@ export function buildSkillChecks(input: {
   research: SeekerResearch;
   trends?: OccupationTrends;
 }): SkillCheck[] {
-  const skills: Skill[] = [];
-  for (const vacancy of input.vacancies) {
-    for (const requirement of vacancy.requirements) {
-      if (!skills.some((skill) => sameSkill(skill, requirement.skill))) skills.push(requirement.skill);
-    }
+  const allSkills = input.vacancies.flatMap((vacancy) => vacancy.requirements.map((requirement) => requirement.skill));
+  const escoIndex = escoKeysByLabel(allSkills);
+  const skillGroups = new Map<string, Skill>();
+  for (const skill of allSkills) {
+    const key = canonicalSkillKey(skill, escoIndex);
+    if (!skillGroups.has(key)) skillGroups.set(key, representativeSkill(allSkills, key, escoIndex));
   }
 
   const companiesTotal = new Set(input.vacancies.map((vacancy) => vacancy.companyId)).size;
-  const checks = skills.map((skill): SkillCheck => {
+  const checks = [...skillGroups].map(([key, skill]): SkillCheck => {
     const vacancies = input.vacancies.filter((vacancy) =>
-      vacancy.requirements.some((requirement) => sameSkill(skill, requirement.skill)),
+      vacancy.requirements.some((requirement) => canonicalSkillKey(requirement.skill, escoIndex) === key),
     );
-    const requirements = vacancies.flatMap((vacancy) =>
-      vacancy.requirements.filter((requirement) => sameSkill(skill, requirement.skill)),
-    );
+    const requirements = vacancies.flatMap((vacancy) => vacancy.requirements
+      .filter((requirement) => canonicalSkillKey(requirement.skill, escoIndex) === key)
+      .map((requirement) => ({ vacancyId: vacancy.id, ...requirement })));
     const sources = requirements.map((requirement) => requirement.source).filter((source, index, all) =>
       all.findIndex((candidate) => candidate.url === source.url && candidate.quote === source.quote) === index,
     );
     const evidence = evidenceFor(skill, input.profile, input.research);
-    const trend = input.trends?.skills.find((candidate) => sameSkill(skill, candidate.skill))?.trend;
+    const trend = input.trends?.skills.find((candidate) => sameSkill(skill, candidate.skill));
 
     return {
       skill,
       demand: {
-        vacanciesRequiring: vacancies.length,
+        vacanciesRequiring: new Set(vacancies.map((vacancy) => vacancy.id)).size,
         vacanciesTotal: input.vacancies.length,
         companiesRequiring: new Set(vacancies.map((vacancy) => vacancy.companyId)).size,
         companiesTotal,
-        requiredIn: requirements.filter((requirement) => requirement.required).length,
+        requiredIn: new Set(requirements.filter((requirement) => requirement.required).map((requirement) => requirement.vacancyId)).size,
         sources,
       },
       evidence: evidence.evidence,
       claims: evidence.claims,
-      ...(trend ? { trend } : {}),
+      ...(trend ? { trend: trend.trend, trendSources: trend.sources } : {}),
     };
   });
 

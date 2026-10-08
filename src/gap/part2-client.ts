@@ -31,9 +31,23 @@ export type FakePart2Data = {
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 10_000;
+const UNEXPECTED_RESPONSE = "Research service returned an unexpected response";
 
 function isEnvelope(value: unknown): value is UpstreamEnvelope {
   return typeof value === "object" && value !== null && typeof (value as { ok?: unknown }).ok === "boolean" && "data" in value;
+}
+
+function unexpected(): never {
+  throw new ApiError("upstream_failed", UNEXPECTED_RESPONSE);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function expectList<T>(value: unknown): T[] {
+  if (!Array.isArray(value)) unexpected();
+  return value as T[];
 }
 
 // Reads Part 2's response envelope but never repeats its response body in an error.
@@ -56,23 +70,34 @@ export class HttpPart2Client implements Part2Client {
 
   async getRun(runId: string): Promise<ResearchRunHead | null> {
     const data = await this.read(`/v1/research-runs/${encodeURIComponent(runId)}`, true);
-    return data === null ? null : data as ResearchRunHead;
+    if (data === undefined) return null;
+    if (
+      !isRecord(data)
+      || typeof data.runId !== "string"
+      || data.runId !== runId
+      || typeof data.seekerId !== "string"
+      || typeof data.profileVersion !== "number"
+      || !["queued", "running", "done", "failed", "cancelled"].includes(String(data.status))
+    ) unexpected();
+    return data as ResearchRunHead;
   }
 
   async getCareerPaths(runId: string): Promise<CareerPath[]> {
-    return await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/career-paths`) as CareerPath[];
+    return expectList<CareerPath>(await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/career-paths`));
   }
 
   async getMarket(runId: string): Promise<JobMarket[]> {
-    return await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/market`) as JobMarket[];
+    return expectList<JobMarket>(await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/market`));
   }
 
   async getTrends(runId: string): Promise<OccupationTrends[]> {
-    return await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/trends`) as OccupationTrends[];
+    return expectList<OccupationTrends>(await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/trends`));
   }
 
   async getSeekerResearch(runId: string): Promise<SeekerResearch> {
-    return await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/seeker-research`) as SeekerResearch;
+    const data = await this.read(`/v1/research-runs/${encodeURIComponent(runId)}/seeker-research`);
+    if (!isRecord(data) || !Array.isArray(data.links)) unexpected();
+    return data as SeekerResearch;
   }
 
   async listCompanies(runId: string): Promise<Company[]> {
@@ -89,8 +114,7 @@ export class HttpPart2Client implements Part2Client {
     for (let page = 1; page <= MAX_PAGES; page++) {
       const separator = path.includes("?") ? "&" : "?";
       const envelope = await this.request(`${path}${separator}page=${page}&pageSize=${PAGE_SIZE}`);
-      if (!envelope) throw new ApiError("upstream_failed", "Research service returned invalid data");
-      if (!Array.isArray(envelope.data)) throw new ApiError("upstream_failed", "Research service returned invalid data");
+      if (!envelope || !Array.isArray(envelope.data)) unexpected();
       values.push(...envelope.data as T[]);
       const total = envelope.meta?.total;
       if (typeof total !== "number" || values.length >= total || envelope.data.length === 0) return values;
@@ -98,9 +122,9 @@ export class HttpPart2Client implements Part2Client {
     throw new ApiError("upstream_failed", "Research service returned too many pages");
   }
 
-  private async read(path: string, nullOn404 = false): Promise<unknown | null> {
+  private async read(path: string, nullOn404 = false): Promise<unknown | undefined> {
     const envelope = await this.request(path, nullOn404);
-    return envelope?.data ?? null;
+    return envelope === null ? undefined : envelope.data;
   }
 
   private async request(path: string, nullOn404 = false): Promise<UpstreamEnvelope | null> {

@@ -26,6 +26,7 @@ test("buildJobProfile generalizes the shared vacancy data", () => {
   assert.equal(docker.vacanciesTotal, 4);
   assert.equal(docker.band, "most");
   assert.equal(docker.trend, "stable");
+  assert.deepEqual(docker.trendSources, TRENDS.skills[1]!.sources);
   assert.deepEqual(docker.sources.map(({ quote }) => quote), ["You know Docker.", "Docker in production.", "Docker is nice to have."]);
 
   const kubernetes = profile.skills.find(({ skill }) => skill.uri === K8S.uri);
@@ -42,9 +43,10 @@ test("buildJobProfile generalizes the shared vacancy data", () => {
   assert.deepEqual(profile.skills.map(({ skill }) => skill.label), ["Docker", "Kubernetes", "PostgreSQL"]);
 });
 
-test("buildJobProfile matches fallback labels, counts each vacancy once, and deduplicates sources", () => {
-  const firstSkill: Skill = { uri: "urn:stub:skill:cafe-tools", label: "Café tools", lang: "en" };
-  const equivalentSkill: Skill = { uri: "http://data.europa.eu/esco/skill/example-cafe", label: "Cafe---tools", lang: "en" };
+test("buildJobProfile groups a transitive alias chain by its ESCO key and deduplicates sources", () => {
+  const officialSkill: Skill = { uri: "http://data.europa.eu/esco/skill/example-cafe", label: "Official café tools", lang: "en" };
+  const equivalentSkill: Skill = { ...officialSkill, label: "Cafe---tools" };
+  const stubSkill: Skill = { uri: "urn:stub:skill:cafe-tools", label: "Café tools", lang: "en" };
   const sharedSource: Source = {
     id: "src_one",
     url: "https://jobs.example.com/fallback",
@@ -59,8 +61,9 @@ test("buildJobProfile matches fallback labels, counts each vacancy once, and ded
     id: "vac_fallback",
     location: { country: "DE", remote: true },
     requirements: [
-      { skill: firstSkill, required: true, source: sharedSource },
+      { skill: officialSkill, required: true, source: sharedSource },
       { skill: equivalentSkill, required: false, source: { ...sharedSource, id: "src_duplicate" } },
+      { skill: stubSkill, required: false, source: { ...sharedSource, id: "src_stub" } },
     ],
   };
 
@@ -73,10 +76,28 @@ test("buildJobProfile matches fallback labels, counts each vacancy once, and ded
 
   assert.deepEqual(profile.markets, [{ country: "DE", vacancies: 1 }]);
   assert.equal(profile.skills.length, 1);
+  assert.equal(profile.skills[0].skill.uri, officialSkill.uri);
   assert.equal(profile.skills[0].vacanciesRequiring, 1);
   assert.equal(profile.skills[0].band, "most");
   assert.equal(profile.skills[0].trend, "rising");
+  assert.deepEqual(profile.skills[0].trendSources, []);
   assert.deepEqual(profile.skills[0].sources, [sharedSource]);
+});
+
+test("buildJobProfile keeps different real ESCO URIs separate even when labels match", () => {
+  const first: Skill = { uri: "http://data.europa.eu/esco/skill/first", label: "Shared label", lang: "en" };
+  const second: Skill = { uri: "http://data.europa.eu/esco/skill/second", label: "Shared label", lang: "en" };
+  const vacancy: Vacancy = {
+    ...VACANCIES[0]!,
+    requirements: [
+      { ...VACANCIES[0]!.requirements[0]!, skill: first },
+      { ...VACANCIES[0]!.requirements[1]!, skill: second },
+    ],
+  };
+
+  const profile = buildJobProfile({ occupation: OCC, vacancies: [vacancy], market: [] });
+
+  assert.deepEqual(profile.skills.map(({ skill }) => skill.uri).sort(), [first.uri, second.uri]);
 });
 
 test("buildJobProfile uses the salary range with the largest sample", () => {

@@ -33,7 +33,7 @@ test("buildCompanyChecks puts dream companies first and describes each advertise
   ]);
 });
 
-test("buildCompanyChecks upgrades a repeated skill to required while retaining its first ad quote", () => {
+test("buildCompanyChecks uses the required occurrence's quote when a repeated skill becomes required", () => {
   const checks = buildCompanyChecks({
     vacancies: [
       { ...VACANCIES[3]!, companyId: "cmp_dream" },
@@ -46,7 +46,7 @@ test("buildCompanyChecks upgrades a repeated skill to required while retaining i
   const docker = checks[0]!.requirements.find((requirement) => requirement.skill.label === "Docker")!;
 
   assert.equal(docker.required, true);
-  assert.equal(docker.source.quote, "Docker is nice to have.");
+  assert.equal(docker.source.quote, "You know Docker.");
 });
 
 test("buildCompanyChecks omits companies without vacancies and breaks non-dream ties by name", () => {

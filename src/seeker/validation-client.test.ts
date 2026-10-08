@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { ApiError } from "./core/errors.ts";
 import { HttpValidationClient } from "./validation-client.ts";
 
@@ -63,4 +64,12 @@ test("every Part 3 failure is upstream_failed and never leaks the key", async ()
 test("missing config fails fast", () => {
   assert.throws(() => new HttpValidationClient({ baseUrl: "", apiKey: "k" }), /PART3_BASE_URL/);
   assert.throws(() => new HttpValidationClient({ baseUrl: "http://x.example.com", apiKey: "" }), /PART3_API_KEY/);
+});
+
+test("the shared Part 1 server injects a validation client with the research client connection", () => {
+  const adapter = readFileSync(new URL("../api/part1.ts", import.meta.url), "utf8");
+
+  assert.match(adapter, /import\(at\("validation-client\.ts"\)\)/);
+  assert.match(adapter, /research:\s*new research\.HttpResearchClient\(\{ baseUrl, apiKey \}\)/);
+  assert.match(adapter, /validations:\s*new validation\.HttpValidationClient\(\{ baseUrl, apiKey \}\)/);
 });

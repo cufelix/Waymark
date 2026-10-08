@@ -21,9 +21,13 @@ test("skillKey keeps ESCO URIs and normalizes all other skills by label", () => 
   assert.equal(skillKey({ uri: "urn:stub:skill:cafe-c", label: " Café & C++ ", lang: "en" }), "label:cafe-c");
 });
 
-test("sameSkill matches equal URIs or normalized labels", () => {
+test("sameSkill uses labels only when at least one URI is a stub or missing", () => {
   assert.equal(sameSkill(POSTGRES, { uri: "urn:stub:skill:postgres", label: "PóstgreSQL", lang: "en" }), true);
   assert.equal(sameSkill(DOCKER, { ...DOCKER, label: "containers" }), true);
+  assert.equal(sameSkill(
+    { uri: "http://data.europa.eu/esco/skill/one", label: "Same label", lang: "en" },
+    { uri: "http://data.europa.eu/esco/skill/two", label: "Same label", lang: "en" },
+  ), false);
   assert.equal(sameSkill(DOCKER, K8S), false);
 });
 
@@ -83,7 +87,9 @@ test("buildSkillChecks reports sourced employer demand and orders it independent
     sources: [VACANCIES[0]!.requirements[0]!.source, VACANCIES[1]!.requirements[0]!.source, VACANCIES[3]!.requirements[0]!.source],
   });
   assert.equal(checks[0]!.trend, "stable");
+  assert.deepEqual(checks[0]!.trendSources, TRENDS.skills[1]!.sources);
   assert.equal(checks[2]!.trend, "rising");
+  assert.deepEqual(checks[2]!.trendSources, TRENDS.skills[0]!.sources);
 });
 
 test("buildSkillChecks combines label-equivalent requirements and deduplicates repeated ad quotes", () => {
@@ -95,12 +101,30 @@ test("buildSkillChecks combines label-equivalent requirements and deduplicates r
       { ...VACANCIES[0]!.requirements[0]!, skill: alias },
     ],
   };
-  const checks = buildSkillChecks({ vacancies: [vacancy], companies: COMPANIES, profile: PROFILE, research: SEEKER_RESEARCH });
+  const checks = buildSkillChecks({ vacancies: [vacancy, structuredClone(vacancy)], companies: COMPANIES, profile: PROFILE, research: SEEKER_RESEARCH });
 
   assert.equal(checks.length, 1);
   assert.equal(checks[0]!.demand.vacanciesRequiring, 1);
-  assert.equal(checks[0]!.demand.requiredIn, 2);
+  assert.equal(checks[0]!.demand.requiredIn, 1);
   assert.equal(checks[0]!.demand.sources.length, 1);
+});
+
+test("buildSkillChecks groups transitive aliases by a precomputed ESCO key regardless of order", () => {
+  const official: Skill = { uri: "http://data.europa.eu/esco/skill/transitive", label: "Official label", lang: "en" };
+  const alias: Skill = { ...official, label: "Alias label" };
+  const stub: Skill = { uri: "urn:stub:skill:alias", label: "Alias label", lang: "en" };
+  const requirements = [official, alias, stub].map((skill, index) => ({
+    ...VACANCIES[0]!,
+    id: `vac_transitive_${index}`,
+    requirements: [{ ...VACANCIES[0]!.requirements[0]!, skill }],
+  }));
+
+  for (const vacancies of [requirements, [...requirements].reverse()]) {
+    const checks = buildSkillChecks({ vacancies, companies: COMPANIES, profile: PROFILE, research: SEEKER_RESEARCH });
+    assert.equal(checks.length, 1);
+    assert.equal(checks[0]!.skill.uri, official.uri);
+    assert.equal(checks[0]!.demand.vacanciesRequiring, 3);
+  }
 });
 
 test("skill checks contain no field that scores or totals the seeker's skills", () => {
