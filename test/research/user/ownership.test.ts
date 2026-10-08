@@ -121,3 +121,13 @@ describe("findOwner links come from profile-level keys only", () => {
     expect(o?.links ?? []).toEqual([]);
   });
 });
+
+import { proofCandidates } from "../../../src/research/user/artifact";
+describe("ownership proof sources", () => {
+  it("trusts record authors only when every record has the same author", () => {
+    const own = [{ title: "v1", authorMeta: { name: "jan", signature: "bio" } }, { title: "v2", authorMeta: { name: "jan" } }];
+    expect(proofCandidates(own)).toHaveLength(1);
+    const thread = [{ text: "post", author: { username: "op" } }, { text: "reply", author: { username: "stranger" } }];
+    expect(proofCandidates(thread)).toHaveLength(0);
+  });
+});

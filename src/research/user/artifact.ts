@@ -99,6 +99,25 @@ function profileCandidates(raw: unknown): Record<string, unknown>[] {
   return out;
 }
 
+const AUTHOR_KEYS = ["author", "user", "owner", "authorMeta", "channel", "artist"];
+
+/**
+ * Objects whose name, handle and bio may serve as ownership proof: the raw object itself (and its own profile
+ * sub-objects), plus record authors only when every record has the same author, as in a profile's own list of
+ * videos or tracks. A thread or feed with mixed authors contributes nothing, so another poster can't supply the proof.
+ */
+export function proofCandidates(raw: unknown): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  if (isObj(raw) && !Array.isArray(raw)) {
+    out.push(raw);
+    for (const k of ["profile", "user", "owner", "channel", "artist"]) if (isObj(raw[k])) out.push(raw[k] as Record<string, unknown>);
+  }
+  const authors = records(raw).map((r) => AUTHOR_KEYS.map((k) => r[k]).find(isObj) as Record<string, unknown> | undefined);
+  const ids = new Set(authors.map((a) => (a ? pick(a, HANDLE) ?? pick(a, NAME) : undefined)));
+  if (authors.length > 0 && authors.every(Boolean) && ids.size === 1 && !ids.has(undefined)) out.push(authors[0]!);
+  return out;
+}
+
 export function findOwner(raws: unknown[]): Artifact["owner"] {
   let displayName: string | undefined;
   let handle: string | undefined;
@@ -110,11 +129,13 @@ export function findOwner(raws: unknown[]): Artifact["owner"] {
       displayName ??= pick(o, NAME);
       handle ??= pick(o, HANDLE);
     }
-    for (const o of profileCandidates(raw)) {
+    for (const o of proofCandidates(raw)) {
       for (const k of [...NAME, ...HANDLE, ...PROFILE_TEXT]) {
         const v = str(o[k]);
         if (v) proof.push(v.slice(0, 1000));
       }
+    }
+    for (const o of profileCandidates(raw)) {
       for (const k of LINK) {
         const v = str(o[k]);
         if (v && /^https?:\/\//.test(v)) links.add(v);
