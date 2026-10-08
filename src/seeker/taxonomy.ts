@@ -3,7 +3,7 @@ import type { Occupation, Skill } from "./contracts.ts";
 // Local stand-in for @cufelix's src/shared/taxonomy/ (ESCO wrapper). Same idea, a few
 // hard-coded entries; swap the import when the real module lands.
 // Stub URIs are urn:stub:… on purpose: never pass off a made-up ID as a real ESCO URI.
-const OCCUPATIONS: Occupation[] = ["software developer", "web developer", "backend developer", "devops engineer", "nurse"].map(
+const OCCUPATIONS: Occupation[] = ["software developer", "web developer", "backend developer", "devops engineer", "nurse", "designer"].map(
   (label) => ({ uri: `urn:stub:occupation:${label.replace(/ /g, "-")}`, label, lang: "en" }),
 );
 
