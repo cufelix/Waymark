@@ -115,10 +115,12 @@ test("links: valid list, bad kind, bad url, duplicates, unknown field", () => {
   rejects(() => validateLinks(links), "unprocessable", /body: must be an object/);
 });
 
-test("interview message: empty text allowed, unknown field rejected", () => {
+test("interview message: empty text allowed, exact shape and 4000-character limit enforced", () => {
   assert.deepEqual(validateInterviewMessage({ text: "" }), { text: "" });
+  assert.equal(validateInterviewMessage({ text: "x".repeat(4000) }).text.length, 4000);
   rejects(() => validateInterviewMessage({ text: "hi", role: "agent" }), "unprocessable", /role: unknown field/);
   rejects(() => validateInterviewMessage({ text: 1 }), "unprocessable", /^text/);
+  rejects(() => validateInterviewMessage({ text: "x".repeat(4001) }), "unprocessable", /at most 4000 characters/);
 });
 
 const FIXTURES = join(import.meta.dirname, "../../../fixtures/profiles");

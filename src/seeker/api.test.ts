@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { handle, type ApiDeps, type ApiRequest } from "./api.ts";
 import { FakeLlm } from "./llm/llm.ts";
 import { FakeResearchClient } from "./research-client.ts";
+import { FakeExa } from "./salary/exa.ts";
 import { MemoryStore } from "./store/memory.ts";
 
 const KEY = "test-key-not-a-secret";
@@ -21,7 +22,8 @@ const prefs = {
 function setup() {
   const research = new FakeResearchClient();
   const deps: ApiDeps = { store: new MemoryStore(), llm: new FakeLlm([]), research, apiKeys: [KEY] };
-  const call = (method: string, path: string, body?: unknown, headers: ApiRequest["headers"] = auth) => handle({ method, path, headers, body }, deps);
+  const call = (method: string, path: string, body?: unknown, headers: ApiRequest["headers"] = auth, file?: ApiRequest["file"]) =>
+    handle({ method, path, headers, body, ...(file ? { file } : {}) }, deps);
   const create = async () => {
     const r = await call("POST", "/v1/seekers", { consent });
     assert.equal(r.status, 201);
@@ -46,12 +48,66 @@ test("envelope shape on success and error, with a requestId", async () => {
 
 test("no auth or a wrong key is 401 on every route, before routing", async () => {
   const { call } = setup();
-  for (const [m, p] of [["POST", "/v1/seekers"], ["GET", "/v1/seekers/skr_01M4EPBGAC0000000000000000/profile"], ["GET", "/nope"]]) {
+  for (const [m, p] of [
+    ["POST", "/v1/seekers"],
+    ["GET", "/v1/seekers/skr_01M4EPBGAC0000000000000000/profile"],
+    ["POST", "/v1/seekers/skr_01M4EPBGAC0000000000000000/interview/messages"],
+    ["GET", "/v1/seekers/skr_01M4EPBGAC0000000000000000/interview"],
+    ["POST", "/v1/seekers/skr_01M4EPBGAC0000000000000000/documents"],
+    ["DELETE", "/v1/seekers/skr_01M4EPBGAC0000000000000000/documents/doc_01M4EPBGAC0000000000000000"],
+    ["GET", "/nope"],
+  ]) {
     const none = await call(m, p, { consent }, {});
     assert.equal(none.status, 401);
     assert.equal(errCode(none), "unauthorized");
     assert.equal((await call(m, p, { consent }, { authorization: "Bearer wrong" })).status, 401);
   }
+});
+
+test("interview message and transcript routes validate input and round-trip the first turn", async () => {
+  const { call, create } = setup();
+  const id = await create();
+
+  const first = await call("POST", `/v1/seekers/${id}/interview/messages`, { text: "" });
+  assert.equal(first.status, 200);
+  assert.equal((first.body.data as any).done, false);
+  assert.match((first.body.data as any).reply, /career advisor/);
+
+  const transcript = await call("GET", `/v1/seekers/${id}/interview`);
+  assert.equal(transcript.status, 200);
+  assert.deepEqual((transcript.body.data as any[]).map(({ role }) => role), ["agent"]);
+
+  for (const invalid of [{ text: "hi", extra: true }, { text: 42 }, { text: "x".repeat(4001) }]) {
+    const response = await call("POST", `/v1/seekers/${id}/interview/messages`, invalid);
+    assert.equal(response.status, 422);
+    assert.equal(errCode(response), "unprocessable");
+  }
+});
+
+test("document upload and delete routes accept the file field and remove the document", async () => {
+  const { call, create, deps } = setup();
+  const id = await create();
+  deps.llm = new FakeLlm([JSON.stringify({ skills: [], experience: [], education: [] })]);
+
+  const missing = await call("POST", `/v1/seekers/${id}/documents`);
+  assert.equal(missing.status, 422);
+  assert.equal(errCode(missing), "unprocessable");
+
+  const uploaded = await call(
+    "POST",
+    `/v1/seekers/${id}/documents`,
+    undefined,
+    auth,
+    { fileName: "cv.txt", mimeType: "text/plain", bytes: Buffer.from("Jane Example\nBuilt APIs with TypeScript") },
+  );
+  assert.equal(uploaded.status, 201);
+  const documentId = (uploaded.body.data as any).id as string;
+  assert.match(documentId, /^doc_/);
+
+  const deleted = await call("DELETE", `/v1/seekers/${id}/documents/${documentId}`);
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(deleted.body.data, { deleted: true });
+  assert.deepEqual(((await call("GET", `/v1/seekers/${id}/profile`)).body.data as any).documents, []);
 });
 
 test("missing consent is 403, unknown field is 422", async () => {
@@ -94,6 +150,34 @@ test("export includes Part 2's research runs", async () => {
   assert.equal((ex.body.data as any).profile.seekerId, id);
   research.failLists = true;
   assert.equal((await call("GET", `/v1/seekers/${id}/export`)).status, 502);
+});
+
+test("salary sources returned by the message route remain in the export", async () => {
+  const { call, create, deps } = setup();
+  const id = await create();
+  const page = { title: "Fake salary", url: "https://salary.example/api", text: "Pay is 35000 CZK per month." };
+  deps.exa = new FakeExa([page]);
+  deps.llm = new FakeLlm([
+    JSON.stringify({
+      reply: "The overview will cover pay.",
+      done: false,
+      mode: "direct",
+      draftPatch: {},
+      statedSkills: [],
+      salaryLookup: { lookup: "technician", country: "CZ" },
+    }),
+    JSON.stringify({ figures: [{ median: 35000, currency: "CZK", period: "month", url: page.url, quote: page.text }] }),
+    JSON.stringify({ reply: "A quick web lookup reports [35000 CZK per month](https://salary.example/api). Which city?" }),
+  ]);
+
+  const message = await call("POST", `/v1/seekers/${id}/interview/messages`, { text: "What does a technician earn?" });
+  assert.equal(message.status, 200);
+  assert.equal((message.body.data as any).sources[0].tool, "exa");
+
+  const exported = await call("GET", `/v1/seekers/${id}/export`);
+  const source = (exported.body.data as any).interview.at(-1).sources[0];
+  assert.equal(source.url, page.url);
+  assert.equal(source.quote, page.text);
 });
 
 test("career choice is authenticated, validated, and appears in profile and export", async () => {
