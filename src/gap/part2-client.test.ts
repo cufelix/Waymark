@@ -10,6 +10,17 @@ const json = (data: unknown, init: ResponseInit = {}): Response => new Response(
   ...init,
 });
 
+const unexpectedResponse = (error: unknown) => error instanceof ApiError
+  && error.code === "upstream_failed"
+  && error.status === 502
+  && error.message === "Research service returned an unexpected response";
+
+const clientReturning = (data: unknown): HttpPart2Client => new HttpPart2Client({
+  baseUrl: "https://research.example",
+  apiKey: "key",
+  fetchImpl: async () => json({ ok: true, data, error: null }),
+});
+
 test("paginates companies and occupation-filtered vacancies with bearer auth", async () => {
   const urls: URL[] = [];
   const auth: string[] = [];
@@ -52,15 +63,42 @@ test("getRun maps only a 404 to null", async () => {
 });
 
 test("accepts valid elements from every Part 2 endpoint", async () => {
+  const claim = {
+    ...SEEKER_RESEARCH.links[0].provenSkills[0],
+    validUntil: "2027-10-08T21:00:00Z",
+  };
+  const careerPaths = [{
+    ...CAREER_PATHS[0],
+    ladder: [{
+      level: "lead",
+      title: "Lead backend developer",
+      occupation: OCC,
+      typicalExperienceYears: { min: 5, max: 8 },
+      salary: {
+        p25: 90_000,
+        median: 110_000,
+        p75: 130_000,
+        currency: "CZK",
+        period: "month",
+        sampleSize: 17,
+        location: { country: "CZ", city: "Prague" },
+      },
+      claims: [claim],
+    }],
+  }];
+  const seekerResearch = {
+    ...SEEKER_RESEARCH,
+    nameSearch: { candidates: [{ url: "https://example.com/jane", title: "Jane Example", snippet: "Backend developer in Prague" }] },
+  };
   const client = new HttpPart2Client({
     baseUrl: "https://research.example",
     apiKey: "key",
     fetchImpl: async (input) => {
       const path = new URL(String(input)).pathname;
-      const data = path.endsWith("/career-paths") ? CAREER_PATHS
+      const data = path.endsWith("/career-paths") ? careerPaths
         : path.endsWith("/market") ? MARKET
         : path.endsWith("/trends") ? [TRENDS]
-        : path.endsWith("/seeker-research") ? SEEKER_RESEARCH
+        : path.endsWith("/seeker-research") ? seekerResearch
         : path.endsWith("/companies") ? COMPANIES
         : path.endsWith("/vacancies") ? VACANCIES
         : RUN;
@@ -69,12 +107,91 @@ test("accepts valid elements from every Part 2 endpoint", async () => {
   });
 
   assert.deepEqual(await client.getRun(RUN.runId), RUN);
-  assert.deepEqual(await client.getCareerPaths(RUN.runId), CAREER_PATHS);
+  assert.deepEqual(await client.getCareerPaths(RUN.runId), careerPaths);
   assert.deepEqual(await client.getMarket(RUN.runId), MARKET);
   assert.deepEqual(await client.getTrends(RUN.runId), [TRENDS]);
-  assert.deepEqual(await client.getSeekerResearch(RUN.runId), SEEKER_RESEARCH);
+  assert.deepEqual(await client.getSeekerResearch(RUN.runId), seekerResearch);
   assert.deepEqual(await client.listCompanies(RUN.runId), COMPANIES);
   assert.deepEqual(await client.listVacancies(RUN.runId, OCC.uri), VACANCIES);
+});
+
+test("rejects each newly checked malformed optional or nested field", async (t) => {
+  const step = CAREER_PATHS[0].ladder![0];
+  const claim = SEEKER_RESEARCH.links[0].provenSkills[0];
+  const validSalary = {
+    median: 110_000,
+    currency: "CZK",
+    period: "month",
+    sampleSize: 17,
+    location: { country: "CZ", city: "Prague" },
+  };
+  const careerPathWithStep = (patch: Record<string, unknown>) => [{
+    ...CAREER_PATHS[0],
+    ladder: [{ ...step, ...patch }],
+  }];
+  const careerPathWithClaim = (nextClaim: unknown) => [{
+    ...CAREER_PATHS[0],
+    why: [nextClaim],
+  }];
+  const cases: { name: string; data: unknown; call: (client: HttpPart2Client) => Promise<unknown> }[] = [
+    {
+      name: "CareerStep occupation",
+      data: careerPathWithStep({ occupation: { ...OCC, uri: 42 } }),
+      call: (client) => client.getCareerPaths(RUN.runId),
+    },
+    {
+      name: "CareerStep typicalExperienceYears",
+      data: careerPathWithStep({ typicalExperienceYears: { min: "five", max: 8 } }),
+      call: (client) => client.getCareerPaths(RUN.runId),
+    },
+    {
+      name: "CareerStep salary",
+      data: careerPathWithStep({ salary: { ...validSalary, period: "week" } }),
+      call: (client) => client.getCareerPaths(RUN.runId),
+    },
+    {
+      name: "Claim subject kind",
+      data: careerPathWithClaim({ ...claim, subject: { ...claim.subject, kind: "person" } }),
+      call: (client) => client.getCareerPaths(RUN.runId),
+    },
+    {
+      name: "Claim validUntil",
+      data: careerPathWithClaim({ ...claim, validUntil: 1_799_280_000 }),
+      call: (client) => client.getCareerPaths(RUN.runId),
+    },
+    {
+      name: "Source tool",
+      data: careerPathWithClaim({ ...claim, sources: [{ ...claim.sources[0], tool: "browser" }] }),
+      call: (client) => client.getCareerPaths(RUN.runId),
+    },
+    {
+      name: "SeekerResearch nameSearch",
+      data: { ...SEEKER_RESEARCH, nameSearch: { candidates: [{ url: "https://example.com/jane", title: "Jane", snippet: 7 }] } },
+      call: (client) => client.getSeekerResearch(RUN.runId),
+    },
+  ];
+
+  for (const entry of cases) {
+    await t.test(entry.name, async () => {
+      await assert.rejects(() => entry.call(clientReturning(entry.data)), unexpectedResponse);
+    });
+  }
+});
+
+test("paged responses require a numeric meta.total", async (t) => {
+  for (const [name, meta] of [
+    ["missing total", { page: 1, pageSize: 100 }],
+    ["non-numeric total", { page: 1, pageSize: 100, total: "2" }],
+  ] as const) {
+    await t.test(name, async () => {
+      const client = new HttpPart2Client({
+        baseUrl: "https://research.example",
+        apiKey: "key",
+        fetchImpl: async () => json({ ok: true, data: COMPANIES, error: null, meta }),
+      });
+      await assert.rejects(() => client.listCompanies(RUN.runId), unexpectedResponse);
+    });
+  }
 });
 
 test("non-OK responses become sanitized upstream_failed errors", async () => {
@@ -92,9 +209,6 @@ test("non-OK responses become sanitized upstream_failed errors", async () => {
 });
 
 test("successful responses with unexpected shapes become a consistent upstream_failed error", async () => {
-  const expected = (error: unknown) => error instanceof ApiError
-    && error.code === "upstream_failed"
-    && error.message === "Research service returned an unexpected response";
   const cases: { data: unknown; call: (client: HttpPart2Client) => Promise<unknown> }[] = [
     { data: null, call: (client) => client.getRun(RUN.runId) },
     { data: { ...RUN, profileVersion: "3" }, call: (client) => client.getRun(RUN.runId) },
@@ -120,7 +234,7 @@ test("successful responses with unexpected shapes become a consistent upstream_f
       apiKey: "key",
       fetchImpl: async () => json({ ok: true, data: entry.data, error: null }),
     });
-    await assert.rejects(() => entry.call(client), expected);
+    await assert.rejects(() => entry.call(client), unexpectedResponse);
   }
 });
 
