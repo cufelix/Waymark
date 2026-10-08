@@ -22,6 +22,9 @@ sequenceDiagram
     P1-->>C: SeekerProfile (status "complete")
     C->>P2: POST /v1/research-runs { profile }
     P2-->>C: { runId, status "queued" }
+    C->>P2: GET /v1/research-runs/{runId}/career-paths (while the run is still going)
+    P2-->>C: top 3 CareerPath with ladder and salaries
+    C->>P1: PUT /v1/seekers/{id}/career-choice { runId, occupationUri }
     C->>P2: GET /v1/research-runs/{runId}
     P2-->>C: ResearchResult (status "done")
 ```
@@ -30,7 +33,9 @@ sequenceDiagram
 
 **Occupation and skill lookup is a shared module, not an endpoint.** `src/shared/taxonomy/` wraps the public ESCO API with a local cache, and both parts import it. @cufelix owns it. Part 1 uses it to turn "nurse" or "backend developer" into ESCO IDs, so there is no runtime call from Part 1 to Part 2 for it. Until it lands, Part 1 uses the stub in `src/shared/taxonomy/stub.ts`, which has the same function signatures and a few hard-coded entries.
 
-**The one runtime call from Part 1 to Part 2 is the GDPR cascade:** deleting or exporting a seeker also deletes or exports their research (see Part 1's export and delete endpoints).
+**Part 1 calls Part 2 at runtime in two places:**
+- The GDPR cascade: deleting or exporting a seeker also deletes or exports their research (see Part 1's export and delete endpoints).
+- The career choice: Part 1 checks the chosen occupation against that run's `GET /v1/research-runs/{runId}/career-paths` before storing it.
 
 ## Conventions
 
@@ -72,6 +77,7 @@ sequenceDiagram
 | `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF or DOCX, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
 | `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a CV and everything parsed from it | | `{ deleted: true }` |
 | `PUT /v1/seekers/{seekerId}/links` | Replace the seeker's list of links (portfolio, GitHub, socials). Part 1 stores them; reading them is Part 2's user research. | `{ links: SeekerLinkInput[] }` | `SeekerLink[]` |
+| `PUT /v1/seekers/{seekerId}/career-choice` | The seeker picks one of the run's career paths, usually while the rest of the research is still running. Part 1 accepts only an occupation that run returned (`unprocessable` otherwise), stores it as `profile.careerChoice` (profileVersion +1) and leaves `preferences` as they are. Calling it again replaces the choice. | `{ runId: string, occupationUri: EscoUri }` | `CareerChoice` |
 | `GET /v1/seekers/{seekerId}/profile` | **The handoff object.** `status` is `"complete"` once preferences have at least one target occupation and consent is given. | | `SeekerProfile` |
 | `GET /v1/seekers/{seekerId}/export` | Everything stored about the seeker in both parts (GDPR). Part 1 adds the runs from Part 2's `GET /v1/seekers/{seekerId}/research-runs`. | | `SeekerExport` |
 | `DELETE /v1/seekers/{seekerId}` | Hard delete in both parts (GDPR). Part 1 calls Part 2's `DELETE /v1/seekers/{seekerId}/research` first. If that fails, it answers `upstream_failed`, marks the seeker `deletion-pending` and retries until both are gone. | | `{ deleted: true }` |
@@ -82,7 +88,7 @@ sequenceDiagram
 |---|---|---|---|
 | `POST /v1/research-runs` | Start research for a profile. Returns at once; work runs in the background. Rejects a profile whose `status` is not `"complete"`. | `{ profile: SeekerProfile, options?: ResearchOptions }` | `{ runId, status: "queued" }` |
 | `GET /v1/research-runs/{runId}` | Status, progress, and the result once `status` is `"done"` | | `ResearchRun` |
-| `GET /v1/research-runs/{runId}/career-paths` | Up to 3 career paths (the whiteboard's "top 3"). Candidates are the seeker's target occupations plus related ESCO occupations. Selection and order come only from market demand in the seeker's locations and the seeker's stated goal, never from skill fit or evidence. | | `CareerPath[]` (in order) |
+| `GET /v1/research-runs/{runId}/career-paths` | Up to 3 career paths (the whiteboard's "top 3"). Candidates are the seeker's target occupations plus related ESCO occupations. Selection and order come only from market demand in the seeker's locations and the seeker's stated goal, never from skill fit or evidence. The `career-paths` step runs first, and this endpoint answers as soon as that step is done, while the run is still `running`, so the client can show the paths and let the seeker pick one during the rest of the research. Each path carries its career ladder (for example junior → mid → senior → lead → CTO) with a sourced salary per step where one is found. Fields filled later in the run (`vacancyCount`, ladder salaries) may change until the run is `done`. | | `CareerPath[]` (in order) |
 | `GET /v1/research-runs/{runId}/companies` | Companies researched in this run, dream companies first | | `Company[]` (paged) |
 | `GET /v1/research-runs/{runId}/vacancies` | Vacancies found in this run. Filters: `?occupation=` `?companyId=` | | `Vacancy[]` (paged) |
 | `GET /v1/research-runs/{runId}/market` | Job market per career path: demand per skill, vacancy counts, salary ranges | | `JobMarket[]` |
@@ -100,6 +106,7 @@ These names are taken so the first two parts don't use them for something else.
 - `POST /v1/roadmaps { validationId }` → `Roadmap`.
 
 Guardrail for both: no single score, match percentage or ranking of a person. That comes from the brief.
+The same holds for career paths: the ladder and its salaries describe the occupation in the seeker's locations, never the seeker's chance of reaching a step. The seeker's `careerChoice` is their pick, not ours.
 
 ## Types
 
@@ -182,7 +189,14 @@ type SeekerProfile = {
   statedSkills: Claim[];          // merged from CV and interview, tier "stated"
   documents: SeekerDocument[];
   links: SeekerLink[];
+  careerChoice?: CareerChoice;    // set once the seeker picks one of a run's career paths
   updatedAt: ISODate;
+};
+
+type CareerChoice = {
+  occupation: Occupation;         // one of the run's CareerPath.occupation
+  runId: string;                  // the run whose career paths were shown
+  chosenAt: ISODate;
 };
 
 type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: ResearchRun[] };
@@ -220,7 +234,23 @@ type CareerPath = {
   occupation: Occupation;
   why: Claim[];                   // sourced reasons, e.g. demand in the seeker's locations
   vacancyCount: number;           // in the seeker's locations
+  ladder?: CareerStep[];          // ordered from entry to the top; absent until the run has found it
   // no fit score: order comes from market demand and the seeker's goal, never from how "good" the seeker is
+};
+
+type CareerStep = {
+  level: "entry" | "junior" | "mid" | "senior" | "lead" | "executive";
+  title: string;                  // "Junior backend developer", "Chief technology officer"
+  occupation?: Occupation;        // only when the step is its own ESCO occupation (e.g. chief technology officer)
+  typicalExperienceYears?: { min: number; max?: number };   // from the ads' requirements, e.g. "5+ years"
+  salary?: {                      // omitted when no source gives one; never estimated without a source
+    p25?: number; median: number; p75?: number;
+    currency: string; period: "month" | "year";
+    sampleSize: number;
+    location: { country: Country; city?: string };
+  };
+  claims: Claim[];                // sources for the step, its experience and its salary (job ads, salary sites);
+                                  // a ladder shape drawn from those ads is kind "inference"
 };
 
 type Company = {
