@@ -91,7 +91,7 @@ export type CareerChoice = {
 };
 
 // ResearchRun is Part 2's type; Part 1 only passes it through in the export.
-export type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: unknown[] };
+export type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: unknown[]; validations: unknown[] };
 
 // ---------- Part 2: research ----------
 export type CareerPath = {

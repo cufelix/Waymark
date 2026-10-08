@@ -11,6 +11,7 @@ import { deleteSeeker, exportSeeker } from "./service/gdpr.ts";
 import { getInterview, interviewTurn } from "./service/interview.ts";
 import { createSeeker, getProfile, loadSeeker, putLinks, setPreferences } from "./service/seekers.ts";
 import type { SeekerStore } from "./store/store.ts";
+import type { ValidationClient } from "./validation-client.ts";
 
 // One framework-free entry point for every Part 1 endpoint (API.md "Part 1: User input").
 // A Next.js route (or any HTTP server) parses JSON / multipart and calls handle().
@@ -32,6 +33,7 @@ export type ApiDeps = {
   llm: LlmClient;
   exa?: ExaClient | null;
   research: ResearchClient;
+  validations?: ValidationClient;
   apiKeys?: string[]; // default: env SEEKER_API_KEYS
 };
 

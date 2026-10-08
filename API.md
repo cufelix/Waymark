@@ -415,6 +415,7 @@ type JobProfile = {               // the typical job across the seeker's locatio
     vacanciesTotal: number;
     band: "most" | "many" | "some";   // most: at least half of the ads, many: 20-49 %, some: under 20 %
     trend?: "rising" | "stable" | "fading";
+    trendSources?: Source[];      // the quotes the trend comes from
     sources: Source[];            // quotes from the ads
   }[];
   salaryRange?: SalaryRange;
@@ -435,6 +436,7 @@ type SkillCheck = {
   evidence: Evidence;
   claims: Claim[];                // the seeker's own claims for this skill, stated and proven
   trend?: "rising" | "stable" | "fading";
+  trendSources?: Source[];        // the quotes the trend comes from
 };
 
 type CompanyCheck = {
