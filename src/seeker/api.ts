@@ -16,14 +16,14 @@ import type { ValidationClient } from "./validation-client.ts";
 // One framework-free entry point for every Part 1 endpoint (API.md "Part 1: User input").
 // A Next.js route (or any HTTP server) parses JSON / multipart and calls handle().
 
-export type UploadedFile = { fileName: string; mimeType: string; bytes: Uint8Array };
+export type UploadedFile = { fileName: string; mimeType: string; bytes: Uint8Array; kind?: string };
 
 export type ApiRequest = {
   method: string;
   path: string; // "/v1/seekers/skr_…/profile", a query string is ignored
   headers: Headers;
   body?: unknown; // parsed JSON body
-  file?: UploadedFile; // multipart field `file` (CV upload)
+  file?: UploadedFile; // multipart `file` plus optional string field `kind`
 };
 
 export type ApiResponse = { status: number; body: Envelope<unknown> };

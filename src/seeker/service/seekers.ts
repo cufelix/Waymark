@@ -63,7 +63,7 @@ export async function putLinks(deps: SeekerDeps, seekerId: string, links: Seeker
     const at = now();
     const next: SeekerLink[] = links.map((l) => {
       const prev = rec.profile.links.find((x) => x.url === l.url && x.kind === l.kind);
-      return prev ? { ...prev } : { url: l.url, kind: l.kind, id: newId("lnk"), addedAt: at };
+      return prev ? { ...prev } : { ...l, id: newId("lnk"), addedAt: at };
     });
     return isDeepStrictEqual(rec.profile.links, next) ? rec : { ...rec, profile: touch({ ...rec.profile, links: next }) };
   });

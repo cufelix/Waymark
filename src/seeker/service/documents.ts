@@ -11,6 +11,7 @@ import { findSkill } from "../taxonomy.ts";
 export { SUPPORTED_CV_FORMATS } from "../cv/extract.ts";
 
 const MAX_CV_BYTES = 10 * 1024 * 1024;
+const DOCUMENT_KINDS = new Set<SeekerDocument["kind"]>(["cv", "certificate", "portfolio", "image", "other"]);
 
 export type Deps = { store: SeekerStore; llm: LlmClient };
 
@@ -21,11 +22,15 @@ function seekerNotFound(seekerId: string): ApiError {
 export async function uploadCv(
   deps: Deps,
   seekerId: string,
-  file: { fileName: string; mimeType: string; bytes: Uint8Array },
+  file: { fileName: string; mimeType: string; bytes: Uint8Array; kind?: string },
 ): Promise<SeekerDocument> {
   const record = await deps.store.get(seekerId);
   if (!record || record.deletionPending) throw seekerNotFound(seekerId);
-  if (file.bytes.byteLength > MAX_CV_BYTES) throw new ApiError("unprocessable", "CV must not exceed 10 MB");
+  if (file.bytes.byteLength > MAX_CV_BYTES) throw new ApiError("unprocessable", "Document must not exceed 10 MB");
+  const documentKind = file.kind ?? "cv";
+  if (!DOCUMENT_KINDS.has(documentKind as SeekerDocument["kind"])) {
+    throw new ApiError("unprocessable", "kind: must be one of cv, certificate, portfolio, image, other");
+  }
 
   const kind = detectCvKind(file.mimeType, file.bytes);
   const documentId = newId("doc");
@@ -41,7 +46,7 @@ export async function uploadCv(
   const statedSkills = mergeStatedSkills([], claims);
   const document: SeekerDocument = {
     id: documentId,
-    kind: "cv",
+    kind: documentKind as SeekerDocument["kind"],
     fileName: file.fileName,
     uploadedAt: now(),
     statedSkills,
