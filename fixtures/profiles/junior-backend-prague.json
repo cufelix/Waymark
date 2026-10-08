@@ -1,0 +1,346 @@
+{
+  "seekerId": "skr_01M4EPBGAAAZ1MNDEQM780WKWN",
+  "profileVersion": 7,
+  "status": "complete",
+  "consent": {
+    "dataProcessing": true,
+    "nameSearch": false,
+    "givenAt": "2026-10-08T20:00:00Z",
+    "policyVersion": "2026-10-01"
+  },
+  "preferences": {
+    "targetOccupations": [
+      {
+        "uri": "urn:stub:occupation:backend-developer",
+        "label": "backend developer",
+        "lang": "en"
+      },
+      {
+        "uri": "urn:stub:occupation:software-developer",
+        "label": "software developer",
+        "lang": "en"
+      }
+    ],
+    "locations": [
+      {
+        "country": "CZ",
+        "city": "Prague"
+      }
+    ],
+    "remote": "ok",
+    "goal": "learn-fast",
+    "dreamCompanies": [
+      {
+        "name": "Example Fintech a.s.",
+        "url": "https://fintech.example.com"
+      },
+      {
+        "name": "Example Cloud s.r.o."
+      }
+    ],
+    "dealBreakers": [
+      "no on-call in the first year"
+    ],
+    "languages": [
+      {
+        "lang": "cs",
+        "level": "native"
+      },
+      {
+        "lang": "en",
+        "level": "working"
+      }
+    ],
+    "salaryExpectation": {
+      "min": 55000,
+      "currency": "CZK",
+      "period": "month"
+    }
+  },
+  "statedSkills": [
+    {
+      "id": "clm_01M4EPBGAB8AHY323RPJD4E8E4",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+      },
+      "statement": "States skill: Node.js",
+      "skill": {
+        "uri": "urn:stub:skill:node-js",
+        "label": "Node.js",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGAA6WWNC9H7YSYNYBBY",
+          "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+          "title": "CV: cv-jane-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+          "quote": "Built REST APIs in Node.js and TypeScript"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGABJZSXPQ8Q89P02EKT",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+      },
+      "statement": "States skill: TypeScript",
+      "skill": {
+        "uri": "urn:stub:skill:typescript",
+        "label": "TypeScript",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGABX2EE51ZXJ6E4V3VJ",
+          "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+          "title": "CV: cv-jane-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+          "quote": "Built REST APIs in Node.js and TypeScript"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGABZ05HPK88QNB4KXJX",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+      },
+      "statement": "States skill: PostgreSQL",
+      "skill": {
+        "uri": "urn:stub:skill:postgresql",
+        "label": "PostgreSQL",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGABRBFWV4NYMNMF0BPC",
+          "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+          "title": "CV: cv-jane-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+          "quote": "with PostgreSQL"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGAB5WVENE20M49YG3F9",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+      },
+      "statement": "States skill: Docker",
+      "skill": {
+        "uri": "urn:stub:skill:docker",
+        "label": "Docker",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGAB6JFD5HM7HTEAE210",
+          "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+          "title": "CV: cv-jane-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+          "quote": "Docker for local dev"
+        },
+        {
+          "id": "src_01M4EPBGABDV88X03PQWRGQXRD",
+          "url": "seeker-interview://skr_01M4EPBGAAAZ1MNDEQM780WKWN#turn-3",
+          "title": "Interview turn 3",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-interview",
+          "contentHash": "fe5ec99dc47faeb524b1010e4ebdaf58a46325ff9a5448e1a3297162c975b6a1",
+          "quote": "I use Docker every day for my side projects."
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGABKFM6ZWWE951NF23G",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+      },
+      "statement": "States skill: Git",
+      "skill": {
+        "uri": "urn:stub:skill:git",
+        "label": "Git",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGABAWRCR1SY7GHCEPDM",
+          "url": "seeker-interview://skr_01M4EPBGAAAZ1MNDEQM780WKWN#turn-3",
+          "title": "Interview turn 3",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-interview",
+          "contentHash": "3e5cadbffd70d497ec217b176d41bd2452ac5950e67a79ed327b065a2633af37",
+          "quote": "I use Git for everything."
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc_01M4EPBGAABNS12FXMQ76YMBSD",
+      "kind": "cv",
+      "fileName": "cv-jane-example.pdf",
+      "uploadedAt": "2026-10-08T20:00:00Z",
+      "statedSkills": [
+        {
+          "id": "clm_01M4EPBGAB8AHY323RPJD4E8E4",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+          },
+          "statement": "States skill: Node.js",
+          "skill": {
+            "uri": "urn:stub:skill:node-js",
+            "label": "Node.js",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGAA6WWNC9H7YSYNYBBY",
+              "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+              "title": "CV: cv-jane-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+              "quote": "Built REST APIs in Node.js and TypeScript"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGABJZSXPQ8Q89P02EKT",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+          },
+          "statement": "States skill: TypeScript",
+          "skill": {
+            "uri": "urn:stub:skill:typescript",
+            "label": "TypeScript",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGABX2EE51ZXJ6E4V3VJ",
+              "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+              "title": "CV: cv-jane-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+              "quote": "Built REST APIs in Node.js and TypeScript"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGABZ05HPK88QNB4KXJX",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+          },
+          "statement": "States skill: PostgreSQL",
+          "skill": {
+            "uri": "urn:stub:skill:postgresql",
+            "label": "PostgreSQL",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGABRBFWV4NYMNMF0BPC",
+              "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+              "title": "CV: cv-jane-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+              "quote": "with PostgreSQL"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGAB5WVENE20M49YG3F9",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGAAAZ1MNDEQM780WKWN"
+          },
+          "statement": "States skill: Docker",
+          "skill": {
+            "uri": "urn:stub:skill:docker",
+            "label": "Docker",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGAB6JFD5HM7HTEAE210",
+              "url": "seeker-upload://doc_01M4EPBGAABNS12FXMQ76YMBSD",
+              "title": "CV: cv-jane-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "d2b9783970d2262c0994ac58fef4e21928f0dabb5054bdc97559555707850214",
+              "quote": "Docker for local dev"
+            }
+          ]
+        }
+      ],
+      "experience": [
+        {
+          "title": "Backend developer intern",
+          "organisation": "Example Software s.r.o.",
+          "from": "2025-07",
+          "to": "2025-12"
+        }
+      ],
+      "education": [
+        {
+          "title": "Bc. Computer Science",
+          "institution": "Example Technical University Prague",
+          "from": "2022-09",
+          "to": "2026-06"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "url": "https://github.example.com/jane-example",
+      "kind": "github",
+      "id": "lnk_01M4EPBGAB1SE8DJ5RAR57CC3K",
+      "addedAt": "2026-10-08T20:00:00Z"
+    },
+    {
+      "url": "https://jane.example.com",
+      "kind": "portfolio",
+      "id": "lnk_01M4EPBGABEV3ZW65WHMPVCZP2",
+      "addedAt": "2026-10-08T20:00:00Z"
+    }
+  ],
+  "updatedAt": "2026-10-08T20:00:00Z"
+}
