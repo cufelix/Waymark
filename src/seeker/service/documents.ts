@@ -8,6 +8,8 @@ import type { LlmClient } from "../llm/llm.ts";
 import type { SeekerStore } from "../store/store.ts";
 import { findSkill } from "../taxonomy.ts";
 
+export { SUPPORTED_CV_FORMATS } from "../cv/extract.ts";
+
 const MAX_CV_BYTES = 10 * 1024 * 1024;
 
 export type Deps = { store: SeekerStore; llm: LlmClient };
