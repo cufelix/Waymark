@@ -15,12 +15,13 @@ let loaded: Promise<{ part1: Part1; deps: unknown }> | undefined;
 function load(): Promise<{ part1: Part1; deps: unknown }> {
   loaded ??= (async () => {
     const at = (p: string) => new URL(`../seeker/${p}`, import.meta.url).href;
-    const [part1, store, llm, research, validation] = await Promise.all([
+    const [part1, store, llm, research, validation, roadmap] = await Promise.all([
       import(at("api.ts")) as Promise<Part1>,
       import(at("store/memory.ts")) as Promise<{ MemoryStore: new () => unknown }>,
       import(at("llm/llm.ts")) as Promise<{ OpenRouterClient: new (key?: string) => unknown }>,
       import(at("research-client.ts")) as Promise<{ HttpResearchClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
       import(at("validation-client.ts")) as Promise<{ HttpValidationClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
+      import(at("roadmap-client.ts")) as Promise<{ HttpRoadmapClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
     ]);
     const baseUrl = process.env.PART2_BASE_URL ?? `http://127.0.0.1:${config.PORT}`;
     const apiKey = apiKeys()[0] ?? "";
@@ -33,6 +34,7 @@ function load(): Promise<{ part1: Part1; deps: unknown }> {
         // Part 1 checks career choices and cascades GDPR deletes against Part 2 over HTTP; here that's this server.
         research: new research.HttpResearchClient({ baseUrl, apiKey }),
         validations: new validation.HttpValidationClient({ baseUrl, apiKey }),
+        roadmaps: new roadmap.HttpRoadmapClient({ baseUrl, apiKey }),
         apiKeys: apiKeys(),
       },
     };
