@@ -259,7 +259,7 @@ export function validateLinks(body: unknown): SeekerLinkInput[] {
 export function validateInterviewMessage(body: unknown): { text: string } {
   const o = object(body, "", ["text"]);
   if (typeof o.text !== "string") bad("text", "must be a string");
-  if (o.text.length > 5000) bad("text", "must be at most 5000 characters");
+  if (o.text.length > 4000) bad("text", "must be at most 4000 characters");
   return { text: o.text };
 }
 

@@ -7,7 +7,7 @@ import { emptyPreferences } from "../core/profile.ts";
 import { FakeLlm, MODELS } from "../llm/llm.ts";
 import { MemoryStore } from "../store/memory.ts";
 import { getInterview, interviewTurn } from "./interview.ts";
-import { FIRST_INTERVIEW_QUESTION } from "./interview.prompts.ts";
+import { FIRST_INTERVIEW_QUESTION, INTERVIEW_SYSTEM_PROMPT } from "./interview.prompts.ts";
 
 function profile(seekerId = "skr_test"): SeekerProfile {
   return {
@@ -79,6 +79,59 @@ test("invented skill quote is dropped", async () => {
   await interviewTurn(deps, "skr_test", "I use TypeScript every day.");
 
   assert.deepEqual((await store.get("skr_test"))?.profile.statedSkills, []);
+});
+
+test("skill label unsupported by its verbatim quote is dropped", async () => {
+  const { deps, store, llm } = await setup([
+    answer({ statedSkills: [{ label: "Rust", quote: "TypeScript" }] }),
+    JSON.stringify({ verdicts: [{ index: 0, supported: "no" }] }),
+  ]);
+  await interviewTurn(deps, "skr_test", "I use TypeScript every day.");
+
+  assert.deepEqual((await store.get("skr_test"))?.profile.statedSkills, []);
+  assert.equal(llm.calls.length, 2);
+  assert.equal(llm.calls[1].model, MODELS.fast);
+});
+
+test("one batched fast-model check keeps supported paraphrased skill labels", async () => {
+  const { deps, store, llm } = await setup([
+    answer({
+      statedSkills: [
+        { label: "Computer repair", quote: "spravuju počítače" },
+        { label: "Hardware upgrades", quote: "vyměnil RAM" },
+      ],
+    }),
+    JSON.stringify({ verdicts: [{ index: 0, supported: "yes" }, { index: 1, supported: "yes" }] }),
+  ]);
+  await interviewTurn(deps, "skr_test", "Kamarádům spravuju počítače a vyměnil RAM.");
+
+  assert.deepEqual(
+    (await store.get("skr_test"))?.profile.statedSkills.map((claim) => claim.skill?.label),
+    ["Computer repair", "Hardware upgrades"],
+  );
+  assert.equal(llm.calls.length, 2, "all non-lexical candidates use one batched verification call");
+  assert.equal(llm.calls[1].model, MODELS.fast);
+  assert.match(JSON.stringify(llm.calls[1].messages), /Computer repair/);
+  assert.match(JSON.stringify(llm.calls[1].messages), /Hardware upgrades/);
+});
+
+test("failed semantic skill verification drops unverified skills without failing the turn", async () => {
+  const { deps, store, llm } = await setup([
+    answer({ statedSkills: [{ label: "Computer repair", quote: "spravuju počítače" }] }),
+  ]);
+
+  const result = await interviewTurn(deps, "skr_test", "Kamarádům spravuju počítače.");
+
+  assert.equal(result.reply, "Next question?");
+  assert.deepEqual((await store.get("skr_test"))?.profile.statedSkills, []);
+  assert.equal(llm.calls.length, 2);
+});
+
+test("prompt distinguishes first and repeated practical questions and preserves them in the final summary", () => {
+  assert.match(INTERVIEW_SYSTEM_PROMPT, /FIRST practical question/i);
+  assert.match(INTERVIEW_SYSTEM_PROMPT, /LATER practical question/i);
+  assert.match(INTERVIEW_SYSTEM_PROMPT, /open practical question/i);
+  assert.match(INTERVIEW_SYSTEM_PROMPT, /school-leaving exam/i);
 });
 
 test("concrete skills from one answer are stored with trimmed verbatim quotes", async () => {
