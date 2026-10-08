@@ -27,10 +27,16 @@ describe("checkOwnership", () => {
   it("the seeker's proof token confirms that page, and mutual links spread it to the linked profile", () => {
     const links = [link("lnk_1", "https://soundcloud.com/beats-by-x"), link("lnk_2", "https://jan.dev")];
     const arts = [
-      art("lnk_1", { links: ["https://www.jan.dev/about"], bio: `making beats · ${proofToken(SKR)}` }),
+      art("lnk_1", { links: ["https://www.jan.dev/about"], proof: `making beats · ${proofToken(SKR)}` }),
       art("lnk_2", { links: ["https://soundcloud.com/beats-by-x/tracks"] }),
     ];
     expect(checkOwnership(arts, links, SKR)).toEqual(both);
+  });
+
+  it("spoof: the token in a page link (e.g. posted by someone else on a forum page) proves nothing", () => {
+    const links = [link("lnk_1", "https://forum.example/thread/1")];
+    const arts = [art("lnk_1", { links: [`https://x.example/?t=${proofToken(SKR)}`] })];
+    expect(checkOwnership(arts, links, SKR)).toEqual({ lnk_1: "unconfirmed" });
   });
 
   it("spoof: the token in page text (e.g. a comment on a stranger's video) proves nothing", () => {
@@ -41,7 +47,7 @@ describe("checkOwnership", () => {
 
   it("spoof: another seeker's token proves nothing for this seeker", () => {
     const links = [link("lnk_1", "https://jan.dev")];
-    const arts = [art("lnk_1", { links: [], bio: proofToken("skr_someone_else") })];
+    const arts = [art("lnk_1", { links: [], proof: proofToken("skr_someone_else") })];
     expect(checkOwnership(arts, links, SKR)).toEqual({ lnk_1: "unconfirmed" });
   });
 
@@ -76,7 +82,7 @@ describe("checkOwnership", () => {
 
     it("the same account on a shared host matches (mutual)", () => {
       const links = [link("lnk_1", "https://jan.dev"), link("lnk_2", "https://medium.com/@jan")];
-      const arts = [art("lnk_1", { links: ["https://medium.com/@jan/post-1"], bio: proofToken(SKR) }), art("lnk_2", { links: ["https://jan.dev"] })];
+      const arts = [art("lnk_1", { links: ["https://medium.com/@jan/post-1"], proof: proofToken(SKR) }), art("lnk_2", { links: ["https://jan.dev"] })];
       expect(checkOwnership(arts, links, SKR)).toEqual(both);
     });
 
@@ -88,9 +94,9 @@ describe("checkOwnership", () => {
 
     it("per-account subdomains match on host alone", () => {
       const links = [link("lnk_1", "https://jan.github.io"), link("lnk_2", "https://jan.substack.com")];
-      const arts = [art("lnk_1", { links: ["https://jan.substack.com/p/x"], bio: proofToken(SKR) }), art("lnk_2", { links: ["https://jan.github.io/"] })];
+      const arts = [art("lnk_1", { links: ["https://jan.substack.com/p/x"], proof: proofToken(SKR) }), art("lnk_2", { links: ["https://jan.github.io/"] })];
       expect(checkOwnership(arts, links, SKR)).toEqual(both);
-      const other = [art("lnk_1", { links: ["https://victim.substack.com"], bio: proofToken(SKR) }), art("lnk_2", { links: ["https://jan.github.io/"] })];
+      const other = [art("lnk_1", { links: ["https://victim.substack.com"], proof: proofToken(SKR) }), art("lnk_2", { links: ["https://jan.github.io/"] })];
       expect(checkOwnership(other, links, SKR)).toEqual({ lnk_1: "confirmed", lnk_2: "unconfirmed" });
     });
   });

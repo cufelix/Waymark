@@ -16,7 +16,8 @@ export type Artifact = {
   extractor: Extractor;
   status: ArtifactStatus;
   reason?: string;
-  owner?: { displayName?: string; handle?: string; bio?: string; links: string[] };   // account-owner fields only
+  // proof: account-level name, handle and bio only (never page links or names inside records); the ownership token is checked here.
+  owner?: { displayName?: string; handle?: string; bio?: string; proof?: string; links: string[] };
   text: string;
   fields: Record<string, unknown>;
   items: ArtifactItem[];
@@ -102,6 +103,7 @@ export function findOwner(raws: unknown[]): Artifact["owner"] {
   let displayName: string | undefined;
   let handle: string | undefined;
   let bio: string | undefined;
+  const proof: string[] = [];
   const links = new Set<string>();
   for (const raw of raws) {
     for (const o of ownerCandidates(raw)) {
@@ -109,6 +111,10 @@ export function findOwner(raws: unknown[]): Artifact["owner"] {
       handle ??= pick(o, HANDLE);
     }
     for (const o of profileCandidates(raw)) {
+      for (const k of [...NAME, ...HANDLE, ...PROFILE_TEXT]) {
+        const v = str(o[k]);
+        if (v) proof.push(v.slice(0, 1000));
+      }
       for (const k of LINK) {
         const v = str(o[k]);
         if (v && /^https?:\/\//.test(v)) links.add(v);
@@ -122,7 +128,7 @@ export function findOwner(raws: unknown[]): Artifact["owner"] {
     if (isObj(raw) && Array.isArray(raw.links)) for (const l of raw.links) if (typeof l === "string" && /^https?:\/\//.test(l)) links.add(l);
   }
   if (!displayName && !handle && !bio && links.size === 0) return undefined;
-  return { displayName, handle, ...(bio ? { bio } : {}), links: [...links].slice(0, 200) };
+  return { displayName, handle, ...(bio ? { bio } : {}), ...(proof.length ? { proof: proof.join("\n").slice(0, 4000) } : {}), links: [...links].slice(0, 200) };
 }
 
 export async function buildArtifact(

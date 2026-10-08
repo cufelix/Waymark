@@ -59,8 +59,8 @@ export function checkOwnership(artifacts: Artifact[], links: SeekerLink[], seeke
   const token = proofToken(seekerId);
   // Only fields the account owner controls count; page text can carry other people's comments or posts.
   const showsToken = (l: SeekerLink) => {
-    const o = read.get(l.id)?.owner;
-    return !!o && [o.displayName, o.handle, o.bio, ...o.links].some((f) => typeof f === "string" && f.includes(token));
+    // Account-level fields only: page links and names inside records can be written by other people.
+    return read.get(l.id)?.owner?.proof?.includes(token) ?? false;
   };
   const linksTo = (from: SeekerLink, to: SeekerLink) => (read.get(from.id)?.owner?.links ?? []).some((href) => pointsAt(href, to));
 
