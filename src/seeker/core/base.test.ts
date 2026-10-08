@@ -52,3 +52,10 @@ test("stated skills merge by uri and drop when sources are removed", () => {
   assert.equal(removeSources(merged, "seeker-upload://doc_A")[0].sources.length, 1);
   assert.equal(removeSources(removeSources(merged, "seeker-upload://doc_A"), "seeker-interview://").length, 0);
 });
+
+test("unfence strips a json fence from JSON-mode replies", async () => {
+  const { unfence } = await import("../llm/llm.ts");
+  assert.equal(unfence('```json\n{"a":1}\n```'), '{"a":1}');
+  assert.equal(unfence('{"a":1}'), '{"a":1}');
+  assert.equal(unfence("no json here"), "no json here");
+});
