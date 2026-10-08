@@ -4,6 +4,7 @@ import { newId } from "./ids.ts";
 import { ApiError, fail, ok } from "./errors.ts";
 import { MemoryStore } from "../store/memory.ts";
 import { FakeLlm } from "../llm/llm.ts";
+import { mergeStatedSkills, removeSources, touch, emptyPreferences } from "./profile.ts";
 
 test("ids are prefix_ + 26-char ULID and unique", () => {
   const a = newId("skr");
@@ -32,8 +33,6 @@ test("fake llm returns queued answers", async () => {
   const llm = new FakeLlm(["a"]);
   assert.equal(await llm.chat({ model: "m", messages: [] }), "a");
 });
-
-import { mergeStatedSkills, removeSources, touch, emptyPreferences } from "./profile.ts";
 
 test("touch bumps version and computes status", () => {
   const p: any = { seekerId: "skr_1", profileVersion: 1, status: "incomplete", consent: { dataProcessing: true }, preferences: emptyPreferences(), statedSkills: [], documents: [], links: [], updatedAt: "" };

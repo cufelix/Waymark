@@ -36,7 +36,8 @@ export class OpenRouterClient implements LlmClient {
         ...(req.json ? { response_format: { type: "json_object" } } : {}),
       }),
     });
-    if (!res.ok) throw new ApiError("upstream_failed", `OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    // The upstream body can echo prompts or account details, so clients only get the status.
+    if (!res.ok) throw new ApiError("upstream_failed", `LLM provider returned ${res.status}`);
     const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     const content = body.choices?.[0]?.message?.content;
     if (typeof content !== "string") throw new ApiError("upstream_failed", "OpenRouter returned no content");

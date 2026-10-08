@@ -13,10 +13,10 @@ Next.js routes get wired once the skeleton exists. `api.ts` exposes one framewor
 
 | Path | Owner | What |
 |---|---|---|
-| `contracts.ts`, `core/ids.ts`, `core/errors.ts`, `core/claims.ts`, `core/profile.ts`, `llm/llm.ts`, `store/store.ts`, `store/memory.ts`, `taxonomy.ts` | base (orchestrator) | shared. Ask in your task thread to change them |
-| `core/validate.ts`, `core/auth.ts`, `service/seekers.ts`, `service/gdpr.ts`, `api.ts`, `fixtures/profiles/` | Claude worker | create seeker, preferences, links, profile handoff, export/delete, request handling |
-| `service/interview.ts`, `service/interview.prompts.ts` | Codex 1 | interview turns via OpenRouter, preferences draft, stated skills from answers |
-| `service/documents.ts`, `cv/extract.ts` | Codex 2 | CV upload (PDF/DOCX), parse into stated skills, experience, education; delete |
+| `contracts.ts`, `core/ids.ts`, `core/errors.ts`, `core/claims.ts`, `core/profile.ts`, `llm/llm.ts`, `store/store.ts`, `store/memory.ts`, `taxonomy.ts` | base (`Dymyt-ry/part1-base`) | shared; change only through the base branch |
+| `core/validate.ts`, `core/auth.ts`, `service/seekers.ts`, `service/gdpr.ts`, `api.ts`, `fixtures/profiles/` | `Dymyt-ry/part1-core` | create seeker, preferences, links, profile handoff, export/delete, request handling |
+| `service/interview.ts`, `service/interview.prompts.ts` | `Dymyt-ry/part1-interview` | interview turns via OpenRouter, preferences draft, stated skills from answers |
+| `service/documents.ts`, `cv/extract.ts` | `Dymyt-ry/part1-cv` | CV upload (PDF/DOCX), parse into stated skills, experience, education; delete |
 
 Tests live next to the file they test (`service/interview.test.ts`).
 
