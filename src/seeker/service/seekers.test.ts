@@ -77,6 +77,17 @@ test("putLinks keeps id and addedAt for unchanged url+kind, mints new ones, drop
   assert.deepEqual(await putLinks(deps, seekerId, []), []);
 });
 
+test("putLinks stores a link without inventing a kind", async () => {
+  const deps = { store: new MemoryStore() };
+  const { seekerId } = await createSeeker(deps, consent);
+  const [link] = await putLinks(deps, seekerId, [{ url: "https://unknown.example.com/profile" }]);
+  assert.equal("kind" in link, false);
+  assert.deepEqual((await getProfile(deps, seekerId)).links, [link]);
+
+  const [same] = await putLinks(deps, seekerId, [{ url: "https://unknown.example.com/profile" }]);
+  assert.deepEqual(same, link);
+});
+
 test("unknown and deletion-pending seekers are not_found for reads and writes", async () => {
   const deps = { store: new MemoryStore() };
   await assert.rejects(getProfile(deps, "skr_01M4EPBGAC0000000000000000"), code("not_found"));

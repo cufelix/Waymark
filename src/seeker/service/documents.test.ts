@@ -68,8 +68,36 @@ test("DOCX upload extracts details, stores text, and creates stated upload evide
   const stored = await store.get(SEEKER_ID);
   assert.equal(stored?.profile.profileVersion, 2);
   assert.equal(stored?.profile.documents[0].id, document.id);
+  assert.equal(stored?.profile.documents[0].kind, "cv");
   assert.equal(stored?.profile.statedSkills.length, 1);
   assert.equal(stored?.cvTexts[document.id], "Jane Example\nSoftware Developer & mentor\nBuilt APIs with TypeScript");
+});
+
+test("upload stores an explicit document kind", async () => {
+  const store = await setup();
+  const document = await uploadCv(
+    { store, llm: new FakeLlm([extraction()]) },
+    SEEKER_ID,
+    { fileName: "certificate.docx", mimeType: DOCX_MIME, bytes: makeDocx(JANE_EXAMPLE_XML), kind: "certificate" },
+  );
+
+  assert.equal(document.kind, "certificate");
+  assert.equal((await store.get(SEEKER_ID))?.profile.documents[0].kind, "certificate");
+});
+
+test("upload rejects an unknown document kind before extraction", async () => {
+  const store = await setup();
+  const llm = new FakeLlm([]);
+  await expectCode(
+    uploadCv(
+      { store, llm },
+      SEEKER_ID,
+      { fileName: "transcript.docx", mimeType: DOCX_MIME, bytes: makeDocx(JANE_EXAMPLE_XML), kind: "transcript" },
+    ),
+    "unprocessable",
+  );
+  assert.equal(llm.calls.length, 0);
+  assert.deepEqual((await store.get(SEEKER_ID))?.profile.documents, []);
 });
 
 test("PDF upload transcribes first, then makes one extraction call on the text", async () => {

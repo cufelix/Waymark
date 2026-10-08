@@ -57,7 +57,7 @@ export type InterviewTurn = { role: "agent" | "seeker"; text: string; at: ISODat
 
 export type SeekerDocument = {
   id: string; // "doc_…"
-  kind: "cv";
+  kind: "cv" | "certificate" | "portfolio" | "image" | "other";
   fileName: string;
   uploadedAt: ISODate;
   statedSkills: Claim[]; // tier "stated", source tool "seeker-upload"
@@ -67,7 +67,7 @@ export type SeekerDocument = {
 
 export type SeekerLinkInput = {
   url: string;
-  kind: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other";
+  kind?: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other";
 };
 export type SeekerLink = SeekerLinkInput & { id: string; addedAt: ISODate }; // "lnk_…"
 
