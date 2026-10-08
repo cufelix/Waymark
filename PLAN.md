@@ -96,11 +96,14 @@ flowchart LR
 - One TypeScript repo:
   - Next.js for the app and API.
   - A separate long-running worker for scraping, because scrapes outlive serverless timeouts.
-- Supabase for Postgres, auth, storage and row-level security, with `pg-boss` on the same Postgres as the queue.
+- It is one web app. No backend-as-a-service (no Supabase, Firebase or similar): everything runs in our own stack.
+  - Postgres in Docker Compose, the same setup locally and on our server. `pg-boss` runs on the same Postgres as the queue.
+  - Raw snapshots on the server's disk, behind one small storage interface, so they can move to object storage later if they outgrow the disk.
+  - Login inside the web app itself, with an auth library and sessions in our Postgres, not an external auth service. Until the UI exists, the input and research APIs use API keys.
 - Clients for `apify-client`, `exa-js` and `@mendable/firecrawl-js`.
 - The Claude API: `claude-sonnet-5-5` for extraction, `claude-haiku-5-5` for bulk classification.
 - Sentry for errors.
-- Hosting: the app on Vercel, the worker on Fly.io or Railway.
+- Hosting: one server running the web app, the worker and Postgres together with Docker Compose.
 
 This is a proposal. Change it at kickoff, before A1 lands.
 
@@ -219,7 +222,7 @@ Company ethics appear only as sourced claims, never as an opinion score. Compani
 - Reviews are stored as company claims. Reviewer names and handles are dropped at ingestion.
 - Account page: see everything stored about you, export it, delete it (hard delete, including snapshots).
 - Namesake check stores nothing about other people: it only reports "the top results for your name are not you".
-- Row-level security on every seeker table. API rate limits.
+- Every query on seeker data is scoped by `seekerId` in the data layer, and a test checks that one seeker can never read another's data. API rate limits.
 - API keys for Apify, Exa, Firecrawl and Anthropic only in environment variables or the host's secret store, never in the repo. `.env*` is gitignored.
 
 ## 8. Work breakdown (issues)
@@ -234,7 +237,7 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 | # | Issue | Done when |
 |---|---|---|
 | R1 | **Source research.** Pick 3 pilot countries on different continents and 5 profession groups. For each, test the global actors (Indeed, Glassdoor, the multi-board actor), the best national board, Firecrawl on 20 career pages and the national review site, Exa discovery for 20 companies, and the registry options (GLEIF, OpenCorporates, national register). Measure coverage, field completeness, cost per 1,000 and failure rate. Check terms of service. | `docs/sources.md` picks one tool per source with numbers |
-| A1 | Repo skeleton, CI (lint, typecheck, tests), `contracts.ts`, `fixtures/`, Supabase project, first migration | B can build against fixtures; CI blocks a red PR |
+| A1 | Repo skeleton, CI (lint, typecheck, tests), `contracts.ts`, `fixtures/`, Postgres in Docker Compose, first migration | B can build against fixtures; CI blocks a red PR |
 | A2 | Worker, `pg-boss` queue, scheduler, scrape-run table, raw snapshot storage | a no-op job runs on a schedule and logs a run |
 | A3 | Job boards via Apify (R1's picks) → `JobPost`, incremental runs, dedup by canonical URL and hash | a daily run stores real posts for the pilot countries and professions without duplicates |
 | A4 | Career pages via Firecrawl (`map` → `scrape`), discovered with Exa | at least two independent sources feed the same tables |
@@ -252,7 +255,7 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 ### Builder B (@Dymyt-ry): user input
 | # | Issue | Done when |
 |---|---|---|
-| B1 | Auth (Supabase), account model, app shell, layout with tokens | sign-up and login work |
+| B1 | Seeker model and API-key access to the input API (user login comes with the UI) | a request without a valid key is rejected |
 | B2 | Intake: occupation, country or remote, goal, dream companies, consent screen | stored per user with consent timestamp |
 | B3 | Intake interview plus CV upload: Claude reads the CV and answers into *stated* skills (ESCO) | a real CV gives a list of stated skills with the CV as source |
 | B4 | Link check: fetch each link the seeker gave (A's Firecrawl client), read it, turn what it shows into *proven* claims; optional opt-in name search with Exa | a shared project link proves its skill with a stored snapshot |
