@@ -4,7 +4,7 @@
 import type { Context } from "hono";
 import { apiKeys, config } from "../config";
 
-type UploadedFile = { fileName: string; mimeType: string; bytes: Uint8Array };
+type UploadedFile = { fileName: string; mimeType: string; bytes: Uint8Array; kind?: string };
 type Part1Request = { method: string; path: string; headers: Record<string, string>; body?: unknown; file?: UploadedFile };
 type Part1Response = { status: number; body: unknown };
 type Part1 = { handle: (req: Part1Request, deps: unknown) => Promise<Part1Response> };
@@ -45,7 +45,15 @@ export async function part1Handler(c: Context): Promise<Response> {
   if (type.startsWith("multipart/form-data")) {
     const form = await c.req.parseBody();
     const f = form.file;
-    if (f instanceof File) file = { fileName: f.name, mimeType: f.type, bytes: new Uint8Array(await f.arrayBuffer()) };
+    const kind = form.kind;
+    if (f instanceof File) {
+      file = {
+        fileName: f.name,
+        mimeType: f.type,
+        bytes: new Uint8Array(await f.arrayBuffer()),
+        ...(typeof kind === "string" ? { kind } : {}),
+      };
+    }
   } else if (type.includes("json")) {
     body = await c.req.json().catch(() => undefined);
   }
