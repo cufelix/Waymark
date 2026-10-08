@@ -7,6 +7,8 @@ import { FakePart2Client } from "./part2-client.ts";
 import { MemoryGapStore } from "./store.ts";
 import { CAREER_PATHS, COMPANIES, MARKET, OCC, PROFILE, RUN, SEEKER_RESEARCH, TRENDS, VACANCIES } from "./testdata/run.ts";
 
+const validProfile = { ...structuredClone(PROFILE), seekerId: "skr_00000000000000000000000000", statedSkills: [] };
+
 function deps(store = new MemoryGapStore()): GapDeps {
   return {
     store,
@@ -93,11 +95,41 @@ test("Part 2 errors return 502 without leaking the upstream body", async () => {
     path: "/v1/validations",
     headers: auth,
     body: {
-      profile: PROFILE,
+      profile: validProfile,
       runId: RUN.runId,
     },
   }, api);
   assert.equal(response.status, 422);
   assert.equal(validResponse.status, 502);
   assert.deepEqual(validResponse.body.error, { code: "upstream_failed", message: "Research service returned 503" });
+});
+
+test("malformed nested profiles return an unprocessable envelope", async () => {
+  const profiles = [
+    { ...validProfile, statedSkills: [null] },
+    {
+      ...validProfile,
+      documents: [{
+        id: "doc_00000000000000000000000000",
+        kind: "cv",
+        fileName: "cv.pdf",
+        uploadedAt: validProfile.updatedAt,
+        statedSkills: [],
+        experience: [],
+        education: [],
+        unexpected: true,
+      }],
+    },
+  ];
+
+  for (const profile of profiles) {
+    const response = await handle({
+      method: "POST",
+      path: "/v1/validations",
+      headers: auth,
+      body: { profile, runId: RUN.runId },
+    }, deps());
+    assert.equal(response.status, 422);
+    assert.equal(response.body.error?.code, "unprocessable");
+  }
 });

@@ -7,6 +7,19 @@ import { createValidation, deleteValidations, getValidation, listValidations, ty
 import { MemoryGapStore } from "./store.ts";
 import { CAREER_PATHS, COMPANIES, MARKET, OCC, PROFILE, RUN, SEEKER_RESEARCH, TRENDS, VACANCIES } from "./testdata/run.ts";
 
+const SEEKER_ID = "skr_00000000000000000000000000";
+const VALID_PROFILE: SeekerProfile = (() => {
+  const profile = structuredClone(PROFILE);
+  profile.seekerId = SEEKER_ID;
+  const claim = profile.statedSkills[0]!;
+  claim.id = "clm_00000000000000000000000000";
+  claim.subject.id = SEEKER_ID;
+  claim.sources[0]!.id = "src_00000000000000000000000000";
+  claim.sources[0]!.url = "seeker-upload://doc_00000000000000000000000000";
+  return profile;
+})();
+const VALID_RUN = { ...RUN, seekerId: SEEKER_ID };
+
 const builders: ValidationBuilders = {
   buildJobProfile: ({ occupation, vacancies, market, careerPath }) => ({
     occupation,
@@ -22,7 +35,7 @@ const builders: ValidationBuilders = {
 
 function part2(overrides: Partial<ConstructorParameters<typeof FakePart2Client>[0]> = {}): FakePart2Client {
   return new FakePart2Client({
-    run: RUN,
+    run: VALID_RUN,
     careerPaths: CAREER_PATHS,
     market: MARKET,
     trends: [TRENDS],
@@ -34,7 +47,7 @@ function part2(overrides: Partial<ConstructorParameters<typeof FakePart2Client>[
 }
 
 function request(overrides: Partial<ValidationRequest> = {}): ValidationRequest {
-  return { profile: structuredClone(PROFILE), runId: RUN.runId, ...overrides };
+  return { profile: structuredClone(VALID_PROFILE), runId: VALID_RUN.runId, ...overrides };
 }
 
 async function expectApiError(action: () => Promise<unknown>, code: ApiError["code"]): Promise<void> {
@@ -46,10 +59,10 @@ test("creates and stores a validation from a finished run", async () => {
   const validation = await createValidation({ store, part2: part2() }, request(), builders);
 
   assert.match(validation.validationId, /^val_[0-9A-HJKMNP-TV-Z]{26}$/);
-  assert.equal(validation.seekerId, PROFILE.seekerId);
-  assert.equal(validation.runId, RUN.runId);
+  assert.equal(validation.seekerId, VALID_PROFILE.seekerId);
+  assert.equal(validation.runId, VALID_RUN.runId);
   assert.deepEqual(validation.occupation, OCC);
-  assert.deepEqual(validation.locations, PROFILE.preferences.locations);
+  assert.deepEqual(validation.locations, VALID_PROFILE.preferences.locations);
   assert.equal(validation.jobProfile.vacanciesAnalysed, VACANCIES.length);
   assert.deepEqual(await store.get(validation.validationId), validation);
 });
@@ -57,11 +70,11 @@ test("creates and stores a validation from a finished run", async () => {
 test("rejects another seeker's, unfinished, and unknown runs", async () => {
   const store = new MemoryGapStore();
   await expectApiError(
-    () => createValidation({ store, part2: part2({ run: { ...RUN, seekerId: "skr_OTHER" } }) }, request(), builders),
+    () => createValidation({ store, part2: part2({ run: { ...VALID_RUN, seekerId: "skr_11111111111111111111111111" } }) }, request(), builders),
     "unprocessable",
   );
   await expectApiError(
-    () => createValidation({ store, part2: part2({ run: { ...RUN, status: "running" } }) }, request(), builders),
+    () => createValidation({ store, part2: part2({ run: { ...VALID_RUN, status: "running" } }) }, request(), builders),
     "conflict",
   );
   await expectApiError(
@@ -73,7 +86,7 @@ test("rejects another seeker's, unfinished, and unknown runs", async () => {
 test("rejects incomplete profiles, unknown occupations, and unknown request fields", async () => {
   const store = new MemoryGapStore();
   await expectApiError(
-    () => createValidation({ store, part2: part2() }, request({ profile: { ...PROFILE, status: "incomplete" } }), builders),
+    () => createValidation({ store, part2: part2() }, request({ profile: { ...VALID_PROFILE, status: "incomplete" } }), builders),
     "unprocessable",
   );
   await expectApiError(
@@ -90,7 +103,7 @@ test("rejects missing, wrongly typed, and unknown top-level profile fields", asy
   const store = new MemoryGapStore();
   const requiredFields = ["seekerId", "profileVersion", "status", "consent", "preferences", "statedSkills", "documents", "links", "updatedAt"];
   for (const field of requiredFields) {
-    const profile = structuredClone(PROFILE) as unknown as Record<string, unknown>;
+    const profile = structuredClone(VALID_PROFILE) as unknown as Record<string, unknown>;
     delete profile[field];
     await expectApiError(
       () => createValidation({ store, part2: part2() }, request({ profile: profile as unknown as SeekerProfile }), builders),
@@ -99,16 +112,16 @@ test("rejects missing, wrongly typed, and unknown top-level profile fields", asy
   }
 
   const invalidProfiles: Record<string, unknown>[] = [
-    { ...PROFILE, seekerId: 1 },
-    { ...PROFILE, profileVersion: "3" },
-    { ...PROFILE, consent: { dataProcessing: false } },
-    { ...PROFILE, preferences: [] },
-    { ...PROFILE, statedSkills: {} },
-    { ...PROFILE, documents: {} },
-    { ...PROFILE, links: {} },
-    { ...PROFILE, careerChoice: "not an object" },
-    { ...PROFILE, updatedAt: 123 },
-    { ...PROFILE, unexpected: true },
+    { ...VALID_PROFILE, seekerId: 1 },
+    { ...VALID_PROFILE, profileVersion: "3" },
+    { ...VALID_PROFILE, consent: { dataProcessing: false } },
+    { ...VALID_PROFILE, preferences: [] },
+    { ...VALID_PROFILE, statedSkills: {} },
+    { ...VALID_PROFILE, documents: {} },
+    { ...VALID_PROFILE, links: {} },
+    { ...VALID_PROFILE, careerChoice: "not an object" },
+    { ...VALID_PROFILE, updatedAt: 123 },
+    { ...VALID_PROFILE, unexpected: true },
   ];
   for (const profile of invalidProfiles) {
     await expectApiError(
@@ -118,19 +131,35 @@ test("rejects missing, wrongly typed, and unknown top-level profile fields", asy
   }
 });
 
-test("profile validation does not inspect claim internals", async () => {
-  const profile = structuredClone(PROFILE);
-  profile.statedSkills = [null] as unknown as SeekerProfile["statedSkills"];
+test("rejects malformed nested profile entries", async () => {
+  const nullSkill = structuredClone(VALID_PROFILE);
+  nullSkill.statedSkills = [null] as unknown as SeekerProfile["statedSkills"];
+  await expectApiError(
+    () => createValidation({ store: new MemoryGapStore(), part2: part2() }, request({ profile: nullSkill }), builders),
+    "unprocessable",
+  );
 
-  const validation = await createValidation({ store: new MemoryGapStore(), part2: part2() }, request({ profile }), builders);
-
-  assert.equal(validation.seekerId, PROFILE.seekerId);
+  const unknownDocumentField = structuredClone(VALID_PROFILE);
+  unknownDocumentField.documents = [{
+    id: "doc_00000000000000000000000000",
+    kind: "cv",
+    fileName: "cv.pdf",
+    uploadedAt: VALID_PROFILE.updatedAt,
+    statedSkills: [],
+    experience: [],
+    education: [],
+    unexpected: true,
+  } as unknown as SeekerProfile["documents"][number]];
+  await expectApiError(
+    () => createValidation({ store: new MemoryGapStore(), part2: part2() }, request({ profile: unknownDocumentField }), builders),
+    "unprocessable",
+  );
 });
 
 test("defaults to careerChoice before the first target occupation", async () => {
   const chosen: Occupation = { uri: "http://data.europa.eu/esco/occupation/chosen", label: "chosen occupation", lang: "en" };
-  const profile = structuredClone(PROFILE);
-  profile.careerChoice = { occupation: chosen, runId: RUN.runId, chosenAt: "2026-10-09T00:00:00Z" };
+  const profile = structuredClone(VALID_PROFILE);
+  profile.careerChoice = { occupation: chosen, runId: VALID_RUN.runId, chosenAt: "2026-10-09T00:00:00Z" };
   const validation = await createValidation(
     { store: new MemoryGapStore(), part2: part2({ careerPaths: [{ occupation: chosen, why: [], vacancyCount: 0 }], vacancies: [] }) },
     request({ profile }),
@@ -170,9 +199,9 @@ test("gets, lists, and deletes validations with isolated store values", async ()
   const store = new MemoryGapStore();
   const validation = await createValidation({ store, part2: part2() }, request(), builders);
   assert.deepEqual(await getValidation({ store }, validation.validationId), validation);
-  assert.deepEqual(await listValidations({ store }, PROFILE.seekerId), [validation]);
-  assert.deepEqual(await deleteValidations({ store }, PROFILE.seekerId), { deleted: true, validations: 1 });
-  assert.deepEqual(await listValidations({ store }, PROFILE.seekerId), []);
+  assert.deepEqual(await listValidations({ store }, VALID_PROFILE.seekerId), [validation]);
+  assert.deepEqual(await deleteValidations({ store }, VALID_PROFILE.seekerId), { deleted: true, validations: 1 });
+  assert.deepEqual(await listValidations({ store }, VALID_PROFILE.seekerId), []);
   await expectApiError(() => getValidation({ store }, validation.validationId), "not_found");
 });
 

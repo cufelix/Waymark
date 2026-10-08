@@ -1,6 +1,7 @@
 import { now } from "../seeker/core/claims.ts";
 import { ApiError } from "../seeker/core/errors.ts";
 import { newId } from "../seeker/core/ids.ts";
+import { validateSeekerProfile } from "../seeker/core/validate.ts";
 import { buildCompanyChecks } from "./companies.ts";
 import type { CompanyCheck, JobProfile, MarketFacts, SkillCheck, Validation, ValidationRequest } from "./contracts.ts";
 import { buildSkillChecks } from "./evidence.ts";
@@ -37,40 +38,17 @@ function validateRequest(value: unknown): ValidationRequest {
   if (unknown) invalid(`Unknown field: ${unknown}`);
   if (typeof body.runId !== "string" || !body.runId.startsWith("run_") || body.runId.length <= 4) invalid("runId must be a run_ prefixed string");
   if (body.occupationUri !== undefined && typeof body.occupationUri !== "string") invalid("occupationUri must be a string");
-  if (typeof body.profile !== "object" || body.profile === null || Array.isArray(body.profile)) invalid("profile must be an object");
-
-  const profile = body.profile as Record<string, unknown>;
-  const allowedProfile = new Set([
-    "seekerId",
-    "profileVersion",
-    "status",
-    "consent",
-    "preferences",
-    "statedSkills",
-    "documents",
-    "links",
-    "careerChoice",
-    "updatedAt",
-  ]);
-  const unknownProfileField = Object.keys(profile).find((key) => !allowedProfile.has(key));
-  if (unknownProfileField) invalid(`Unknown profile field: ${unknownProfileField}`);
-  if (typeof profile.seekerId !== "string") invalid("profile.seekerId must be a string");
-  if (profile.status !== "complete" && profile.status !== "incomplete") invalid("profile.status is invalid");
-  if (typeof profile.profileVersion !== "number" || !Number.isFinite(profile.profileVersion)) invalid("profile.profileVersion must be a number");
-  if (typeof profile.consent !== "object" || profile.consent === null || Array.isArray(profile.consent)) invalid("profile.consent must be an object");
-  if ((profile.consent as Record<string, unknown>).dataProcessing !== true) invalid("profile.consent.dataProcessing must be true");
-  if (typeof profile.preferences !== "object" || profile.preferences === null || Array.isArray(profile.preferences)) invalid("profile.preferences must be an object");
-  const preferences = profile.preferences as Record<string, unknown>;
-  if (!Array.isArray(preferences.targetOccupations)) invalid("profile.preferences.targetOccupations must be an array");
-  if (!Array.isArray(preferences.locations)) invalid("profile.preferences.locations must be an array");
-  if (!Array.isArray(profile.statedSkills)) invalid("profile.statedSkills must be an array");
-  if (!Array.isArray(profile.documents)) invalid("profile.documents must be an array");
-  if (!Array.isArray(profile.links)) invalid("profile.links must be an array");
-  if (profile.careerChoice !== undefined && (typeof profile.careerChoice !== "object" || profile.careerChoice === null || Array.isArray(profile.careerChoice))) {
-    invalid("profile.careerChoice must be an object");
+  try {
+    const profile = validateSeekerProfile(body.profile, "profile");
+    return {
+      profile,
+      runId: body.runId,
+      ...(body.occupationUri === undefined ? {} : { occupationUri: body.occupationUri }),
+    };
+  } catch (error) {
+    if (error instanceof ApiError) throw new ApiError("unprocessable", error.message);
+    throw error;
   }
-  if (typeof profile.updatedAt !== "string") invalid("profile.updatedAt must be a string");
-  return body as unknown as ValidationRequest;
 }
 
 function occupationUri(value: unknown): string | undefined {

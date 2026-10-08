@@ -20,6 +20,11 @@ test("real validation builders complete POST, GET, list, and delete without seek
 
   const seekerId = "skr_00000000000000000000000000";
   const profile: SeekerProfile = { ...structuredClone(PROFILE), seekerId };
+  const stated = profile.statedSkills[0]!;
+  stated.id = "clm_00000000000000000000000000";
+  stated.subject.id = seekerId;
+  stated.sources[0]!.id = "src_00000000000000000000000000";
+  stated.sources[0]!.url = "seeker-upload://doc_00000000000000000000000000";
   const run = { ...RUN, seekerId };
   const deps: GapDeps = {
     store: new MemoryGapStore(),
