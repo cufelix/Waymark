@@ -11,6 +11,8 @@ const Env = z.object({
   API_KEYS: z.string().default(""),
   SNAPSHOT_DIR: z.string().default("./data/snapshots"),
   ROLE: z.enum(["all", "api", "worker"]).default("all"),
+  // Serve the UI with a key-less bridge to the API, for requests from this machine only.
+  UI_LOCAL: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Keys the seekers' ownership proof tokens. Set a long random value in production; changing it invalidates existing tokens.
   PROOF_SECRET: z.string().min(16).default("dev-only-proof-secret-change-me"),
 

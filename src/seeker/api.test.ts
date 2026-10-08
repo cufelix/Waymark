@@ -101,6 +101,7 @@ test("document upload and delete routes accept the file field and remove the doc
     { fileName: "cv.txt", mimeType: "text/plain", bytes: Buffer.from("Jane Example\nBuilt APIs with TypeScript") },
   );
   assert.equal(uploaded.status, 201);
+  assert.equal((uploaded.body.data as any).kind, "cv");
   const documentId = (uploaded.body.data as any).id as string;
   assert.match(documentId, /^doc_/);
 
@@ -108,6 +109,33 @@ test("document upload and delete routes accept the file field and remove the doc
   assert.equal(deleted.status, 200);
   assert.deepEqual(deleted.body.data, { deleted: true });
   assert.deepEqual(((await call("GET", `/v1/seekers/${id}/profile`)).body.data as any).documents, []);
+});
+
+test("document upload stores an explicit kind and rejects an invalid kind", async () => {
+  const { call, create, deps } = setup();
+  const id = await create();
+
+  const invalid = await call(
+    "POST",
+    `/v1/seekers/${id}/documents`,
+    undefined,
+    auth,
+    { fileName: "work.txt", mimeType: "text/plain", bytes: Buffer.from("Built APIs with TypeScript"), kind: "transcript" },
+  );
+  assert.equal(invalid.status, 422);
+  assert.equal(errCode(invalid), "unprocessable");
+
+  deps.llm = new FakeLlm([JSON.stringify({ skills: [], experience: [], education: [] })]);
+  const uploaded = await call(
+    "POST",
+    `/v1/seekers/${id}/documents`,
+    undefined,
+    auth,
+    { fileName: "work.txt", mimeType: "text/plain", bytes: Buffer.from("Built APIs with TypeScript"), kind: "portfolio" },
+  );
+  assert.equal(uploaded.status, 201);
+  assert.equal((uploaded.body.data as any).kind, "portfolio");
+  assert.equal(((await call("GET", `/v1/seekers/${id}/profile`)).body.data as any).documents[0].kind, "portfolio");
 });
 
 test("missing consent is 403, unknown field is 422", async () => {
@@ -136,6 +164,9 @@ test("profile becomes complete after valid preferences; links round-trip", async
   assert.equal(profile.status, "complete");
   assert.equal(profile.profileVersion, 3);
   assert.equal(profile.links.length, 1);
+  const untyped = await call("PUT", `/v1/seekers/${id}/links`, { links: [{ url: "https://unknown.example.com/x" }] });
+  assert.equal(untyped.status, 200);
+  assert.equal("kind" in (untyped.body.data as any)[0], false);
   assert.equal((await call("PUT", `/v1/seekers/${id}/preferences`, { ...prefs, score: 90 })).status, 422);
   assert.equal((await call("PUT", `/v1/seekers/${id}/preferences`, { ...prefs, targetOccupations: [] })).status, 422);
 });

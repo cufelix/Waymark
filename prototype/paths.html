@@ -13,7 +13,7 @@
 <main class="wrap" style="max-width: 1280px; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 32px">
   <div style="display: flex; flex-direction: column; gap: 10px">
     <h1 class="h1">Three paths that fit you</h1>
-    <p class="lead" style="max-width: 680px">Picked from your answers and ordered by real demand in Prague. No scores. Just why it fits, where you already stand, and what the market looks like.</p>
+    <p class="lead" style="max-width: 680px">Picked from your answers and ordered by real demand where you want to work. No scores. Just why it fits, where you already stand, and what the market looks like.</p>
   </div>
   <div class="cards" id="cards"></div>
 </main>
@@ -38,85 +38,102 @@
     <div style="display: flex; flex-direction: column; gap: 12px">
       <span class="lbl">Where it can take you</span>
       <div class="ladder" id="dLadder"></div>
-      <div style="font-size: 13px; color: var(--faint)">Salary ranges fill in from scraped Prague job ads.</div>
+      <div style="font-size: 13px; color: var(--faint)">Pay comes from current job ads or a salary site, with sources; it is left empty when no source gives it.</div>
     </div>
     <a class="cta" href="roadmap.html">Choose this path</a>
   </aside>
 </div>
 
+<script src="live.js"></script>
 <script>
+// Live: the run's top career paths (Part 2), the seeker's own head start (Part 1), choice saved in Part 1.
 const $ = (id) => document.getElementById(id);
-const PATHS = [
-  { rank: 'Most open roles', title: 'Backend developer', roles: '143', time: '~7 mo',
-    oneLine: 'Builds the parts of an app nobody sees: the logic, the data, the plumbing.',
-    why: ['You love figuring out why something broke', 'You like deep focus work', 'You want to learn fast'],
-    head: ['Python (school)', 'Basic HTML'], cos: 'RPKM',
-    what: 'You build the engine behind apps and websites. When someone taps “Pay”, your code checks the card, saves the order and tells the warehouse. Most of the job is solving small puzzles and making sure things do not break.',
-    day: [['09:30', 'Quick team stand up: what you did, what is blocking you'], ['10:00', 'Fix a bug a customer reported yesterday'], ['13:00', 'Build a small new feature with a senior dev'], ['16:00', 'Review a teammate’s code and get yours reviewed']],
-    ladder: [['Junior backend developer', '0 to 2 years'], ['Backend developer', '2 to 5 years'], ['Senior backend developer', '5+ years'], ['Tech lead / Head of engineering', '8+ years']] },
-  { rank: 'Fastest to start', title: 'Data analyst', roles: '86', time: '~5 mo',
-    oneLine: 'Turns messy numbers into answers a business can act on.',
-    why: ['You enjoy spreadsheets and numbers', 'You like solving puzzles', 'Strong demand for juniors'],
-    head: ['Excel', 'Python (school)'], cos: 'SAOD',
-    what: 'You help a company understand what is happening. You pull data, clean it up, find the pattern and explain it in a chart someone in a meeting can understand.',
-    day: [['09:30', 'Check this morning’s sales dashboard'], ['10:30', 'Answer a question from marketing with a quick SQL query'], ['14:00', 'Clean up a messy spreadsheet from another team'], ['16:00', 'Present one chart and what it means']],
-    ladder: [['Junior data analyst', '0 to 2 years'], ['Data analyst', '2 to 4 years'], ['Senior analyst', '4+ years'], ['Head of data / Analytics lead', '8+ years']] },
-  { rank: 'Least competition', title: 'QA engineer', roles: '52', time: '~4 mo',
-    oneLine: 'Finds what is broken before customers do.',
-    why: ['You love figuring out why something broke', 'Detail oriented work style', 'Great way into tech'],
-    head: ['Customer service', 'Basic HTML'], cos: 'LTNB',
-    what: 'You try to break the product on purpose, so customers never see the bugs. You write down exactly how to reproduce a problem and, over time, write code that tests things automatically.',
-    day: [['09:30', 'Stand up with the developers'], ['10:00', 'Test a new feature on phone and desktop'], ['13:30', 'Write clear bug reports for what you found'], ['15:30', 'Automate one test so it runs every night']],
-    ladder: [['Junior QA tester', '0 to 2 years'], ['QA engineer', '2 to 4 years'], ['Senior QA / Automation engineer', '4+ years'], ['QA lead / Head of quality', '7+ years']] }
-];
+const runId = Live.store.get('runId');
+const LEVEL = { entry: 'Entry level', junior: 'Junior', mid: 'Mid level', senior: 'Senior', lead: 'Lead', executive: 'Executive' };
+const money = (s) => s ? Math.round(s.median).toLocaleString() + ' ' + s.currency + ' / ' + s.period : '';
+let PATHS = [], market = [];
 
-$('cards').innerHTML = PATHS.map((p, i) => `
+async function load() {
+  if (!runId) { $('cards').innerHTML = '<p class="hint">No research yet. Start from the interview.</p>'; return; }
+  const id = await Live.seeker();
+  const [paths, profile, companies] = await Promise.all([
+    Live.api('GET', '/v1/research-runs/' + runId + '/career-paths'),
+    Live.api('GET', '/v1/seekers/' + id + '/profile'),
+    Live.api('GET', '/v1/research-runs/' + runId + '/companies?pageSize=6').catch(() => []),
+  ]);
+  market = await Live.api('GET', '/v1/research-runs/' + runId + '/market').catch(() => []);
+  PATHS = paths;
+  const head = profile.statedSkills.map((c) => (c.skill && c.skill.label) || c.statement).slice(0, 5);
+  const where = (profile.preferences.locations[0] || {}).city || (profile.preferences.locations[0] || {}).country || '';
+  const ranks = ['Most open roles', 'Second option', 'Third option'];
+  $('cards').innerHTML = paths.map((p, i) => {
+    const pay = (p.ladder || []).map((s) => s.salary).filter(Boolean)[0];
+    return `
   <article class="card">
     <div>
-      <span class="rank">${p.rank}</span>
-      <h2>${p.title}</h2>
-      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted)">${p.oneLine}</p>
+      <span class="rank">${ranks[i] || ''}</span>
+      <h2>${esc(p.occupation.label)}</h2>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted)">${(p.ladder || []).length ? esc((p.ladder || []).map((s) => LEVEL[s.level] || s.level).join(' → ')) : ''}</p>
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px">
-      <span class="lbl">Why you</span>
-      ${p.why.map((w) => `<div class="why">${ICON.check}<span>${w}</span></div>`).join('')}
+      <span class="lbl">Why this path</span>
+      ${p.why.map((w) => `<div class="why">${ICON.check}<span>${esc(w.statement)}</span></div>`).join('') || '<span class="hint">Few ads found yet</span>'}
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px">
       <span class="lbl">Your head start</span>
-      <div style="display: flex; flex-wrap: wrap; gap: 6px">${p.head.map((h) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${h}</span>`).join('')}</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px">${head.map((h) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(h)}</span>`).join('') || '<span class="hint">Add a CV to see it</span>'}</div>
     </div>
     <div class="stats">
-      <div class="stat"><b>${p.roles}</b><span>open roles in Prague</span></div>
-      <div class="stat"><b>${p.time}</b><span>to job ready at 10h a week</span></div>
+      <div class="stat"><b>${p.vacancyCount}</b><span>open roles ${where ? 'in ' + esc(where) : ''}</span></div>
+      <div class="stat"><b>${pay ? esc(Math.round(pay.median).toLocaleString()) : '—'}</b><span>${pay ? esc(pay.currency + ' / ' + pay.period + ', advertised') : 'pay not stated in ads'}</span></div>
     </div>
     <div style="display: flex; align-items: center; gap: 8px">
       <span style="font-size: 13px; color: var(--faint); margin-right: 4px">Hiring now</span>
-      ${p.cos.split('').map((c) => `<span class="logo-ph">${c}</span>`).join('')}
+      ${companies.slice(0, 4).map((c) => `<span class="logo-ph" title="${esc(c.name)}">${esc(c.name.slice(0, 1).toUpperCase())}</span>`).join('')}
     </div>
     <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
       <button class="more" type="button" data-open="${i}">What's this job like?</button>
-      <a class="cta" href="roadmap.html">Choose this path</a>
+      <a class="cta" href="roadmap.html" data-choose="${i}">Choose this path</a>
     </div>
-  </article>`).join('');
+  </article>`;
+  }).join('');
+  document.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => open(Number(b.dataset.open)));
+  document.querySelectorAll('[data-choose]').forEach((a) => a.onclick = (e) => choose(e, Number(a.dataset.choose)));
+}
 
-function open(i) {
+async function open(i) {
   const p = PATHS[i];
-  $('dTitle').textContent = p.title;
-  $('dWhat').textContent = p.what;
-  $('dDay').innerHTML = p.day.map(([t, x]) => `<div class="day"><span>${t}</span><span>${x}</span></div>`).join('');
-  $('dLadder').innerHTML = p.ladder.map(([r, y], j) => `
+  // Requirements are read during the run, so load them fresh each time the drawer opens.
+  market = await Live.api('GET', '/v1/research-runs/' + runId + '/market').catch(() => market);
+  const demand = market.filter((m) => m.occupation.uri === p.occupation.uri).flatMap((m) => m.skillDemand)
+    .sort((a, b) => b.vacanciesRequiring - a.vacanciesRequiring).slice(0, 6);
+  $('dTitle').textContent = p.occupation.label;
+  $('dWhat').textContent = demand.length ? 'What employers ask for most, from ' + (demand[0].vacanciesTotal) + ' current ads:' : 'Requirements are still being read from the ads. Open this again in a minute.';
+  $('dDay').innerHTML = demand.map((d) => `<div class="day"><span>${d.vacanciesRequiring} of ${d.vacanciesTotal}</span><span>${esc(d.skill.label)}</span></div>`).join('');
+  $('dLadder').innerHTML = (p.ladder || []).map((s, j) => `
     <div class="rung"><div class="rail"><div class="dot ${j === 0 ? 'on' : ''}"></div><div class="bar"></div></div>
-      <div class="body"><div><div style="font-weight: 600; font-size: 16px">${r}</div><div style="font-size: 13px; color: var(--muted)">${y}</div></div>
-      <div style="font-size: 14px; color: var(--accent-hover)">[CZK range]</div></div></div>`).join('');
+      <div class="body"><div><div style="font-weight: 600; font-size: 16px">${esc(s.title)}</div><div style="font-size: 13px; color: var(--muted)">${LEVEL[s.level] || s.level}${s.typicalExperienceYears ? ' · ' + s.typicalExperienceYears.min + (s.typicalExperienceYears.max ? '–' + s.typicalExperienceYears.max : '+') + ' years' : ''}</div></div>
+      <div style="font-size: 14px; color: var(--accent-hover)">${esc(money(s.salary))}</div></div></div>`).join('') || '<p class="hint">No ladder found in the ads yet.</p>';
   $('scrim').classList.add('open');
   $('close').focus();
 }
+
+async function choose(e, i) {
+  e.preventDefault();
+  try {
+    const id = await Live.seeker();
+    await Live.api('PUT', '/v1/seekers/' + id + '/career-choice', { runId, occupationUri: PATHS[i].occupation.uri });
+    location.href = 'roadmap.html';
+  } catch (err) {
+    Live.banner('Could not save your choice: ' + err.message, 'error');
+  }
+}
 function close() { $('scrim').classList.remove('open'); }
-document.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => open(Number(b.dataset.open)));
 $('close').innerHTML = ICON.x;
 $('close').onclick = close;
 $('scrim').addEventListener('click', (e) => { if (e.target === $('scrim')) close(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+load().catch((e) => Live.banner('Could not load your paths: ' + e.message, 'error'));
 </script>
 </body>
 </html>

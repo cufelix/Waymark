@@ -107,10 +107,25 @@ test("links: valid list, bad kind, bad url, duplicates, unknown field", () => {
     { url: "https://a.example.com", kind: "portfolio" },
   ];
   assert.deepEqual(validateLinks({ links }), links);
+  assert.deepEqual(validateLinks({ links: [{ url: "https://unknown.example.com" }] }), [{ url: "https://unknown.example.com" }]);
+  assert.deepEqual(validateLinks({ links: [links[1], { ...links[1], kind: "publication" }] }), [
+    links[1],
+    { ...links[1], kind: "publication" },
+  ]);
   assert.deepEqual(validateLinks({ links: [] }), []);
   rejects(() => validateLinks({ links: [{ url: "https://a.example.com", kind: "blog" }] }), "unprocessable", /links\[0\]\.kind/);
   rejects(() => validateLinks({ links: [{ url: "mailto:a@example.com", kind: "other" }] }), "unprocessable", /links\[0\]\.url/);
   rejects(() => validateLinks({ links: [links[0], links[0]] }), "unprocessable", /links\[1\]: duplicate of links\[0\]/);
+  rejects(
+    () => validateLinks({ links: [{ url: links[0].url }, links[0]] }),
+    "unprocessable",
+    /links\[1\]: duplicate of links\[0\]/,
+  );
+  rejects(
+    () => validateLinks({ links: [links[0], { url: links[0].url }] }),
+    "unprocessable",
+    /links\[1\]: duplicate of links\[0\]/,
+  );
   rejects(() => validateLinks({ links: [{ ...links[0], id: "lnk_x" }] }), "unprocessable", /links\[0\]\.id: unknown field/);
   rejects(() => validateLinks(links), "unprocessable", /body: must be an object/);
 });
@@ -157,4 +172,20 @@ test("profile validator rejects proven tiers, foreign subjects and wrong status"
   const extra = structuredClone(raw);
   extra.score = 87;
   rejects(() => validateSeekerProfile(extra), "unprocessable", /^score: unknown field/);
+});
+
+test("profile validator accepts every document kind and links without a kind", () => {
+  const raw = JSON.parse(readFileSync(join(FIXTURES, "junior-backend-prague.json"), "utf8"));
+  for (const kind of ["cv", "certificate", "portfolio", "image", "other"]) {
+    const profile = structuredClone(raw);
+    profile.documents[0].kind = kind;
+    assert.equal(validateSeekerProfile(profile).documents[0].kind, kind);
+  }
+  const untypedLink = structuredClone(raw);
+  delete untypedLink.links[0].kind;
+  assert.equal("kind" in validateSeekerProfile(untypedLink).links[0], false);
+
+  const invalid = structuredClone(raw);
+  invalid.documents[0].kind = "transcript";
+  rejects(() => validateSeekerProfile(invalid), "unprocessable", /documents\[0\]\.kind/);
 });

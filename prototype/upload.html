@@ -50,40 +50,83 @@
   </div>
 </main>
 
+<script src="live.js"></script>
 <script>
+// Live: the CV goes to Part 1 (parsed into stated skills), links are saved, then research starts in Part 2.
 const $ = (id) => document.getElementById(id);
-const FOUND = ['Excel', 'Basic HTML', 'Python (school)', 'Customer service'];
-let links = [];
+let links = [], documentId = null;
+const linkKind = (u) => /github\.com|gitlab\.com/i.test(u) ? 'github' : /linkedin\.com/i.test(u) ? 'linkedin'
+  : /tiktok|instagram|youtube|soundcloud|x\.com|twitter|facebook|behance|dribbble/i.test(u) ? 'social' : 'other';
 
-function showFile(name) {
+async function upload(file) {
   $('drop').hidden = true;
   $('fileCard').hidden = false;
-  $('fileName').textContent = name;
+  $('fileName').textContent = file.name;
   $('scanText').textContent = 'Reading your CV…';
   $('skills').innerHTML = '';
-  FOUND.forEach((s, i) => setTimeout(() => {
-    const c = document.createElement('span');
-    c.className = 'chip';
-    c.style.animation = 'pop .3s ease-out both';
-    c.innerHTML = esc(s) + ' <small>from your CV</small>';
-    $('skills').appendChild(c);
-    if (i === FOUND.length - 1) $('scanText').textContent = 'Skills we found. Remove anything that isn’t right.';
-  }, 400 + i * 300));
+  try {
+    const id = await Live.seeker();
+    const form = new FormData();
+    form.append('file', file);
+    const doc = await Live.api('POST', '/v1/seekers/' + id + '/documents', form);
+    documentId = doc.id;
+    doc.statedSkills.forEach((c, i) => setTimeout(() => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.style.animation = 'pop .3s ease-out both';
+      chip.innerHTML = esc((c.skill && c.skill.label) || c.statement) + ' <small>from your CV</small>';
+      $('skills').appendChild(chip);
+    }, i * 120));
+    $('scanText').textContent = doc.statedSkills.length ? 'Skills we found in your CV.' : 'We read your CV but found no skills in it.';
+  } catch (e) {
+    $('scanText').textContent = 'Could not read this CV: ' + e.message;
+  }
 }
-$('file').addEventListener('change', (e) => { if (e.target.files[0]) showFile(e.target.files[0].name); });
+$('file').addEventListener('change', (e) => { if (e.target.files[0]) upload(e.target.files[0]); });
 ['dragover', 'dragenter'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
 ['dragleave', 'drop'].forEach((t) => $('drop').addEventListener(t, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
-$('drop').addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) showFile(f.name); });
+$('drop').addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) upload(f); });
 $('removeCv').innerHTML = ICON.x;
-$('removeCv').onclick = () => { $('drop').hidden = false; $('fileCard').hidden = true; $('file').value = ''; };
+$('removeCv').onclick = async () => {
+  $('drop').hidden = false; $('fileCard').hidden = true; $('file').value = '';
+  if (documentId) {
+    const id = await Live.seeker();
+    await Live.api('DELETE', '/v1/seekers/' + id + '/documents/' + documentId).catch(() => {});
+    documentId = null;
+  }
+};
 
 function renderLinks() {
   $('links').innerHTML = links.map((u, i) => '<div class="link-row"><span style="flex: 1; font-size: 15px">' + esc(u) +
     '</span><button class="icon-btn" type="button" data-i="' + i + '" aria-label="Remove link">' + ICON.x + '</button></div>').join('');
   $('links').querySelectorAll('button').forEach((b) => b.onclick = () => { links.splice(Number(b.dataset.i), 1); renderLinks(); });
 }
-$('linkForm').addEventListener('submit', (e) => { e.preventDefault(); const u = $('link').value.trim(); if (u) { links.push(u); $('link').value = ''; renderLinks(); } });
+$('linkForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  let u = $('link').value.trim();
+  if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
+  if (u) { links.push(u); $('link').value = ''; renderLinks(); }
+});
 document.querySelectorAll('[data-icon]').forEach((el) => el.innerHTML = ICON[el.dataset.icon]);
+
+// "Start my research": save links, hand the complete profile to Part 2, go to the live feed.
+document.querySelectorAll('a[href="research.html"]').forEach((a) => a.addEventListener('click', async (e) => {
+  e.preventDefault();
+  try {
+    const id = await Live.seeker();
+    await Live.api('PUT', '/v1/seekers/' + id + '/links', { links: links.map((url) => ({ url, kind: linkKind(url) })) });
+    const profile = await Live.api('GET', '/v1/seekers/' + id + '/profile');
+    if (profile.status !== 'complete') {
+      Live.banner('The interview is not finished yet: we still need your target role and where you want to work.', 'error');
+      return;
+    }
+    const run = await Live.api('POST', '/v1/research-runs', { profile, options: { nameSearch: profile.consent.nameSearch } });
+    Live.store.set('runId', run.runId);
+    location.href = 'research.html';
+  } catch (err) {
+    Live.banner('Could not start the research: ' + err.message, 'error');
+  }
+}));
 </script>
 </body>
 </html>

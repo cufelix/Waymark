@@ -74,8 +74,8 @@ sequenceDiagram
 | `POST /v1/seekers/{seekerId}/interview/messages` | One turn of the intake interview. The agent asks; the client sends the seeker's answer. Send an empty `text` to get the first question. When the seeker asks about pay, the agent may run a quick salary lookup on the web and answer with an indicative range (see "Salary lookup in the interview" below). | `{ text: string }` (max 4,000 characters) | `{ reply: string, done: boolean, preferences: CareerPreferencesDraft, sources?: Source[] }` |
 | `GET /v1/seekers/{seekerId}/interview` | Full interview transcript | | `InterviewTurn[]` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
-| `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
-| `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a CV and everything parsed from it | | `{ deleted: true }` |
+| `POST /v1/seekers/{seekerId}/documents` | Upload a document (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file`; optional field `kind` (default `"cv"`) | `SeekerDocument` |
+| `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a document and everything parsed from it | | `{ deleted: true }` |
 | `PUT /v1/seekers/{seekerId}/links` | Replace the seeker's list of links (portfolio, GitHub, socials). Part 1 stores them; reading them is Part 2's user research. | `{ links: SeekerLinkInput[] }` | `SeekerLink[]` |
 | `PUT /v1/seekers/{seekerId}/career-choice` | The seeker picks one of the run's career paths, usually while the rest of the research is still running. Part 1 accepts only an occupation that run returned (`unprocessable` otherwise), stores it as `profile.careerChoice` (profileVersion +1) and leaves `preferences` as they are. Calling it again replaces the choice. | `{ runId: string, occupationUri: EscoUri }` | `CareerChoice` |
 | `GET /v1/seekers/{seekerId}/profile` | **The handoff object.** `status` is `"complete"` once preferences have at least one target occupation and consent is given. | | `SeekerProfile` |
@@ -260,7 +260,7 @@ type InterviewTurn = {
 
 type SeekerDocument = {
   id: string;                     // "doc_…"
-  kind: "cv";
+  kind: "cv" | "certificate" | "portfolio" | "image" | "other";
   fileName: string;
   uploadedAt: ISODate;
   statedSkills: Claim[];          // tier "stated", source tool "seeker-upload"
@@ -268,7 +268,7 @@ type SeekerDocument = {
   education: { title: string; institution?: string; from?: string; to?: string }[];
 };
 
-type SeekerLinkInput = { url: string; kind: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other" };
+type SeekerLinkInput = { url: string; kind?: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other" };
 type SeekerLink = SeekerLinkInput & { id: string; addedAt: ISODate };   // "lnk_…"
 
 type SeekerProfile = {

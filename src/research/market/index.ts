@@ -1,5 +1,6 @@
 // Market research for one seeker: vacancies → requirements → companies → market → career paths.
-import type { CareerPath, JobMarket, OccupationTrends, ResearchOptions, RunStep, SeekerProfile } from "../../contracts";
+import type { CareerPath, JobMarket, Occupation, OccupationTrends, ResearchOptions, RunStep, SeekerProfile } from "../../contracts";
+import { searchOccupations } from "../../shared/taxonomy";
 import { query } from "../../db/pool";
 import { errorMessage, log } from "../../log";
 import { careerPaths } from "./careerPaths";
@@ -10,6 +11,30 @@ import { skillTrends } from "./trends";
 import { findVacancies, searchTerms } from "./vacancies";
 import { ladders } from "./ladder";
 
+const words = (s: string) => new Set(s.toLowerCase().split(/[^\p{L}]+/u).filter((w) => w.length > 2));
+
+/** Adds related ESCO occupations until there are 3 candidates, skipping ones that are the same job under another name. */
+async function withRelated(targets: Occupation[], runId: string): Promise<Occupation[]> {
+  if (targets.length >= 3) return targets;
+  const out = [...targets];
+  for (const t of targets) {
+    try {
+      const tw = words(t.label);
+      for (const o of await searchOccupations(t.label, "en", 8)) {
+        if (out.length >= 3) break;
+        const ow = words(o.label);
+        const shared = [...ow].filter((w) => tw.has(w)).length;
+        // Same job: shares most of the target's words (e.g. "nurse responsible for general care" for "general care nurse").
+        if (out.some((x) => x.uri === o.uri) || shared >= Math.min(tw.size, ow.size) * 0.6) continue;
+        out.push(o);
+      }
+    } catch (err) {
+      log.warn("related occupations failed", { runId, occupation: t.uri, error: errorMessage(err) });
+    }
+  }
+  return out;
+}
+
 type Progress = (step: Exclude<RunStep, "seeker-research">, done: number, total: number) => void;
 
 export async function researchMarket(
@@ -19,7 +44,9 @@ export async function researchMarket(
   onProgress: Progress = () => undefined,
   onCareerPaths: (paths: CareerPath[]) => Promise<void> = async () => undefined,
 ): Promise<{ careerPaths: CareerPath[]; trends: OccupationTrends[]; companyIds: string[]; vacancyIds: string[]; market: JobMarket[] }> {
-  const { targetOccupations: occupations, locations, remote, dreamCompanies, goal } = profile.preferences;
+  const { targetOccupations, locations, remote, dreamCompanies, goal } = profile.preferences;
+  // Top 3 career paths: the seeker's targets, plus related occupations when there are fewer than 3 (API.md).
+  const occupations = await withRelated(targetOccupations, runId);
   const pairs = occupations.flatMap((occupation) => locations.map((location) => ({ occupation, location })));
   const perPair = Math.max(1, Math.floor(options.maxVacancies / Math.max(1, pairs.length)));
 

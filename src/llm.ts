@@ -29,7 +29,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function chat(
   messages: ChatMessage[],
-  opts: { model?: string; tools?: ToolSpec[]; json?: boolean; runId?: string; maxTokens?: number } = {},
+  opts: { model?: string; tools?: ToolSpec[]; json?: boolean; runId?: string; maxTokens?: number; reasoning?: boolean } = {},
 ): Promise<ChatResult> {
   if (!config.OPENROUTER_API_KEY) throw new LlmUnavailableError();
   const model = opts.model ?? config.LLM_AGENT_MODEL;
@@ -40,6 +40,9 @@ export async function chat(
     usage: { include: true },
     ...(opts.tools?.length ? { tools: opts.tools, tool_choice: "auto" } : {}),
     ...(opts.json ? { response_format: { type: "json_object" } } : {}),
+    // Reasoning is on by default on OpenRouter and spends the token budget before the answer; extraction doesn't need it.
+    // (Sonnet 5.5 refuses "enabled: false", so ask for minimal effort, which every model accepts.)
+    ...(opts.reasoning === false ? { reasoning: { effort: "minimal" } } : {}),
   };
 
   const reservation = await reserveCost("llm", { runId: opts.runId, detail: model });
@@ -96,7 +99,9 @@ export async function chatJson<T>(
   ];
   let usd = 0;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await chat(messages, { ...opts, model: opts.model ?? config.LLM_FAST_MODEL, json: true });
+    // No JSON mode: through OpenRouter it cuts Claude's longer replies off mid-object. The prompt asks for JSON
+    // and parseJsonLoose takes the object out of any fence or surrounding text.
+    const res = await chat(messages, { ...opts, model: opts.model ?? config.LLM_FAST_MODEL, reasoning: false });
     usd += res.usd;
     const raw = res.message.content ?? "";
     const parsed = schema.safeParse(parseJsonLoose(raw));

@@ -46,7 +46,10 @@ export class OpenRouterClient implements LlmClient {
         model: req.model,
         messages: req.messages,
         temperature: req.temperature ?? 0.2,
-        ...(req.json ? { response_format: { type: "json_object" } } : {}),
+        // JSON mode through OpenRouter cuts Claude's longer replies off mid-object; unfence() parses plain replies instead.
+        ...(req.json && !req.model.startsWith("anthropic/") ? { response_format: { type: "json_object" } } : {}),
+        // Reasoning (on by default) spends the token budget before the answer; structured replies don't need it.
+        ...(req.json ? { reasoning: { effort: "minimal" } } : {}),
       }),
     });
     // The upstream body can echo prompts or account details, so clients only get the status.

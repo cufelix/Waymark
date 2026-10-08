@@ -26,7 +26,9 @@ export function rankCareerPaths(occupations: Occupation[], vacancies: PathVacanc
     return { occupation, vs, tieBreak };
   });
   scored.sort((a, b) => b.vs.length - a.vs.length || b.tieBreak - a.tieBreak);
-  return scored.slice(0, 3).map(({ occupation, vs }) => ({
+  // A path with no current vacancies isn't a path into work right now; it only stays if nothing has any.
+  const open = scored.filter((s) => s.vs.length > 0);
+  return (open.length ? open : scored).slice(0, 3).map(({ occupation, vs }) => ({
     occupation,
     vacancyCount: vs.length,
     why: vs.length ? [demandClaim(occupation, vs, now)] : [],
