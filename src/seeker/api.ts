@@ -8,6 +8,7 @@ import { setCareerChoice } from "./service/career-choice.ts";
 import { deleteSeeker, exportSeeker } from "./service/gdpr.ts";
 import { createSeeker, getProfile, loadSeeker, putLinks, setPreferences } from "./service/seekers.ts";
 import type { SeekerStore } from "./store/store.ts";
+import type { ValidationClient } from "./validation-client.ts";
 // Wired in when the interview and documents branches merge (see the route table below):
 // import { getInterview, interviewTurn } from "./service/interview.ts";
 import { deleteDocument, uploadCv } from "./service/documents.ts";
@@ -31,6 +32,7 @@ export type ApiDeps = {
   store: SeekerStore;
   llm: LlmClient;
   research: ResearchClient;
+  validations?: ValidationClient;
   apiKeys?: string[]; // default: env SEEKER_API_KEYS
 };
 
