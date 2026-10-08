@@ -1,0 +1,2 @@
+# .remember/ is local assistant state, not project content
+.remember/
