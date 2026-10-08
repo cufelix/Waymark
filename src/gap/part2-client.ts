@@ -69,7 +69,7 @@ function isSource(value: unknown): boolean {
     && isString(value.url)
     && isString(value.title)
     && isString(value.fetchedAt)
-    && isString(value.tool)
+    && ["apify", "firecrawl", "exa", "registry", "seeker-upload", "seeker-link", "seeker-interview"].includes(String(value.tool))
     && isString(value.contentHash)
     && (value.quote === undefined || isString(value.quote))
     && (value.snapshotKey === undefined || isString(value.snapshotKey));
@@ -79,19 +79,32 @@ function isClaim(value: unknown): boolean {
   return isRecord(value)
     && isString(value.id)
     && isRecord(value.subject)
-    && isString(value.subject.kind)
+    && ["company", "vacancy", "seeker"].includes(String(value.subject.kind))
     && isString(value.subject.id)
     && isString(value.statement)
     && (value.skill === undefined || isSkill(value.skill))
     && (value.kind === "fact" || value.kind === "inference")
     && ["verified", "corroborated", "single-source", "contradicted", "stated"].includes(String(value.tier))
-    && isArrayOf(value.sources, isSource);
+    && isArrayOf(value.sources, isSource)
+    && (value.validUntil === undefined || isString(value.validUntil));
 }
 
 function isCareerStep(value: unknown): boolean {
   return isRecord(value)
     && ["entry", "junior", "mid", "senior", "lead", "executive"].includes(String(value.level))
     && isString(value.title)
+    && (value.occupation === undefined || isOccupation(value.occupation))
+    && (value.typicalExperienceYears === undefined || (isRecord(value.typicalExperienceYears)
+      && isNumber(value.typicalExperienceYears.min)
+      && (value.typicalExperienceYears.max === undefined || isNumber(value.typicalExperienceYears.max))))
+    && (value.salary === undefined || (isRecord(value.salary)
+      && (value.salary.p25 === undefined || isNumber(value.salary.p25))
+      && isNumber(value.salary.median)
+      && (value.salary.p75 === undefined || isNumber(value.salary.p75))
+      && isString(value.salary.currency)
+      && (value.salary.period === "month" || value.salary.period === "year")
+      && isNumber(value.salary.sampleSize)
+      && isLocation(value.salary.location)))
     && isArrayOf(value.claims, isClaim);
 }
 
@@ -164,7 +177,13 @@ function isResearchLink(value: unknown): boolean {
 }
 
 function isSeekerResearch(value: unknown): boolean {
-  return isRecord(value) && isArrayOf(value.links, isResearchLink);
+  return isRecord(value)
+    && isArrayOf(value.links, isResearchLink)
+    && (value.nameSearch === undefined || (isRecord(value.nameSearch)
+      && isArrayOf(value.nameSearch.candidates, (candidate) => isRecord(candidate)
+        && isString(candidate.url)
+        && isString(candidate.title)
+        && isString(candidate.snippet))));
 }
 
 function isCompany(value: unknown): boolean {
@@ -275,7 +294,8 @@ export class HttpPart2Client implements Part2Client {
       if (!envelope || !isArrayOf(envelope.data, item)) unexpected();
       values.push(...envelope.data as T[]);
       const total = envelope.meta?.total;
-      if (typeof total !== "number" || values.length >= total || envelope.data.length === 0) return values;
+      if (!isNumber(total)) unexpected();
+      if (values.length >= total || envelope.data.length === 0) return values;
     }
     throw new ApiError("upstream_failed", "Research service returned too many pages");
   }
