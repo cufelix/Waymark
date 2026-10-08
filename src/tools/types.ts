@@ -1,6 +1,7 @@
 import type { ToolSpec } from "../llm";
-import { assertUnderCap, recordCost, type PaidTool } from "../ledger";
-import { errorMessage } from "../log";
+import { releaseCost, reserveCost, settleCost, type PaidTool } from "../ledger";
+import { errorMessage, log } from "../log";
+import { assertPublicUrl } from "./net";
 
 /** What every tool returns. `text` is what the agent and the extractors read; `raw` is kept for recipes and snapshots. */
 export type ToolOutput = {
@@ -24,19 +25,46 @@ export interface Tool<P = Record<string, unknown>> {
   run(params: P, ctx: ToolContext): Promise<ToolOutput>;
 }
 
-/** Runs a tool with the cap check before and the cost record after. Never throws: failures come back as `ok: false`. */
+/** Every string inside params that looks like an http(s) URL. */
+export function urlsIn(value: unknown, found: string[] = []): string[] {
+  if (typeof value === "string") {
+    for (const m of value.matchAll(/https?:\/\/[^\s"'<>]+/gi)) found.push(m[0]);
+  } else if (Array.isArray(value)) {
+    value.forEach((v) => urlsIn(v, found));
+  } else if (value && typeof value === "object") {
+    Object.values(value).forEach((v) => urlsIn(v, found));
+  }
+  return found;
+}
+
+/**
+ * Runs a tool: every URL in its params must be public (SSRF guard, also for URLs handed to Apify,
+ * Firecrawl or Exa), paid tools reserve their cost before the call and settle it after.
+ * Never throws: failures come back as `ok: false`.
+ */
 export async function runTool(tool: Tool, params: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
   if (!tool.available()) return { ok: false, error: `${tool.name} is not configured (missing API key)`, usd: 0 };
+  let reservation: number | undefined;
   try {
-    if (tool.paid) await assertUnderCap(tool.paid);
-    const out = await tool.run(params, ctx);
-    if (tool.paid && out.usd > 0) {
-      await recordCost({ tool: tool.paid, units: out.units ?? 1, usd: out.usd, runId: ctx.runId, detail: tool.name });
-    }
-    return { ok: true, ...out };
+    for (const u of urlsIn(params)) await assertPublicUrl(new URL(u));
+    if (tool.paid) reservation = await reserveCost(tool.paid, { runId: ctx.runId, detail: tool.name });
   } catch (err) {
     return { ok: false, error: errorMessage(err), usd: 0 };
   }
+  let out: ToolOutput;
+  try {
+    out = await tool.run(params, ctx);
+  } catch (err) {
+    if (reservation !== undefined) await releaseCost(reservation).catch(() => undefined);
+    return { ok: false, error: errorMessage(err), usd: 0 };
+  }
+  if (reservation !== undefined) {
+    // A failed ledger write must not throw away a result we already paid for.
+    await settleCost(reservation, { usd: out.usd, units: out.units ?? 1, detail: tool.name }).catch((err: unknown) =>
+      log.error("cost settle failed", { tool: tool.name, error: errorMessage(err) }),
+    );
+  }
+  return { ok: true, ...out };
 }
 
 export const toolSpec = (tool: Tool): ToolSpec => ({

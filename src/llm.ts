@@ -1,7 +1,8 @@
 // OpenRouter chat client (OpenAI-compatible API). One key covers Claude and other models.
 import { z } from "zod";
 import { config } from "./config";
-import { assertUnderCap, recordCost } from "./ledger";
+import { log } from "./log";
+import { releaseCost, reserveCost, settleCost } from "./ledger";
 
 export type ChatMessage =
   | { role: "system" | "user"; content: string }
@@ -31,7 +32,6 @@ export async function chat(
   opts: { model?: string; tools?: ToolSpec[]; json?: boolean; runId?: string; maxTokens?: number } = {},
 ): Promise<ChatResult> {
   if (!config.OPENROUTER_API_KEY) throw new LlmUnavailableError();
-  await assertUnderCap("llm");
   const model = opts.model ?? config.LLM_AGENT_MODEL;
   const body = {
     model,
@@ -42,29 +42,44 @@ export async function chat(
     ...(opts.json ? { response_format: { type: "json_object" } } : {}),
   };
 
+  const reservation = await reserveCost("llm", { runId: opts.runId, detail: model });
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    let res: Response;
+    try {
+      res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${config.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(120_000),
-    });
+      });
+    } catch (err) {
+      await releaseCost(reservation);
+      throw err;
+    }
     if (RETRYABLE.has(res.status) && attempt < 3) {
       await sleep(1000 * 2 ** attempt);
       continue;
     }
-    if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) {
+      await releaseCost(reservation);
+      throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    }
     const data = (await res.json()) as {
       choices?: { message: { content: string | null; tool_calls?: ToolCall[] } }[];
       usage?: { total_tokens?: number; cost?: number };
       error?: { message: string };
     };
     const choice = data.choices?.[0];
-    if (!choice) throw new Error(`OpenRouter returned no choice: ${data.error?.message ?? "unknown"}`);
-    const usd = data.usage?.cost ?? 0;
     const tokens = data.usage?.total_tokens ?? 0;
-    await recordCost({ tool: "llm", units: tokens, usd, runId: opts.runId, detail: model });
-    return { message: { role: "assistant", content: choice.message.content, tool_calls: choice.message.tool_calls }, usd, tokens };
+    // Cost missing from the response: keep the reserved estimate rather than recording $0.
+    const usd = data.usage?.cost ?? null;
+    try {
+      await settleCost(reservation, { usd, units: tokens, detail: model });
+    } catch (err) {
+      log.error("cost settle failed", { model, error: String(err) });
+    }
+    if (!choice) throw new Error(`OpenRouter returned no choice: ${data.error?.message ?? "unknown"}`);
+    return { message: { role: "assistant", content: choice.message.content, tool_calls: choice.message.tool_calls }, usd: usd ?? 0, tokens };
   }
 }
 
