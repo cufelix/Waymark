@@ -121,6 +121,15 @@ function canonicalLanguage(value: unknown): string | undefined {
   }
 }
 
+function occupationSlug(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 async function validateDraftPatch(raw: Record<string, unknown>): Promise<CareerPreferencesDraft> {
   const patch: CareerPreferencesDraft = {};
 
@@ -136,17 +145,13 @@ async function validateDraftPatch(raw: Record<string, unknown>): Promise<CareerP
         : label;
       const lang = isObject(item) ? canonicalLanguage(item.lang) ?? "en" : "en";
       const normalizedLookup = lookup.toLowerCase();
-      const matches = (await findOccupation(lookup)).filter((occupation) => {
-        const normalizedLabel = occupation.label.toLowerCase();
-        return normalizedLookup.includes(normalizedLabel) || normalizedLabel.includes(normalizedLookup);
-      });
-      if (matches.length === 0) {
-        const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-        matches.push({ uri: `urn:stub:occupation:${slug}`, label, lang });
-      }
-      for (const occupation of matches) {
-        if (occupation.uri && !found.some((item) => item.uri === occupation.uri)) found.push(occupation);
-      }
+      const exactMatch = (await findOccupation(lookup)).find(
+        (occupation) => occupation.label.toLowerCase() === normalizedLookup,
+      );
+      const occupation = exactMatch
+        ? { uri: exactMatch.uri, label, lang }
+        : { uri: `urn:stub:occupation:${occupationSlug(lookup)}`, label, lang };
+      if (occupation.uri && !found.some((item) => item.uri === occupation.uri)) found.push(occupation);
     }
     if (raw.targetOccupations.length === 0 || found.length > 0) patch.targetOccupations = found;
   }
@@ -274,7 +279,9 @@ export async function interviewTurn(
     const seekerTurnNumber = current.interview.length + 1;
     const nextDraft = { ...current.draft, ...draftPatch };
     const maxAgentQuestions = modelResult.mode === "explore" ? EXPLORE_MAX_AGENT_QUESTIONS : DIRECT_MAX_AGENT_QUESTIONS;
-    done = done || current.interview.filter((turn) => turn.role === "agent").length + 1 >= maxAgentQuestions;
+    const atQuestionLimit = current.interview.filter((turn) => turn.role === "agent").length + 1 >= maxAgentQuestions;
+    const hasConfirmedOccupation = (nextDraft.targetOccupations?.length ?? 0) > 0;
+    done = atQuestionLimit || (done && hasConfirmedOccupation);
 
     const claims = statedSkills.map(({ skill, quote }) =>
       statedSkillClaim(seekerId, skill, interviewSource(seekerId, seekerTurnNumber, text, quote))

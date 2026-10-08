@@ -134,8 +134,39 @@ test("provisional occupation preserves the seeker's wording and language", async
   await interviewTurn(deps, "skr_test", "Vybral bych si elektrikáře.");
 
   assert.deepEqual((await store.get("skr_test"))?.profile.preferences.targetOccupations, [
-    { uri: "urn:stub:occupation:elektrik-", label: "elektrikář", lang: "cs" },
+    { uri: "urn:stub:occupation:electrician", label: "elektrikář", lang: "cs" },
   ]);
+});
+
+test("provisional occupation URI is slugified from the English lookup", async () => {
+  const { deps, store } = await setup([
+    answer({
+      mode: "explore",
+      draftPatch: {
+        targetOccupations: [{ label: "servisní technik počítačů", lookup: "computer service technician", lang: "cs" }],
+      },
+    }),
+  ]);
+  await interviewTurn(deps, "skr_test", "Zkusme servisního technika počítačů.");
+
+  assert.deepEqual((await store.get("skr_test"))?.profile.preferences.targetOccupations, [
+    {
+      uri: "urn:stub:occupation:computer-service-technician",
+      label: "servisní technik počítačů",
+      lang: "cs",
+    },
+  ]);
+});
+
+test("done waits for a confirmed occupation before the question cap", async () => {
+  const { deps } = await setup([
+    answer({ mode: "explore", done: true, draftPatch: { locations: [{ country: "CZ", city: "Brno" }] } }),
+  ]);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím si nechci vybrat.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.preferences.targetOccupations, undefined);
 });
 
 test("direct and explore modes use separate agent-turn caps", async () => {
