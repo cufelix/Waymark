@@ -7,6 +7,7 @@ import { StartRunBody } from "../contracts";
 import { newId } from "../ids";
 import { errorMessage, log } from "../log";
 import { part1Handler } from "./part1";
+import { mountUi } from "./ui";
 import { deleteResearchForSeeker, deleteRun, listRunsForSeeker } from "../research/gdpr";
 import { getCompany, getVacancy, listRunCompanies, listRunVacancies } from "../research/market/read";
 import { RunError, getRun, getRunRow, startRun } from "../research/run";
@@ -49,6 +50,7 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
   });
 
   app.get("/health", (c) => ok(c, { status: "ok" }));
+  mountUi(app);
 
   app.use("/v1/*", async (c, next) => {
     const key = c.req.header("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
