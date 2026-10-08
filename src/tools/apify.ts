@@ -107,7 +107,11 @@ const MIN_USERS_30D = 10;
 const MAX_CHARGE_PER_RUN_USD = 0.5;
 const eligibility = new Map<string, { ok: boolean; reason?: string; at: number }>();
 
+const allowed = (): Set<string> =>
+  new Set(config.APIFY_ALLOWED_ACTORS.split(",").map((a) => a.trim().replace("~", "/")).filter(Boolean));
+
 async function assertEligibleActor(actorId: string): Promise<void> {
+  if (allowed().has(actorId.replace("~", "/"))) return;
   const hit = eligibility.get(actorId);
   if (hit && Date.now() - hit.at < 3_600_000) {
     if (!hit.ok) throw new Error(`Refused actor ${actorId}: ${hit.reason}`);

@@ -19,6 +19,8 @@ const Env = z.object({
   LLM_FAST_MODEL: z.string().default("anthropic/claude-haiku-5.5"),
 
   APIFY_TOKEN: optional,
+  // Actors a person has vetted; they skip the usage check (still capped per run). Comma-separated "user/name".
+  APIFY_ALLOWED_ACTORS: z.string().default(""),
   EXA_API_KEY: optional,
   FIRECRAWL_API_KEY: optional,
   GITHUB_TOKEN: optional,
