@@ -39,38 +39,15 @@
   </aside>
 </main>
 
+<script src="live.js"></script>
 <script>
-const FLOW = [
-  { key: 'drawn', label: 'Drawn to', q: "Let's start easy. When you lose track of time, what are you usually doing?",
-    opts: ['Making things look good', 'Figuring out why something broke', 'Convincing people', 'Organising chaos', 'Helping someone feel better'] },
-  { key: 'detail', label: 'Specifically' },
-  { key: 'style', label: 'Work style', q: 'Good to know. How do you like to work?',
-    opts: ['Deep focus, mostly alone', 'In a small team', 'Talking to people all day', 'A mix of everything'] },
-  { key: 'place', label: 'Where', q: 'Where do you want to work?',
-    opts: ['Prague', 'Anywhere in Czechia', 'Remote', 'Abroad'] },
-  { key: 'goal', label: 'Right now', q: 'Last one. What matters most to you right now?',
-    opts: ['Learn fast and grow', 'A stable job and salary', 'Work that means something'] }
-];
-const FOLLOW = {
-  'Making things look good': { q: 'Love that. What do you like making look good?', opts: ['Websites and apps', 'Posters and brands', 'Photos and video', 'Rooms and spaces'] },
-  'Figuring out why something broke': { q: 'A fixer. What kind of broken things pull you in?', opts: ['Code or websites', 'Gadgets and machines', 'Spreadsheets and numbers', 'How a team works'] },
-  'Convincing people': { q: 'What do you usually convince people of?', opts: ['To buy something', 'To join an idea', 'To see another side', 'To make a decision'] },
-  'Organising chaos': { q: 'What kind of chaos do you enjoy taming?', opts: ['Events and trips', 'Messy data', 'Group projects', 'Money and budgets'] },
-  'Helping someone feel better': { q: 'Who do you most like helping?', opts: ['Friends with problems', 'Kids or students', 'Sick or older people', 'Customers'] }
-};
-const GENERIC = { q: 'Interesting. What part of that do you enjoy most?', opts: ['Solving it', 'Making it', 'Explaining it', 'Organising it'] };
-
-let step = 0, answers = {}, busy = false;
+// Live interview: Part 1 asks, the seeker answers; the side panel shows what Part 1 has understood so far.
 const $ = (id) => document.getElementById(id);
-
-function stepDef(i) {
-  const f = FLOW[i];
-  return f.key === 'detail' ? { ...f, ...(FOLLOW[answers.drawn] || GENERIC) } : f;
-}
+let busy = false, done = false, prefs = {};
 function agentSay(text) {
   const d = document.createElement('div');
   d.className = 'msg-agent';
-  d.innerHTML = '<div class="avatar">' + LOGO.replace('width="28" height="28"', 'width="18" height="18"') + '</div><p>' + esc(text) + '</p>';
+  d.innerHTML = '<div class="avatar">' + LOGO.replace('width="28" height="28"', 'width="18" height="18"') + '</div><p>' + esc(text).replace(/\n/g, '<br>') + '</p>';
   $('chat').appendChild(d);
 }
 function meSay(text) {
@@ -79,63 +56,69 @@ function meSay(text) {
   d.textContent = text;
   $('chat').appendChild(d);
 }
+const FACTS = [
+  ['Role', (p) => (p.targetOccupations || []).map((o) => o.label).join(', ')],
+  ['Where', (p) => (p.locations || []).map((l) => [l.city, l.country].filter(Boolean).join(', ')).join('; ') + (p.remote ? ' · remote: ' + p.remote : '')],
+  ['Right now', (p) => ({ 'learn-fast': 'Learn fast and grow', stability: 'A stable job and salary', mission: 'Work that means something' })[p.goal] || ''],
+  ['Dream employers', (p) => (p.dreamCompanies || []).map((c) => c.name).join(', ')],
+  ['Languages', (p) => (p.languages || []).map((l) => l.lang + ' (' + l.level + ')').join(', ')],
+  ['Won\'t do', (p) => (p.dealBreakers || []).join(', ')],
+];
 function renderFacts() {
-  $('facts').innerHTML = FLOW.map((f) => '<div class="fact"><span class="lbl">' + f.label + '</span>' +
-    (answers[f.key] ? '<span class="chip">' + esc(answers[f.key]) + '</span>' : '<span class="chip-empty">Not yet</span>') + '</div>').join('');
-  const n = Object.keys(answers).length;
-  $('bar').style.width = (n / FLOW.length * 100) + '%';
-  $('qnum').textContent = 'Question ' + Math.min(step + 1, FLOW.length) + ' of ' + FLOW.length;
+  const filled = FACTS.map(([, f]) => f(prefs)).filter(Boolean).length;
+  $('facts').innerHTML = FACTS.map(([label, f]) => {
+    const v = f(prefs);
+    return '<div class="fact"><span class="lbl">' + label + '</span>' + (v ? '<span class="chip">' + esc(v) + '</span>' : '<span class="chip-empty">Not yet</span>') + '</div>';
+  }).join('');
+  $('bar').style.width = (done ? 100 : filled / FACTS.length * 100) + '%';
+  $('qnum').textContent = done ? 'Interview complete' : 'Interview in progress';
 }
-function renderBubbles() {
-  const done = step >= FLOW.length;
+function render() {
   $('own').hidden = done || busy;
   $('finish').hidden = !done;
   $('bubbles').innerHTML = '';
-  if (done || busy) return;
-  stepDef(step).opts.forEach((label, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'bubble';
-    b.style.animationDelay = (i * 0.05) + 's';
-    b.textContent = label;
-    b.onclick = () => answer(label);
-    $('bubbles').appendChild(b);
-  });
-}
-function answer(text) {
-  text = text.trim();
-  if (!text || busy) return;
-  answers[FLOW[step].key] = text;
-  meSay(text);
-  busy = true;
-  $('typing').hidden = false;
-  renderBubbles();
+  $('typing').hidden = !busy;
   renderFacts();
-  setTimeout(() => {
-    $('typing').hidden = true;
-    busy = false;
-    step += 1;
-    if (step >= FLOW.length) {
-      agentSay("That's all I need. One optional thing before I start digging into the job market.");
-      try { localStorage.setItem('answers', JSON.stringify(answers)); } catch (e) {}
-    } else {
-      agentSay(stepDef(step).q);
+}
+async function turn(text) {
+  if (busy) return;
+  if (text) meSay(text);
+  busy = true; render();
+  try {
+    const id = await Live.seeker();
+    const r = await Live.api('POST', '/v1/seekers/' + id + '/interview/messages', { text: text || '' });
+    prefs = r.preferences || prefs;
+    agentSay(r.reply);
+    // Continue as soon as the profile has what research needs, even if the interviewer still has questions.
+    const p = await Live.api('GET', '/v1/seekers/' + id + '/profile');
+    done = !!r.done || p.status === 'complete';
+  } catch (e) {
+    Live.banner('Could not reach the interviewer: ' + e.message, 'error');
+  }
+  busy = false; render();
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+async function start() {
+  $('chat').innerHTML = ''; done = false; prefs = {};
+  try {
+    const id = await Live.seeker();
+    const history = await Live.api('GET', '/v1/seekers/' + id + '/interview').catch(() => []);
+    if (history.length) {
+      history.forEach((t) => (t.role === 'agent' ? agentSay(t.text) : meSay(t.text)));
+      const p = await Live.api('GET', '/v1/seekers/' + id + '/profile');
+      prefs = p.preferences || {};
+      render();
+      return;
     }
-    renderFacts();
-    renderBubbles();
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  }, 750);
+  } catch (e) {}
+  turn('');
 }
-function start() {
-  step = 0; answers = {}; busy = false;
-  $('chat').innerHTML = '';
-  agentSay(FLOW[0].q);
-  renderFacts();
-  renderBubbles();
-}
-$('own').addEventListener('submit', (e) => { e.preventDefault(); answer($('ownInput').value); $('ownInput').value = ''; });
-$('restart').onclick = start;
+$('own').addEventListener('submit', (e) => { e.preventDefault(); const v = $('ownInput').value.trim(); $('ownInput').value = ''; if (v) turn(v); });
+$('restart').onclick = () => { Live.reset(); start(); };
 $('arrow').innerHTML = ICON.arrow;
+// Lets the seeker move on once the interview has the essentials, even if the agent still has questions.
+$('finish').hidden = true;
+render();
 start();
 </script>
 </body>
