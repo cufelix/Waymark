@@ -1,0 +1,329 @@
+{
+  "seekerId": "skr_01M4EPBGACPW3G8C5GE4952GSZ",
+  "profileVersion": 4,
+  "status": "complete",
+  "consent": {
+    "dataProcessing": true,
+    "nameSearch": false,
+    "givenAt": "2026-10-08T20:00:00Z",
+    "policyVersion": "2026-10-01"
+  },
+  "preferences": {
+    "targetOccupations": [
+      {
+        "uri": "urn:stub:occupation:designer",
+        "label": "designer",
+        "lang": "en"
+      }
+    ],
+    "locations": [
+      {
+        "country": "DE",
+        "city": "Berlin"
+      }
+    ],
+    "remote": "ok",
+    "goal": "mission",
+    "dreamCompanies": [
+      {
+        "name": "Example Climate GmbH",
+        "url": "https://climate.example.com"
+      }
+    ],
+    "dealBreakers": [
+      "ad-tech",
+      "gambling"
+    ],
+    "languages": [
+      {
+        "lang": "en",
+        "level": "fluent"
+      },
+      {
+        "lang": "de",
+        "level": "working"
+      }
+    ],
+    "salaryExpectation": {
+      "min": 48000,
+      "currency": "EUR",
+      "period": "year"
+    }
+  },
+  "statedSkills": [
+    {
+      "id": "clm_01M4EPBGAC0VFKZCAE0P70NBGS",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+      },
+      "statement": "States skill: Figma",
+      "skill": {
+        "uri": "urn:stub:skill:figma",
+        "label": "Figma",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGAC17QRY56EQ6PX7CN3",
+          "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+          "title": "CV: cv-alex-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+          "quote": "Figma"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGACWNME74MX56TCZFY5",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+      },
+      "statement": "States skill: design systems",
+      "skill": {
+        "uri": "urn:stub:skill:design-systems",
+        "label": "design systems",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGACJDKMNPH08KXBGEGT",
+          "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+          "title": "CV: cv-alex-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+          "quote": "design systems"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGAC49273XXR1666KVG8",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+      },
+      "statement": "States skill: user research",
+      "skill": {
+        "uri": "urn:stub:skill:user-research",
+        "label": "user research",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGACJ9WCZFQ8VDV77R6D",
+          "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+          "title": "CV: cv-alex-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+          "quote": "user research"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGAC5QDZTK60FSA61CBD",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+      },
+      "statement": "States skill: prototyping",
+      "skill": {
+        "uri": "urn:stub:skill:prototyping",
+        "label": "prototyping",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGACG1RDGK81R23FXNC2",
+          "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+          "title": "CV: cv-alex-example.pdf",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-upload",
+          "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+          "quote": "prototyping"
+        }
+      ]
+    },
+    {
+      "id": "clm_01M4EPBGACHDPBPBX1JKQGMS13",
+      "subject": {
+        "kind": "seeker",
+        "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+      },
+      "statement": "States skill: accessibility",
+      "skill": {
+        "uri": "urn:stub:skill:accessibility",
+        "label": "accessibility",
+        "lang": "en"
+      },
+      "kind": "fact",
+      "tier": "stated",
+      "sources": [
+        {
+          "id": "src_01M4EPBGACSJK6W27EGB94JQNE",
+          "url": "seeker-interview://skr_01M4EPBGACPW3G8C5GE4952GSZ#turn-4",
+          "title": "Interview turn 4",
+          "fetchedAt": "2026-10-08T20:00:00Z",
+          "tool": "seeker-interview",
+          "contentHash": "e751eb2da6042e68e0faba4a92c24d503b92f3d8fef1faa181c0f0612558f259",
+          "quote": "I check every screen against WCAG contrast rules."
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+      "kind": "cv",
+      "fileName": "cv-alex-example.pdf",
+      "uploadedAt": "2026-10-08T20:00:00Z",
+      "statedSkills": [
+        {
+          "id": "clm_01M4EPBGAC0VFKZCAE0P70NBGS",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+          },
+          "statement": "States skill: Figma",
+          "skill": {
+            "uri": "urn:stub:skill:figma",
+            "label": "Figma",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGAC17QRY56EQ6PX7CN3",
+              "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+              "title": "CV: cv-alex-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+              "quote": "Figma"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGACWNME74MX56TCZFY5",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+          },
+          "statement": "States skill: design systems",
+          "skill": {
+            "uri": "urn:stub:skill:design-systems",
+            "label": "design systems",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGACJDKMNPH08KXBGEGT",
+              "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+              "title": "CV: cv-alex-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+              "quote": "design systems"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGAC49273XXR1666KVG8",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+          },
+          "statement": "States skill: user research",
+          "skill": {
+            "uri": "urn:stub:skill:user-research",
+            "label": "user research",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGACJ9WCZFQ8VDV77R6D",
+              "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+              "title": "CV: cv-alex-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+              "quote": "user research"
+            }
+          ]
+        },
+        {
+          "id": "clm_01M4EPBGAC5QDZTK60FSA61CBD",
+          "subject": {
+            "kind": "seeker",
+            "id": "skr_01M4EPBGACPW3G8C5GE4952GSZ"
+          },
+          "statement": "States skill: prototyping",
+          "skill": {
+            "uri": "urn:stub:skill:prototyping",
+            "label": "prototyping",
+            "lang": "en"
+          },
+          "kind": "fact",
+          "tier": "stated",
+          "sources": [
+            {
+              "id": "src_01M4EPBGACG1RDGK81R23FXNC2",
+              "url": "seeker-upload://doc_01M4EPBGAC51MNFNR4HPFJ80FM",
+              "title": "CV: cv-alex-example.pdf",
+              "fetchedAt": "2026-10-08T20:00:00Z",
+              "tool": "seeker-upload",
+              "contentHash": "326ac4537ff11b44090ad6849fe47de32ff39a0e22da05af61a1a4eefc866098",
+              "quote": "prototyping"
+            }
+          ]
+        }
+      ],
+      "experience": [
+        {
+          "title": "Junior product designer",
+          "organisation": "Example Studio GmbH",
+          "from": "2024-03"
+        }
+      ],
+      "education": [
+        {
+          "title": "BA Communication Design",
+          "institution": "Example University of the Arts Berlin",
+          "from": "2020-10",
+          "to": "2024-02"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "url": "https://alex.example.com/portfolio",
+      "kind": "portfolio",
+      "id": "lnk_01M4EPBGACVBVWWMYF78YKBC8S",
+      "addedAt": "2026-10-08T20:00:00Z"
+    },
+    {
+      "url": "https://social.example.com/@alex",
+      "kind": "social",
+      "id": "lnk_01M4EPBGACY6S0Z72K7V4DV461",
+      "addedAt": "2026-10-08T20:00:00Z"
+    }
+  ],
+  "updatedAt": "2026-10-08T20:00:00Z"
+}
