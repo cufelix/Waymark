@@ -4,6 +4,7 @@ import { newId } from "./core/ids.ts";
 import { validateCareerChoice, validateCreateSeeker, validateInterviewMessage, validateLinks, validatePreferences } from "./core/validate.ts";
 import type { LlmClient } from "./llm/llm.ts";
 import type { ResearchClient } from "./research-client.ts";
+import type { ExaClient } from "./salary/exa.ts";
 import { setCareerChoice } from "./service/career-choice.ts";
 import { deleteDocument, uploadCv } from "./service/documents.ts";
 import { deleteSeeker, exportSeeker } from "./service/gdpr.ts";
@@ -29,6 +30,7 @@ export type ApiResponse = { status: number; body: Envelope<unknown> };
 export type ApiDeps = {
   store: SeekerStore;
   llm: LlmClient;
+  exa?: ExaClient | null;
   research: ResearchClient;
   apiKeys?: string[]; // default: env SEEKER_API_KEYS
 };

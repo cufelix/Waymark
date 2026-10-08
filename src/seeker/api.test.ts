@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { handle, type ApiDeps, type ApiRequest } from "./api.ts";
 import { FakeLlm } from "./llm/llm.ts";
 import { FakeResearchClient } from "./research-client.ts";
+import { FakeExa } from "./salary/exa.ts";
 import { MemoryStore } from "./store/memory.ts";
 
 const KEY = "test-key-not-a-secret";
@@ -149,6 +150,34 @@ test("export includes Part 2's research runs", async () => {
   assert.equal((ex.body.data as any).profile.seekerId, id);
   research.failLists = true;
   assert.equal((await call("GET", `/v1/seekers/${id}/export`)).status, 502);
+});
+
+test("salary sources returned by the message route remain in the export", async () => {
+  const { call, create, deps } = setup();
+  const id = await create();
+  const page = { title: "Fake salary", url: "https://salary.example/api", text: "Pay is 35000 CZK per month." };
+  deps.exa = new FakeExa([page]);
+  deps.llm = new FakeLlm([
+    JSON.stringify({
+      reply: "The overview will cover pay.",
+      done: false,
+      mode: "direct",
+      draftPatch: {},
+      statedSkills: [],
+      salaryLookup: { lookup: "technician", country: "CZ" },
+    }),
+    JSON.stringify({ figures: [{ median: 35000, currency: "CZK", period: "month", url: page.url, quote: page.text }] }),
+    JSON.stringify({ reply: "A quick web lookup reports [35000 CZK per month](https://salary.example/api). Which city?" }),
+  ]);
+
+  const message = await call("POST", `/v1/seekers/${id}/interview/messages`, { text: "What does a technician earn?" });
+  assert.equal(message.status, 200);
+  assert.equal((message.body.data as any).sources[0].tool, "exa");
+
+  const exported = await call("GET", `/v1/seekers/${id}/export`);
+  const source = (exported.body.data as any).interview.at(-1).sources[0];
+  assert.equal(source.url, page.url);
+  assert.equal(source.quote, page.text);
 });
 
 test("career choice is authenticated, validated, and appears in profile and export", async () => {

@@ -3,6 +3,7 @@ import type {
   CareerPreferencesDraft,
   InterviewTurn,
   Occupation,
+  Source,
   Skill,
 } from "../contracts.ts";
 import { interviewSource, now, statedSkillClaim } from "../core/claims.ts";
@@ -10,6 +11,8 @@ import { ApiError } from "../core/errors.ts";
 import { mergeStatedSkills, touch } from "../core/profile.ts";
 import type { LlmClient } from "../llm/llm.ts";
 import { MODELS } from "../llm/llm.ts";
+import type { ExaClient } from "../salary/exa.ts";
+import { lookupSalary, type SalaryFigure } from "../salary/lookup.ts";
 import type { SeekerStore } from "../store/store.ts";
 import { findOccupation, findSkill } from "../taxonomy.ts";
 import {
@@ -17,9 +20,12 @@ import {
   EXPLORE_MAX_AGENT_QUESTIONS,
   FIRST_INTERVIEW_QUESTION,
   interviewMessages,
+  salaryReplyMessages,
 } from "./interview.prompts.ts";
 
-export type Deps = { store: SeekerStore; llm: LlmClient };
+export type Deps = { store: SeekerStore; llm: LlmClient; exa?: ExaClient | null };
+
+type SalaryLookup = { lookup: string; country: string; city?: string };
 
 type ModelResult = {
   reply: string;
@@ -27,6 +33,7 @@ type ModelResult = {
   mode: "direct" | "explore";
   draftPatch: Record<string, unknown>;
   statedSkills: { label: string; quote: string }[];
+  salaryLookup?: SalaryLookup;
 };
 
 type ValidatedSkill = { skill: Skill; quote: string };
@@ -67,7 +74,18 @@ function parseModelResult(raw: string): ModelResult {
         .map((item) => ({ label: (item.label as string).trim(), quote: (item.quote as string).trim() }))
         .filter((item) => item.label !== "" && item.quote !== "")
     : [];
-  return { reply: value.reply.trim(), done: value.done, mode: value.mode, draftPatch, statedSkills };
+  let salaryLookup: SalaryLookup | undefined;
+  if (
+    isObject(value.salaryLookup) && typeof value.salaryLookup.lookup === "string" &&
+    value.salaryLookup.lookup.trim() !== "" && typeof value.salaryLookup.country === "string"
+  ) {
+    const country = value.salaryLookup.country.trim().toUpperCase();
+    const city = typeof value.salaryLookup.city === "string" ? value.salaryLookup.city.trim() : "";
+    if (ISO_COUNTRIES.has(country)) {
+      salaryLookup = { lookup: value.salaryLookup.lookup.trim(), country, ...(city ? { city } : {}) };
+    }
+  }
+  return { reply: value.reply.trim(), done: value.done, mode: value.mode, draftPatch, statedSkills, ...(salaryLookup ? { salaryLookup } : {}) };
 }
 
 async function askLlm(deps: Deps, transcript: InterviewTurn[], draft: CareerPreferencesDraft, text: string): Promise<ModelResult> {
@@ -305,18 +323,96 @@ function assertVisible(record: { deletionPending?: boolean } | null, seekerId: s
   if (!record || record.deletionPending) throw new ApiError("not_found", `Seeker ${seekerId} does not exist`);
 }
 
+const REPLY_NUMBER = /\d+(?:[\s\u00a0\u1680\u2000-\u200b\u202f\u205f\u3000.,]\d+)*/gu;
+
+function normalizedNumber(value: string | number): string {
+  return String(value).replace(/[\s\u00a0\u1680\u2000-\u200b\u202f\u205f\u3000.,]/gu, "");
+}
+
+function figureNumbers(figures: SalaryFigure[]): Set<string> {
+  const values = figures.flatMap((figure) => [figure.amountMin, figure.amountMax, figure.median]);
+  return new Set(values.filter((value): value is number => value !== undefined).map(normalizedNumber));
+}
+
+function replyHasOnlyFigureNumbers(reply: string, figures: SalaryFigure[]): boolean {
+  const allowed = figureNumbers(figures);
+  return (reply.match(REPLY_NUMBER) ?? []).every((raw) => {
+    const normalized = normalizedNumber(raw);
+    return normalized.length < 3 || allowed.has(normalized);
+  });
+}
+
+function parseSalaryReply(raw: string): string {
+  const parsed: unknown = JSON.parse(raw);
+  if (!isObject(parsed) || typeof parsed.reply !== "string" || parsed.reply.trim() === "") throw new Error("invalid salary reply");
+  return parsed.reply.trim();
+}
+
+async function verifiedSalaryReply(
+  deps: Deps,
+  transcript: InterviewTurn[],
+  draft: CareerPreferencesDraft,
+  text: string,
+  figures: SalaryFigure[],
+): Promise<string | null> {
+  // A URL is part of the final reply when linked. Do not offer the reply model a page whose
+  // URL itself contains an unrelated 3+ digit number, because the same number guard applies
+  // to link destinations as to visible prose.
+  const linkSafeFigures = figures.filter((figure) => replyHasOnlyFigureNumbers(figure.url, figures));
+  const baseMessages = salaryReplyMessages(transcript, draft, text, linkSafeFigures.length > 0 ? linkSafeFigures : figures);
+  let previous = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const messages = attempt === 0
+      ? baseMessages
+      : [
+          ...baseMessages,
+          { role: "assistant" as const, content: previous },
+          {
+            role: "user" as const,
+            content:
+              "Your previous reply introduced a number that is not in the verified salary amount fields. Retry once. Use only those exact amounts, with no dates, percentages, counts, or rounded abbreviations. Return only {\"reply\":\"string\"}.",
+          },
+        ];
+    try {
+      previous = await deps.llm.chat({ model: MODELS.interview, messages, json: true, temperature: 0.2 });
+      const reply = parseSalaryReply(previous);
+      if (replyHasOnlyFigureNumbers(reply, figures)) return reply;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function salaryLanguage(record: { draft: CareerPreferencesDraft }, patch: CareerPreferencesDraft, text: string): string {
+  const lang = patch.targetOccupations?.[0]?.lang ?? record.draft.targetOccupations?.[0]?.lang;
+  if (lang) return lang;
+  return /[áčďéěíňóřšťúůýž]|\b(co|kolik|plat|bere|vydělává|měsíčně|ročně)\b/iu.test(text) ? "cs" : "en";
+}
+
+function salaryFallback(lang: string): string {
+  return lang.toLowerCase().startsWith("cs")
+    ? "Nepodařilo se mi rychle najít spolehlivý údaj, v přehledu bude k dispozici."
+    : "I couldn't find a reliable figure quickly, the overview will have one.";
+}
+
 export async function interviewTurn(
   deps: Deps,
   seekerId: string,
   text: string,
-): Promise<{ reply: string; done: boolean; preferences: CareerPreferencesDraft }> {
+): Promise<{ reply: string; done: boolean; preferences: CareerPreferencesDraft; sources?: Source[] }> {
   const record = await deps.store.get(seekerId);
   assertVisible(record, seekerId);
 
   if (text === "") {
     if (record.interview.length > 0) {
       const lastAgentTurn = record.interview.findLast((turn) => turn.role === "agent");
-      return { reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION, done: false, preferences: record.draft };
+      return {
+        reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION,
+        done: false,
+        preferences: record.draft,
+        ...(lastAgentTurn?.sources?.length ? { sources: lastAgentTurn.sources } : {}),
+      };
     }
     const updated = await deps.store.update(seekerId, (current) => {
       assertVisible(current, seekerId);
@@ -335,6 +431,33 @@ export async function interviewTurn(
     validateDraftPatch(modelResult.draftPatch),
     validateStatedSkills(deps, modelResult.statedSkills, text),
   ]);
+  let reply = modelResult.reply;
+  let sources: Source[] = [];
+  const lookupCount = record.interview.filter(
+    (turn) => turn.role === "agent" && turn.sources?.some((source) => source.tool === "exa"),
+  ).length;
+  if (modelResult.salaryLookup && deps.exa && lookupCount < 2) {
+    const lang = salaryLanguage(record, draftPatch, text);
+    try {
+      const salary = await lookupSalary(
+        { llm: deps.llm, exa: deps.exa },
+        { occupation: modelResult.salaryLookup.lookup, country: modelResult.salaryLookup.country, city: modelResult.salaryLookup.city, lang },
+      );
+      if (salary.figures.length > 0) {
+        const salaryReply = await verifiedSalaryReply(deps, record.interview, record.draft, text, salary.figures);
+        if (salaryReply) {
+          reply = salaryReply;
+          sources = salary.sources;
+        } else {
+          reply = salaryFallback(lang);
+        }
+      } else {
+        reply = salaryFallback(lang);
+      }
+    } catch {
+      reply = salaryFallback(lang);
+    }
+  }
   let done = modelResult.done;
 
   const updated = await deps.store.update(seekerId, (current) => {
@@ -368,12 +491,12 @@ export async function interviewTurn(
       interview: [
         ...current.interview,
         { role: "seeker", text, at: now() },
-        { role: "agent", text: modelResult.reply, at: now() },
+        { role: "agent", text: reply, at: now(), ...(sources.length ? { sources } : {}) },
       ],
     };
   });
 
-  return { reply: modelResult.reply, done, preferences: updated.draft };
+  return { reply, done, preferences: updated.draft, ...(sources.length ? { sources } : {}) };
 }
 
 export async function getInterview(deps: Deps, seekerId: string): Promise<InterviewTurn[]> {

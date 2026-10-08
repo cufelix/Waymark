@@ -5,8 +5,9 @@ import { now } from "../core/claims.ts";
 import { ApiError } from "../core/errors.ts";
 import { emptyPreferences } from "../core/profile.ts";
 import { FakeLlm, MODELS } from "../llm/llm.ts";
+import { FakeExa, type ExaClient } from "../salary/exa.ts";
 import { MemoryStore } from "../store/memory.ts";
-import { getInterview, interviewTurn } from "./interview.ts";
+import { getInterview, interviewTurn, type Deps } from "./interview.ts";
 import { FIRST_INTERVIEW_QUESTION, INTERVIEW_SYSTEM_PROMPT } from "./interview.prompts.ts";
 
 function profile(seekerId = "skr_test"): SeekerProfile {
@@ -23,11 +24,18 @@ function profile(seekerId = "skr_test"): SeekerProfile {
   };
 }
 
-async function setup(answers: string[] = [], options: { deletionPending?: boolean } = {}) {
+async function setup(answers: string[] = [], options: { deletionPending?: boolean; exa?: ExaClient | null } = {}) {
   const store = new MemoryStore();
-  await store.create({ profile: profile(), interview: [], draft: {}, cvTexts: {}, ...options });
+  await store.create({
+    profile: profile(),
+    interview: [],
+    draft: {},
+    cvTexts: {},
+    ...(options.deletionPending ? { deletionPending: true } : {}),
+  });
   const llm = new FakeLlm(answers);
-  return { store, llm, deps: { store, llm } };
+  const deps: Deps = { store, llm, ...(options.exa !== undefined ? { exa: options.exa } : {}) };
+  return { store, llm, deps };
 }
 
 function answer(value: Record<string, unknown>): string {
@@ -132,6 +140,150 @@ test("prompt distinguishes first and repeated practical questions and preserves 
   assert.match(INTERVIEW_SYSTEM_PROMPT, /LATER practical question/i);
   assert.match(INTERVIEW_SYSTEM_PROMPT, /open practical question/i);
   assert.match(INTERVIEW_SYSTEM_PROMPT, /school-leaving exam/i);
+});
+
+test("salary lookup returns a verified reply and stores its Exa sources on the agent turn", async () => {
+  const page = {
+    title: "Plat servisního technika",
+    url: "https://salary.example/technik",
+    text: "Běžné rozpětí je 35 000 až 45 000 CZK měsíčně.",
+  };
+  const exa = new FakeExa([page]);
+  const { deps, store, llm } = await setup([
+    answer({
+      reply: "Plat pak ověří přehled. Co je pro tebe v práci důležité?",
+      mode: "explore",
+      salaryLookup: { lookup: "computer service technician", country: "CZ", city: "Olomouc" },
+      draftPatch: { targetOccupations: [{ label: "servisní technik", lookup: "computer service technician", lang: "cs" }] },
+    }),
+    JSON.stringify({
+      figures: [{ amountMin: 35000, amountMax: 45000, currency: "CZK", period: "month", url: page.url, quote: page.text }],
+    }),
+    JSON.stringify({
+      reply: "Rychlý webový průzkum ukazuje orientačně [35 000 až 45 000 CZK měsíčně](https://salary.example/technik). Co je pro tebe v práci důležité?",
+    }),
+  ], { exa });
+
+  const result = await interviewTurn(deps, "skr_test", "Kolik bere servisní technik v Olomouci?");
+  const record = await store.get("skr_test");
+
+  assert.match(result.reply, /35 000 až 45 000/);
+  assert.equal(result.sources?.length, 1);
+  assert.equal(result.sources?.[0].tool, "exa");
+  assert.deepEqual(record?.interview.at(-1)?.sources, result.sources);
+  assert.equal(llm.calls.length, 3);
+  assert.equal(llm.calls[1].model, MODELS.fast);
+  assert.equal(llm.calls[2].model, MODELS.interview);
+  assert.match(JSON.stringify(llm.calls[2].messages), /35000/);
+  assert.match(JSON.stringify(llm.calls[2].messages), /salary\.example/);
+});
+
+test("an unsupported number in the salary reply is retried once and then falls back", async () => {
+  const page = { title: "Pay", url: "https://salary.example/pay", text: "Monthly pay is 35000 CZK." };
+  const exa = new FakeExa([page]);
+  const { deps, store, llm } = await setup([
+    answer({ reply: "The overview will cover pay.", salaryLookup: { lookup: "technician", country: "CZ" } }),
+    JSON.stringify({ figures: [{ median: 35000, currency: "CZK", period: "month", url: page.url, quote: page.text }] }),
+    JSON.stringify({ reply: "A quick web lookup says 99999 CZK." }),
+    JSON.stringify({ reply: "A quick web lookup says 88888 CZK." }),
+  ], { exa });
+
+  const result = await interviewTurn(deps, "skr_test", "What does a technician earn?");
+
+  assert.equal(result.reply, "I couldn't find a reliable figure quickly, the overview will have one.");
+  assert.equal(result.sources, undefined);
+  assert.equal((await store.get("skr_test"))?.interview.at(-1)?.sources, undefined);
+  assert.equal(llm.calls.length, 4);
+  assert.match(JSON.stringify(llm.calls[3].messages), /Retry once/);
+});
+
+test("salary reply prompt excludes a verified figure whose URL would violate the number guard", async () => {
+  const unsafe = {
+    title: "Unsafe numeric URL",
+    url: "https://salary.example/report-2026",
+    text: "Pay is 35000 CZK per month.",
+  };
+  const safe = {
+    title: "Safe URL",
+    url: "https://salary.example/current",
+    text: "Pay ranges from 35000 to 45000 CZK per month.",
+  };
+  const exa = new FakeExa([unsafe, safe]);
+  const { deps, llm } = await setup([
+    answer({ reply: "The overview will cover pay.", salaryLookup: { lookup: "technician", country: "CZ" } }),
+    JSON.stringify({
+      figures: [
+        { median: 35000, currency: "CZK", period: "month", url: unsafe.url, quote: unsafe.text },
+        { amountMin: 35000, amountMax: 45000, currency: "CZK", period: "month", url: safe.url, quote: safe.text },
+      ],
+    }),
+    JSON.stringify({ reply: "A quick web lookup reports [35000 to 45000 CZK per month](https://salary.example/current)." }),
+  ], { exa });
+
+  const result = await interviewTurn(deps, "skr_test", "What does a technician earn?");
+  const salaryPrompt = JSON.stringify(llm.calls[2].messages);
+
+  assert.match(result.reply, /35000 to 45000/);
+  assert.equal(result.sources?.length, 2, "all pages with surviving figures remain stored");
+  assert.doesNotMatch(salaryPrompt, /report-2026/);
+  assert.match(salaryPrompt, /salary\.example\/current/);
+});
+
+test("an Exa error becomes a localized fallback and the turn still succeeds", async () => {
+  const failingExa: ExaClient = { async search() { throw new Error("fake Exa outage"); } };
+  const { deps, store } = await setup([
+    answer({
+      reply: "Plat bude v přehledu.",
+      salaryLookup: { lookup: "technician", country: "CZ" },
+      draftPatch: { targetOccupations: [{ label: "technik", lookup: "technician", lang: "cs" }] },
+    }),
+  ], { exa: failingExa });
+
+  const result = await interviewTurn(deps, "skr_test", "Kolik bere technik?");
+
+  assert.equal(result.reply, "Nepodařilo se mi rychle najít spolehlivý údaj, v přehledu bude k dispozici.");
+  assert.equal((await store.get("skr_test"))?.interview.length, 2);
+});
+
+test("two sourced salary lookups reach the cap and preserve the ordinary model reply", async () => {
+  const exa = new FakeExa([{ title: "Unused", url: "https://unused.example", text: "Unused" }]);
+  const { deps, store } = await setup([
+    answer({ reply: "The overview will cover that. Which location works?", salaryLookup: { lookup: "technician", country: "CZ" } }),
+  ], { exa });
+  const source = (suffix: string) => ({
+    id: `src_${suffix}`,
+    url: `https://salary.example/${suffix}`,
+    title: "Salary",
+    fetchedAt: now(),
+    tool: "exa" as const,
+    quote: "Pay",
+    contentHash: suffix,
+  });
+  await store.update("skr_test", (record) => ({
+    ...record,
+    interview: [
+      { role: "agent", text: "First", at: now(), sources: [source("first")] },
+      { role: "agent", text: "Second", at: now(), sources: [source("second")] },
+    ],
+  }));
+
+  const result = await interviewTurn(deps, "skr_test", "What does a technician earn?");
+
+  assert.equal(result.reply, "The overview will cover that. Which location works?");
+  assert.equal(result.sources, undefined);
+  assert.equal(exa.calls.length, 0);
+});
+
+test("without Exa a salary request follows the previous deferral behavior", async () => {
+  const { deps, llm } = await setup([
+    answer({ reply: "The sourced overview will cover pay. Which city?", salaryLookup: { lookup: "technician", country: "CZ" } }),
+  ]);
+
+  const result = await interviewTurn(deps, "skr_test", "What does a technician earn?");
+
+  assert.equal(result.reply, "The sourced overview will cover pay. Which city?");
+  assert.equal(result.sources, undefined);
+  assert.equal(llm.calls.length, 1);
 });
 
 test("concrete skills from one answer are stored with trimmed verbatim quotes", async () => {
