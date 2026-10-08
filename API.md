@@ -183,7 +183,8 @@ What the whiteboard's two steps become:
 - **Numbers are copied, never generated:** every number in a chapter (`demand`) comes from the validation with its sources. The model writes no numbers into `why` or `outcome` that are not in those facts.
 - **What the seeker already has:**
   - The chapter carries `evidence` and `claims` from the validation. A chapter that is `proven` or `stated` stays on the map as "you've got this", with an option to review it.
-  - `done` is the seeker's own tick and is never proof. Proof still comes only from a link the seeker owns (Part 2).
+  - A chapter whose skills the seeker already has (every skill `stated` or `proven` in the validation, from the CV, the interview or a link) starts as `done: true` with `doneBy: "evidence"`, so the roadmap doesn't teach what the seeker already knows. It still carries its resources, so the seeker can review it, and the seeker can un-tick it.
+  - Otherwise `done` is the seeker's own tick (`doneBy: "seeker"`). `done` is never proof: proof still comes only from a link the seeker owns (Part 2).
 - **Resources:**
   - Every resource has a `source` (the page, tool `exa`) whose `quote` appears on that page.
   - `price`, `effortHours` and `scope` are filled only when the page states them.
@@ -542,7 +543,8 @@ type RoadmapChapter = {
   estimatedHours?: number;        // the planner's estimate, shown as "about"
   resources: LearningResource[];  // free first
   topPickId?: string;             // resourceId of the one to start with
-  done: boolean;                  // the seeker's own tick, never proof
+  done: boolean;                  // never proof
+  doneBy?: "evidence" | "seeker"; // evidence: the seeker already has every skill (stated or proven); seeker: their own tick
   doneAt?: ISODate;
 };
 

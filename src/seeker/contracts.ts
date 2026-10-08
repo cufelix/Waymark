@@ -2,6 +2,8 @@
 // Temporary home until @cufelix lands src/contracts.ts; then this file re-exports from there.
 // The field names are the contract: change API.md first, then this file.
 
+import type { Roadmap } from "../roadmap/contracts.ts";
+
 // ---------- shared ----------
 export type ISODate = string; // "2026-10-08T21:00:00Z"
 export type Country = string; // ISO 3166-1 alpha-2, "CZ"
@@ -91,7 +93,13 @@ export type CareerChoice = {
 };
 
 // ResearchRun is Part 2's type; Part 1 only passes it through in the export.
-export type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: unknown[]; validations: unknown[] };
+export type SeekerExport = {
+  profile: SeekerProfile;
+  interview: InterviewTurn[];
+  researchRuns: unknown[];
+  validations: unknown[];
+  roadmaps: Roadmap[];
+};
 
 // ---------- Part 2: research ----------
 export type CareerPath = {

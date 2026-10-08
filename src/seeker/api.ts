@@ -4,6 +4,7 @@ import { newId } from "./core/ids.ts";
 import { validateCareerChoice, validateCreateSeeker, validateInterviewMessage, validateLinks, validatePreferences } from "./core/validate.ts";
 import type { LlmClient } from "./llm/llm.ts";
 import type { ResearchClient } from "./research-client.ts";
+import type { RoadmapClient } from "./roadmap-client.ts";
 import { exaFromEnv, type ExaClient } from "./salary/exa.ts";
 import { setCareerChoice } from "./service/career-choice.ts";
 import { deleteDocument, uploadCv } from "./service/documents.ts";
@@ -34,6 +35,7 @@ export type ApiDeps = {
   exa?: ExaClient | null;
   research: ResearchClient;
   validations?: ValidationClient;
+  roadmaps?: RoadmapClient;
   apiKeys?: string[]; // default: env SEEKER_API_KEYS
 };
 

@@ -8,6 +8,7 @@ import { newId } from "../ids";
 import { errorMessage, log } from "../log";
 import { part1Handler } from "./part1";
 import { part3Handler } from "./part3";
+import { part4Handler } from "./part4";
 import { mountUi } from "./ui";
 import { deleteResearchForSeeker, deleteRun, listRunsForSeeker } from "../research/gdpr";
 import { getCompany, getVacancy, listRunCompanies, listRunVacancies } from "../research/market/read";
@@ -170,6 +171,11 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
   app.all("/v1/validations/*", part3Handler);
   app.get("/v1/seekers/:seekerId/validations", part3Handler);
   app.delete("/v1/seekers/:seekerId/validations", part3Handler);
+
+  app.all("/v1/roadmaps", part4Handler);
+  app.all("/v1/roadmaps/*", part4Handler);
+  app.get("/v1/seekers/:seekerId/roadmaps", part4Handler);
+  app.delete("/v1/seekers/:seekerId/roadmaps", part4Handler);
 
   // Everything else under /v1/seekers is Part 1 (user input). Part 2's own seeker routes are registered above.
   app.all("/v1/seekers", part1Handler);
