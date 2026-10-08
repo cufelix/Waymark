@@ -13,91 +13,162 @@
 <main class="wrap" style="max-width: 1200px">
   <section class="col-main">
     <div>
-      <div id="qnum" style="font-size: 13px; color: var(--muted); margin-bottom: 10px">Question 1 of 5</div>
+      <div class="phase-label"><span id="phaseLabel">Getting to know you</span><span id="phaseCount"></span></div>
       <div class="progress"><div id="bar"></div></div>
     </div>
-    <div class="chat" id="chat" aria-live="polite"></div>
-    <div class="typing" id="typing" hidden><span></span><span></span><span></span></div>
-    <div class="bubbles" id="bubbles"></div>
-    <form class="own" id="own">
-      <label for="ownInput" class="sr-only">Type your own answer</label>
-      <input id="ownInput" class="field" type="text" placeholder="Or type your own answer…" autocomplete="off">
-      <button class="cta" type="submit" style="min-height: 44px; padding: 0 20px">Send</button>
-    </form>
-    <div id="finish" hidden style="padding-left: 48px; display: flex; flex-wrap: wrap; gap: 12px">
-      <a class="cta" href="upload.html">Continue <span id="arrow"></span></a>
-      <button class="ghost" type="button" id="restart">Start over</button>
+
+    <!-- Phase 1: opening questions -->
+    <div id="chatPhase" style="display: flex; flex-direction: column; gap: 24px">
+      <div class="chat" id="chat" aria-live="polite"></div>
+      <div class="typing" id="typing" hidden><span></span><span></span><span></span></div>
+      <div class="bubbles" id="bubbles"></div>
+      <form class="own" id="own">
+        <label for="ownInput" class="sr-only">Type your own answer</label>
+        <input id="ownInput" class="field" type="text" placeholder="Or type your own answer…" autocomplete="off">
+        <button class="cta" type="submit" style="min-height: 44px; padding: 0 20px">Send</button>
+      </form>
+    </div>
+
+    <!-- Phase 2: task cards -->
+    <div id="cardPhase" hidden style="display: flex; flex-direction: column; gap: 24px">
+      <div class="task-intro">
+        <h1 style="font: 700 28px/1.2 var(--display)">Would you enjoy doing this?</h1>
+        <p class="lead" style="font-size: 15px">Real tasks from real job ads in Prague. Go with your gut. We'll tell you which job it came from after you answer.</p>
+      </div>
+      <div class="task-wrap" id="taskWrap"></div>
+      <div class="rate">
+        <button class="no" type="button" data-rate="no">Not for me<kbd>←</kbd></button>
+        <button class="maybe" type="button" data-rate="maybe">Maybe<kbd>↓</kbd></button>
+        <button class="like" type="button" data-rate="like">I'd enjoy this<kbd>→</kbd></button>
+      </div>
+    </div>
+
+    <!-- Phase 3: practical limits -->
+    <div id="practicalPhase" hidden class="practical">
+      <div class="task-intro">
+        <h1 style="font: 700 28px/1.2 var(--display)">Quick practical stuff</h1>
+        <p class="lead" style="font-size: 15px">This shapes your roadmap more than anything else: how fast it goes and what it costs.</p>
+      </div>
+      <div class="row"><span class="lbl">Time you can give it each week</span><div class="bubbles" style="padding: 0" data-group="hours"></div></div>
+      <div class="row"><span class="lbl">Budget for courses</span><div class="bubbles" style="padding: 0" data-group="budget"></div></div>
+      <div class="row"><span class="lbl">Education so far</span><div class="bubbles" style="padding: 0" data-group="degree"></div></div>
+      <div><button class="cta" type="button" id="practicalDone" disabled style="opacity: .4">See my results</button></div>
+    </div>
+
+    <!-- Phase 4: done -->
+    <div id="donePhase" hidden style="display: flex; flex-direction: column; gap: 20px">
+      <div class="task-intro">
+        <h1 style="font: 700 32px/1.2 var(--display)">I've got a clear picture.</h1>
+        <p class="lead" style="font-size: 15px" id="doneLead"></p>
+      </div>
+      <div id="results" style="display: flex; flex-direction: column; gap: 10px"></div>
+      <p class="hint" style="margin: 0">Next we check these against the real job market, then pick your final top 3.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px">
+        <a class="cta" href="upload.html">Continue <span data-icon="arrow"></span></a>
+        <button class="ghost" type="button" id="restart">Start over</button>
+      </div>
     </div>
   </section>
 
-  <aside class="col-side panel">
-    <div>
-      <div class="panel-title">What I know about you</div>
-      <p class="hint">Builds as you answer. This is what the research runs on.</p>
+  <aside class="col-side" style="display: flex; flex-direction: column; gap: 18px">
+    <div class="panel">
+      <div>
+        <div class="panel-title">Paths forming</div>
+        <p class="hint" id="formingHint">Moves with every answer. Lime = your current top 3.</p>
+      </div>
+      <div class="forming" id="forming"></div>
     </div>
-    <div class="facts" id="facts"></div>
+    <div class="panel" style="gap: 12px">
+      <div class="panel-title">What I know about you</div>
+      <div id="facts" style="display: flex; flex-wrap: wrap; gap: 8px"></div>
+    </div>
   </aside>
 </main>
 
 <script>
-const FLOW = [
-  { key: 'drawn', label: 'Drawn to', q: "Let's start easy. When you lose track of time, what are you usually doing?",
-    opts: ['Making things look good', 'Figuring out why something broke', 'Convincing people', 'Organising chaos', 'Helping someone feel better'] },
-  { key: 'detail', label: 'Specifically' },
-  { key: 'style', label: 'Work style', q: 'Good to know. How do you like to work?',
-    opts: ['Deep focus, mostly alone', 'In a small team', 'Talking to people all day', 'A mix of everything'] },
-  { key: 'place', label: 'Where', q: 'Where do you want to work?',
-    opts: ['Prague', 'Anywhere in Czechia', 'Remote', 'Abroad'] },
-  { key: 'goal', label: 'Right now', q: 'Last one. What matters most to you right now?',
-    opts: ['Learn fast and grow', 'A stable job and salary', 'Work that means something'] }
-];
-const FOLLOW = {
-  'Making things look good': { q: 'Love that. What do you like making look good?', opts: ['Websites and apps', 'Posters and brands', 'Photos and video', 'Rooms and spaces'] },
-  'Figuring out why something broke': { q: 'A fixer. What kind of broken things pull you in?', opts: ['Code or websites', 'Gadgets and machines', 'Spreadsheets and numbers', 'How a team works'] },
-  'Convincing people': { q: 'What do you usually convince people of?', opts: ['To buy something', 'To join an idea', 'To see another side', 'To make a decision'] },
-  'Organising chaos': { q: 'What kind of chaos do you enjoy taming?', opts: ['Events and trips', 'Messy data', 'Group projects', 'Money and budgets'] },
-  'Helping someone feel better': { q: 'Who do you most like helping?', opts: ['Friends with problems', 'Kids or students', 'Sick or older people', 'Customers'] }
-};
-const GENERIC = { q: 'Interesting. What part of that do you enjoy most?', opts: ['Solving it', 'Making it', 'Explaining it', 'Organising it'] };
-
-let step = 0, answers = {}, busy = false;
 const $ = (id) => document.getElementById(id);
 
-function stepDef(i) {
-  const f = FLOW[i];
-  return f.key === 'detail' ? { ...f, ...(FOLLOW[answers.drawn] || GENERIC) } : f;
+// ---------- data ----------
+const PATHS = {
+  backend: 'Backend developer', frontend: 'Frontend developer', data: 'Data analyst', qa: 'QA engineer',
+  ux: 'UX designer', sales: 'Sales / business development', marketing: 'Marketing specialist', ops: 'Project coordinator'
+};
+const KIND = { backend: 'coding', frontend: 'web building', data: 'data', qa: 'testing', ux: 'design research', sales: 'sales', marketing: 'marketing', ops: 'organising' };
+
+const OPENING = [
+  { key: 'drawn', label: 'Drawn to', q: "Let's start easy. When you lose track of time, what are you usually doing?",
+    opts: ['Making things look good', 'Figuring out why something broke', 'Convincing people', 'Organising chaos', 'Helping someone feel better'] },
+  { key: 'place', label: 'Where', q: 'Where do you want to work?', opts: ['Prague', 'Anywhere in Czechia', 'Remote', 'Abroad'] },
+  { key: 'goal', label: 'Right now', q: 'What matters most to you right now?', opts: ['Learn fast and grow', 'A stable job and salary', 'Work that means something'] }
+];
+const PRIORS = {
+  'Making things look good': { ux: 2, frontend: 2, marketing: 1 },
+  'Figuring out why something broke': { backend: 2, qa: 2, data: 1 },
+  'Convincing people': { sales: 2, marketing: 2 },
+  'Organising chaos': { ops: 2, data: 1, qa: 1 },
+  'Helping someone feel better': { ux: 1, sales: 1, ops: 1 }
+};
+// Each task: text, source ad, main path, optional secondary paths with weights.
+const TASKS = [
+  ['Build the part of an app that saves a customer’s order and sends the receipt.', 'backend'],
+  ['Find out why the website gets slow every Monday morning, and fix it.', 'backend', { qa: .5 }],
+  ['Connect the online shop to a new payment provider.', 'backend'],
+  ['Rebuild the signup page so it works on every phone.', 'frontend'],
+  ['Turn a designer’s mockup into a working web page.', 'frontend', { ux: .5 }],
+  ['Add a smooth animation when someone adds an item to the cart.', 'frontend'],
+  ['Figure out why 30% of customers abandon checkout.', 'data', { ux: .3 }],
+  ['Build a weekly sales dashboard the boss checks every Monday.', 'data'],
+  ['Clean up a spreadsheet of 10,000 messy customer records.', 'data', { ops: .5 }],
+  ['Try to break a new feature before it goes live, and write down exactly how you did it.', 'qa'],
+  ['Test the app on 10 different phones and report everything that looks wrong.', 'qa'],
+  ['Write a small script that checks the login page still works, every night.', 'qa', { backend: .5 }],
+  ['Interview 5 users and find out why they get stuck on the settings page.', 'ux', { data: .3 }],
+  ['Sketch three different layouts for a new home screen.', 'ux', { frontend: .3 }],
+  ['Watch screen recordings of people using the app and spot what confuses them.', 'ux'],
+  ['Call 20 small businesses and find out what they struggle with.', 'sales', { ux: .3 }],
+  ['Give a 15 minute demo of the product to a potential client.', 'sales'],
+  ['Follow up with a customer who went quiet, and win them back.', 'sales'],
+  ['Write the posts for a product launch on Instagram and LinkedIn.', 'marketing'],
+  ['Run two versions of an ad and work out which one works better.', 'marketing', { data: .5 }],
+  ['Plan a month of content for the company blog.', 'marketing'],
+  ['Plan a team offsite for 40 people: venue, travel, schedule.', 'ops'],
+  ['Keep a project on track: who does what by when, and chase what’s late.', 'ops'],
+  ['Set up a simple system so customer requests stop getting lost.', 'ops', { backend: .2 }]
+].map(([text, path, extra], i) => ({ id: i, text, path, extra: extra || {} }));
+const RATE = { like: 2, maybe: .5, no: -1.5 };
+const PRACTICAL = {
+  hours: ['Under 5h', '5 to 10h', '10 to 20h', 'Full time'],
+  budget: ['Free only', 'A little', 'Happy to invest'],
+  degree: ['High school', 'Studying now', "Bachelor's", "Master's"]
+};
+
+// ---------- state ----------
+let S;
+function fresh(more) {
+  let prev = null;
+  try { prev = more && JSON.parse(localStorage.getItem('interview') || 'null'); } catch (e) {}
+  if (prev) { prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; return prev; }
+  return { phase: 'chat', step: 0, answers: {}, practical: {}, score: Object.fromEntries(Object.keys(PATHS).map((k) => [k, 0])),
+    shownBy: {}, likedBy: {}, seen: [], extraUntil: 0 };
 }
+const ranked = () => Object.keys(PATHS).sort((a, b) => S.score[b] - S.score[a]);
+
+// ---------- phase 1: chat ----------
+let busy = false;
 function agentSay(text) {
   const d = document.createElement('div');
   d.className = 'msg-agent';
   d.innerHTML = '<div class="avatar">' + LOGO.replace('width="28" height="28"', 'width="18" height="18"') + '</div><p>' + esc(text) + '</p>';
   $('chat').appendChild(d);
 }
-function meSay(text) {
-  const d = document.createElement('div');
-  d.className = 'msg-me';
-  d.textContent = text;
-  $('chat').appendChild(d);
-}
-function renderFacts() {
-  $('facts').innerHTML = FLOW.map((f) => '<div class="fact"><span class="lbl">' + f.label + '</span>' +
-    (answers[f.key] ? '<span class="chip">' + esc(answers[f.key]) + '</span>' : '<span class="chip-empty">Not yet</span>') + '</div>').join('');
-  const n = Object.keys(answers).length;
-  $('bar').style.width = (n / FLOW.length * 100) + '%';
-  $('qnum').textContent = 'Question ' + Math.min(step + 1, FLOW.length) + ' of ' + FLOW.length;
-}
+function meSay(text) { const d = document.createElement('div'); d.className = 'msg-me'; d.textContent = text; $('chat').appendChild(d); }
 function renderBubbles() {
-  const done = step >= FLOW.length;
-  $('own').hidden = done || busy;
-  $('finish').hidden = !done;
   $('bubbles').innerHTML = '';
-  if (done || busy) return;
-  stepDef(step).opts.forEach((label, i) => {
+  $('own').hidden = busy;
+  if (busy) return;
+  OPENING[S.step].opts.forEach((label, i) => {
     const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'bubble';
-    b.style.animationDelay = (i * 0.05) + 's';
-    b.textContent = label;
+    b.type = 'button'; b.className = 'bubble'; b.style.animationDelay = (i * .05) + 's'; b.textContent = label;
     b.onclick = () => answer(label);
     $('bubbles').appendChild(b);
   });
@@ -105,38 +176,140 @@ function renderBubbles() {
 function answer(text) {
   text = text.trim();
   if (!text || busy) return;
-  answers[FLOW[step].key] = text;
+  const q = OPENING[S.step];
+  S.answers[q.key] = text;
+  if (q.key === 'drawn') Object.entries(PRIORS[text] || {}).forEach(([k, v]) => S.score[k] += v);
   meSay(text);
-  busy = true;
-  $('typing').hidden = false;
-  renderBubbles();
-  renderFacts();
+  busy = true; $('typing').hidden = false; renderBubbles(); renderSide();
   setTimeout(() => {
-    $('typing').hidden = true;
-    busy = false;
-    step += 1;
-    if (step >= FLOW.length) {
-      agentSay("That's all I need. One optional thing before I start digging into the job market.");
-      try { localStorage.setItem('answers', JSON.stringify(answers)); } catch (e) {}
-    } else {
-      agentSay(stepDef(step).q);
-    }
-    renderFacts();
-    renderBubbles();
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  }, 750);
+    busy = false; $('typing').hidden = true; S.step += 1;
+    if (S.step >= OPENING.length) {
+      agentSay('Thanks. Now the fun part: I’ll show you real tasks from real jobs. Just react.');
+      setTimeout(() => go('cards'), 1100);
+    } else { agentSay(OPENING[S.step].q); renderBubbles(); }
+    renderSide();
+  }, 700);
 }
-function start() {
-  step = 0; answers = {}; busy = false;
+
+// ---------- phase 2: cards ----------
+let current = null, locked = false;
+function pickNext() {
+  const shown = S.seen.length;
+  const focus = ranked().slice(0, shown < 3 ? 6 : 4);
+  const unseen = TASKS.filter((t) => !S.seen.includes(t.id));
+  // Target the focus path we know least about, then a task whose main path is that one.
+  const target = [...focus].sort((a, b) => (S.shownBy[a] || 0) - (S.shownBy[b] || 0) || S.score[b] - S.score[a])[0];
+  return unseen.find((t) => t.path === target) || unseen.find((t) => focus.includes(t.path)) || unseen[0];
+}
+function confident() {
+  const n = S.seen.length;
+  if (S.extraUntil) return n >= S.extraUntil;
+  if (n >= 12) return true;
+  if (n < 8) return false;
+  const r = ranked();
+  return S.score[r[2]] - S.score[r[3]] >= 2;
+}
+function showCard() {
+  if (confident() || !(current = pickNext())) return go('practical');
+  locked = false;
+  $('taskWrap').innerHTML = `<div class="task" id="task">
+    <div class="src"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>From a real job ad · Prague</div>
+    <div class="text">${esc(current.text)}</div>
+    <div class="reveal" id="reveal"></div></div>`;
+  renderSide();
+}
+function rate(kind) {
+  if (S.phase !== 'cards' || locked || !current) return;
+  locked = true;
+  const w = RATE[kind];
+  S.score[current.path] += w;
+  Object.entries(current.extra).forEach(([k, v]) => S.score[k] += w * v);
+  S.shownBy[current.path] = (S.shownBy[current.path] || 0) + 1;
+  if (kind === 'like') S.likedBy[current.path] = (S.likedBy[current.path] || 0) + 1;
+  S.seen.push(current.id);
+  $('reveal').textContent = 'That’s a ' + PATHS[current.path] + ' task.';
+  renderSide();
+  setTimeout(() => { $('task').classList.add('out-' + kind); }, 650);
+  setTimeout(showCard, 1000);
+}
+document.querySelectorAll('[data-rate]').forEach((b) => b.onclick = () => rate(b.dataset.rate));
+document.addEventListener('keydown', (e) => {
+  if (S.phase !== 'cards') return;
+  const k = { ArrowLeft: 'no', ArrowDown: 'maybe', ArrowRight: 'like' }[e.key];
+  if (k) { e.preventDefault(); rate(k); }
+});
+
+// ---------- phase 3: practical ----------
+function renderPractical() {
+  document.querySelectorAll('[data-group]').forEach((g) => {
+    const key = g.dataset.group;
+    g.innerHTML = PRACTICAL[key].map((o) => `<button type="button" class="bubble ${S.practical[key] === o ? 'on' : ''}">${o}</button>`).join('');
+    g.querySelectorAll('button').forEach((b) => b.onclick = () => { S.practical[key] = b.textContent; renderPractical(); renderSide(); });
+  });
+  const ready = Object.keys(PRACTICAL).every((k) => S.practical[k]);
+  $('practicalDone').disabled = !ready;
+  $('practicalDone').style.opacity = ready ? 1 : .4;
+}
+$('practicalDone').onclick = () => go('done');
+
+// ---------- phase 4: done ----------
+function renderDone() {
+  const top = ranked().slice(0, 3);
+  $('doneLead').textContent = 'From ' + S.seen.length + ' real tasks you reacted to, these three stand out.';
+  $('results').innerHTML = top.map((k, i) => {
+    const shown = S.shownBy[k] || 0, liked = S.likedBy[k] || 0;
+    const ev = shown ? `You liked ${liked} of ${shown} ${KIND[k]} tasks` : 'Matches what you told me you enjoy';
+    return `<div class="result" style="animation-delay:${i * .12}s"><div class="n">${i + 1}</div><div><b>${PATHS[k]}</b><span>${ev}</span></div></div>`;
+  }).join('');
+  try {
+    localStorage.setItem('interview', JSON.stringify(S));
+    localStorage.setItem('top3', JSON.stringify(top.map((k) => ({ key: k, name: PATHS[k], kind: KIND[k], liked: S.likedBy[k] || 0, shown: S.shownBy[k] || 0 }))));
+  } catch (e) {}
+}
+$('restart').onclick = () => { try { localStorage.removeItem('interview'); localStorage.removeItem('top3'); } catch (e) {} history.replaceState(null, '', 'index.html'); start(false); };
+
+// ---------- side panel + progress ----------
+function renderSide() {
+  const r = ranked();
+  const vals = r.map((k) => S.score[k]);
+  const max = Math.max(...vals), min = Math.min(...vals), span = max - min || 1;
+  const started = S.answers.drawn !== undefined;
+  $('forming').innerHTML = r.slice(0, 6).map((k, i) => {
+    const pct = started ? 8 + ((S.score[k] - min) / span) * 92 : 8;
+    const shown = S.shownBy[k] || 0;
+    return `<div class="f-row ${started && i < 3 ? 'top3' : ''} ${!started ? 'dim' : ''}"><div class="f-top"><span>${PATHS[k]}</span><span>${shown ? (S.likedBy[k] || 0) + ' of ' + shown + ' liked' : ''}</span></div><div class="f-bar"><div style="width:${pct}%"></div></div></div>`;
+  }).join('');
+  const facts = [...OPENING.map((q) => S.answers[q.key]), ...Object.values(S.practical)].filter(Boolean);
+  $('facts').innerHTML = facts.length ? facts.map((f) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(f)}</span>`).join('') : '<span class="chip-empty">Nothing yet</span>';
+
+  const labels = { chat: 'Getting to know you', cards: 'Narrowing it down…', practical: 'Almost done', done: 'Done' };
+  $('phaseLabel').textContent = labels[S.phase];
+  $('phaseCount').textContent = S.phase === 'cards' ? S.seen.length + ' tasks rated' : '';
+  const pct = { chat: (S.step / OPENING.length) * 20, cards: 20 + Math.min(S.seen.length / 10, 1) * 60, practical: 85, done: 100 }[S.phase];
+  $('bar').style.width = pct + '%';
+}
+
+function go(phase) {
+  S.phase = phase;
+  $('chatPhase').hidden = phase !== 'chat';
+  $('cardPhase').hidden = phase !== 'cards';
+  $('practicalPhase').hidden = phase !== 'practical';
+  $('donePhase').hidden = phase !== 'done';
+  if (phase === 'cards') showCard();
+  if (phase === 'practical') renderPractical();
+  if (phase === 'done') renderDone();
+  renderSide();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function start(more) {
+  S = fresh(more); busy = false;
   $('chat').innerHTML = '';
-  agentSay(FLOW[0].q);
-  renderFacts();
-  renderBubbles();
+  if (S.phase === 'chat') { agentSay(OPENING[0].q); renderBubbles(); }
+  go(S.phase);
 }
 $('own').addEventListener('submit', (e) => { e.preventDefault(); answer($('ownInput').value); $('ownInput').value = ''; });
-$('restart').onclick = start;
-$('arrow').innerHTML = ICON.arrow;
-start();
+document.querySelectorAll('[data-icon]').forEach((el) => el.innerHTML = ICON[el.dataset.icon]);
+start(new URLSearchParams(location.search).has('more'));
 </script>
 </body>
 </html>
