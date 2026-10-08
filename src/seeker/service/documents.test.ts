@@ -4,7 +4,7 @@ import type { Claim, SeekerProfile } from "../contracts.ts";
 import { interviewSource, now, statedSkillClaim } from "../core/claims.ts";
 import { ApiError } from "../core/errors.ts";
 import { emptyPreferences } from "../core/profile.ts";
-import { JANE_EXAMPLE_XML, makeDocx } from "../cv/testdata/make-docx.ts";
+import { JANE_EXAMPLE_XML, ODT_MIME, fakeImageCv, makeDocx, makeOdt } from "../cv/testdata/make-docx.ts";
 import { FakeLlm, MODELS } from "../llm/llm.ts";
 import { MemoryStore } from "../store/memory.ts";
 import { deleteDocument, uploadCv } from "./documents.ts";
@@ -83,6 +83,73 @@ test("PDF upload transcribes first, then makes one extraction call on the text",
   assert.match(String(llm.calls[1].messages[0].content), /Jane Example\nBuilt APIs with TypeScript/);
 });
 
+const NEW_FORMAT_UPLOADS = [
+  {
+    label: "TXT",
+    fileName: "jane-example.txt",
+    mimeType: "text/plain",
+    bytes: Buffer.from("\ufeffJane Example\nBuilt APIs with TypeScript"),
+    text: "Jane Example\nBuilt APIs with TypeScript",
+    image: false,
+  },
+  {
+    label: "Markdown",
+    fileName: "jane-example.md",
+    mimeType: "text/markdown",
+    bytes: Buffer.from("# Jane Example\n\nBuilt APIs with TypeScript"),
+    text: "# Jane Example\n\nBuilt APIs with TypeScript",
+    image: false,
+  },
+  {
+    label: "ODT",
+    fileName: "jane-example.odt",
+    mimeType: ODT_MIME,
+    bytes: makeOdt(),
+    text: "Jane Example\nSoftware Developer  & mentor\nBuilt APIs with TypeScript\tPrague\nCzechia",
+    image: false,
+  },
+  {
+    label: "JPEG",
+    fileName: "jane-example.jpg",
+    mimeType: "image/jpeg",
+    bytes: fakeImageCv("jpeg"),
+    text: "Jane Example\nBuilt APIs with TypeScript",
+    image: true,
+  },
+  {
+    label: "PNG",
+    fileName: "jane-example.png",
+    mimeType: "image/png",
+    bytes: fakeImageCv("png"),
+    text: "Jane Example\nBuilt APIs with TypeScript",
+    image: true,
+  },
+  {
+    label: "WebP",
+    fileName: "jane-example.webp",
+    mimeType: "image/webp",
+    bytes: fakeImageCv("webp"),
+    text: "Jane Example\nBuilt APIs with TypeScript",
+    image: true,
+  },
+] as const;
+
+for (const fixture of NEW_FORMAT_UPLOADS) {
+  test(`${fixture.label} upload extracts and stores Jane Example's CV`, async () => {
+    const store = await setup();
+    const llm = new FakeLlm(fixture.image ? [fixture.text, extraction()] : [extraction()]);
+    const document = await uploadCv(
+      { store, llm },
+      SEEKER_ID,
+      { fileName: fixture.fileName, mimeType: fixture.mimeType, bytes: fixture.bytes },
+    );
+
+    assert.equal(document.statedSkills.length, 1);
+    assert.equal((await store.get(SEEKER_ID))?.cvTexts[document.id], fixture.text);
+    assert.deepEqual(llm.calls.map((call) => call.model), fixture.image ? [MODELS.fast, MODELS.cv] : [MODELS.cv]);
+  });
+}
+
 test("an invented skill quote is dropped", async () => {
   const store = await setup();
   const llm = new FakeLlm([extraction([{ label: "Kubernetes", quote: "Operated Kubernetes clusters" }])]);
@@ -107,7 +174,7 @@ test("a skill quote with altered whitespace is dropped because it is not verbati
   assert.deepEqual((await store.get(SEEKER_ID))?.profile.statedSkills, []);
 });
 
-test("files over 10 MB and renamed non-CVs are unprocessable without LLM calls", async () => {
+test("oversize, binary text, bad ODT, renamed, and MIME-mismatched files are unprocessable without LLM calls", async () => {
   const store = await setup();
   const llm = new FakeLlm([]);
   await expectCode(
@@ -116,6 +183,18 @@ test("files over 10 MB and renamed non-CVs are unprocessable without LLM calls",
   );
   await expectCode(
     uploadCv({ store, llm }, SEEKER_ID, { fileName: "renamed.docx", mimeType: DOCX_MIME, bytes: Buffer.from("This is really a text file") }),
+    "unprocessable",
+  );
+  await expectCode(
+    uploadCv({ store, llm }, SEEKER_ID, { fileName: "binary.txt", mimeType: "text/plain", bytes: Buffer.from([0x4a, 0x61, 0x6e, 0x65, 0x00, 0xff]) }),
+    "unprocessable",
+  );
+  await expectCode(
+    uploadCv({ store, llm }, SEEKER_ID, { fileName: "wrong-mimetype.odt", mimeType: ODT_MIME, bytes: makeOdt(undefined, "application/zip") }),
+    "unprocessable",
+  );
+  await expectCode(
+    uploadCv({ store, llm }, SEEKER_ID, { fileName: "jane.png", mimeType: "image/png", bytes: fakeImageCv("jpeg") }),
     "unprocessable",
   );
   assert.equal(llm.calls.length, 0);
