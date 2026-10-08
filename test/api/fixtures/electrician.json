@@ -1,0 +1,46 @@
+{
+  "seekerId": "skr_fixture_electrician",
+  "profileVersion": 3,
+  "status": "complete",
+  "consent": {
+    "dataProcessing": true,
+    "nameSearch": false,
+    "givenAt": "2026-10-08T20:00:00Z",
+    "policyVersion": "2026-10"
+  },
+  "preferences": {
+    "targetOccupations": [
+      {
+        "uri": "http://data.europa.eu/esco/occupation/5dbb9cf0-b226-402c-a295-2f42ef05ff8b",
+        "label": "domestic electrician",
+        "lang": "en"
+      }
+    ],
+    "locations": [
+      {
+        "country": "CZ",
+        "city": "Prague"
+      }
+    ],
+    "remote": "no",
+    "goal": "stability",
+    "dreamCompanies": [],
+    "dealBreakers": [
+      "no unpaid overtime"
+    ],
+    "languages": [
+      {
+        "lang": "cs",
+        "level": "native"
+      },
+      {
+        "lang": "en",
+        "level": "fluent"
+      }
+    ]
+  },
+  "statedSkills": [],
+  "documents": [],
+  "links": [],
+  "updatedAt": "2026-10-08T20:03:00Z"
+}

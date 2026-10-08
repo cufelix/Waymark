@@ -231,20 +231,25 @@ async function validateDraftPatch(raw: Record<string, unknown>): Promise<CareerP
 }
 
 function normalizedWords(value: string): string[] {
-  return value
+  const words = value
     .normalize("NFD")
     .replace(/\p{M}+/gu, "")
     .toLowerCase()
-    .match(/[\p{L}\p{N}]+/gu) ?? [];
+    .match(/[\p{L}\p{N}][\p{L}\p{N}+#.]*/gu) ?? [];
+  return words.map((word) => word.replace(/\.+$/g, "")).filter(Boolean);
 }
 
 function hasLexicalSkillSupport(label: string, quote: string): boolean {
-  const labelPrefixes = new Set(
-    normalizedWords(label)
-      .filter((word) => word.length >= 4)
-      .map((word) => word.slice(0, 4)),
+  const labelWords = normalizedWords(label);
+  const quoteWords = normalizedWords(quote);
+  if (labelWords.length === 0) return false;
+
+  const quoteWordSet = new Set(quoteWords);
+  const everyLabelWordAppears = labelWords.every((word) => word.length >= 2 && quoteWordSet.has(word));
+  const labelAppearsContiguously = quoteWords.some((_word, start) =>
+    labelWords.every((word, offset) => quoteWords[start + offset] === word)
   );
-  return normalizedWords(quote).some((word) => word.length >= 4 && labelPrefixes.has(word.slice(0, 4)));
+  return everyLabelWordAppears || labelAppearsContiguously;
 }
 
 async function verifySkillSupport(deps: Deps, items: SkillCandidate[]): Promise<SkillCandidate[]> {

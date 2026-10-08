@@ -1,0 +1,26 @@
+{
+  "seekerId": "skr_fixture_musician",
+  "profileVersion": 1,
+  "status": "complete",
+  "consent": { "dataProcessing": true, "nameSearch": true, "givenAt": "2026-10-08T20:00:00Z", "policyVersion": "2026-10" },
+  "preferences": {
+    "targetOccupations": [
+      { "uri": "http://data.europa.eu/esco/occupation/musician", "label": "musician", "lang": "en" },
+      { "uri": "http://data.europa.eu/esco/occupation/sound-designer", "label": "sound designer", "lang": "en" }
+    ],
+    "locations": [{ "country": "DE", "city": "Berlin" }],
+    "remote": "ok",
+    "goal": "mission",
+    "dreamCompanies": [{ "name": "Native Instruments" }],
+    "dealBreakers": [],
+    "languages": [{ "lang": "en", "level": "fluent" }]
+  },
+  "statedSkills": [],
+  "documents": [],
+  "links": [
+    { "id": "lnk_fixture_sc", "url": "https://soundcloud.com/forss", "addedAt": "2026-10-08T20:02:00Z" },
+    { "id": "lnk_fixture_tt", "url": "https://www.tiktok.com/@khaby.lame", "kind": "social", "addedAt": "2026-10-08T20:02:00Z" },
+    { "id": "lnk_fixture_site", "url": "https://example.com/", "kind": "portfolio", "addedAt": "2026-10-08T20:02:00Z" }
+  ],
+  "updatedAt": "2026-10-08T20:03:00Z"
+}

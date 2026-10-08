@@ -71,16 +71,34 @@ sequenceDiagram
 | Method and path | Does | Body | Returns |
 |---|---|---|---|
 | `POST /v1/seekers` | Create a seeker. Consent is required here. | `{ consent: Consent }` | `{ seekerId }` |
-| `POST /v1/seekers/{seekerId}/interview/messages` | One turn of the intake interview. The agent asks; the client sends the seeker's answer. Send an empty `text` to get the first question. | `{ text: string }` | `{ reply: string, done: boolean, preferences: CareerPreferencesDraft }` |
+| `POST /v1/seekers/{seekerId}/interview/messages` | One turn of the intake interview. The agent asks; the client sends the seeker's answer. Send an empty `text` to get the first question. When the seeker asks about pay, the agent may run a quick salary lookup on the web and answer with an indicative range (see "Salary lookup in the interview" below). | `{ text: string }` (max 4,000 characters) | `{ reply: string, done: boolean, preferences: CareerPreferencesDraft, sources?: Source[] }` |
 | `GET /v1/seekers/{seekerId}/interview` | Full interview transcript | | `InterviewTurn[]` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
-| `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF or DOCX, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
+| `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
 | `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a CV and everything parsed from it | | `{ deleted: true }` |
 | `PUT /v1/seekers/{seekerId}/links` | Replace the seeker's list of links (portfolio, GitHub, socials). Part 1 stores them; reading them is Part 2's user research. | `{ links: SeekerLinkInput[] }` | `SeekerLink[]` |
 | `PUT /v1/seekers/{seekerId}/career-choice` | The seeker picks one of the run's career paths, usually while the rest of the research is still running. Part 1 accepts only an occupation that run returned (`unprocessable` otherwise), stores it as `profile.careerChoice` (profileVersion +1) and leaves `preferences` as they are. Calling it again replaces the choice. | `{ runId: string, occupationUri: EscoUri }` | `CareerChoice` |
 | `GET /v1/seekers/{seekerId}/profile` | **The handoff object.** `status` is `"complete"` once preferences have at least one target occupation and consent is given. | | `SeekerProfile` |
 | `GET /v1/seekers/{seekerId}/export` | Everything stored about the seeker in both parts (GDPR). Part 1 adds the runs from Part 2's `GET /v1/seekers/{seekerId}/research-runs`. | | `SeekerExport` |
 | `DELETE /v1/seekers/{seekerId}` | Hard delete in both parts (GDPR). Part 1 calls Part 2's `DELETE /v1/seekers/{seekerId}/research` first. If that fails, it answers `upstream_failed`, marks the seeker `deletion-pending` and retries until both are gone. | | `{ deleted: true }` |
+
+### Salary lookup in the interview
+
+Seekers ask "what does this pay?" during the interview, long before the research run has market data. The agent can answer with a quick web lookup instead of putting them off:
+
+- **When:** only when the seeker asks about pay for an occupation. At most 2 lookups per interview.
+- **How:**
+  - One Exa search (`POST https://api.exa.ai/search`, header `x-api-key` from env `EXA_API_KEY`, `numResults` 5, `contents.text`) for the occupation and the seeker's location. That is about $0.007 per search with page text.
+  - The fast model then pulls salary figures out of the returned page text, each with a quote.
+- **Checks before anything reaches the seeker:**
+  - Each salary figure needs a quote that appears verbatim in the fetched page text; figures without one are dropped.
+  - Every number in the reply must come from a figure that survived.
+  - If nothing survives, the agent says it found no reliable figure.
+- **What the seeker sees:** an indicative range for the occupation and place, labelled as a quick web lookup, with the pages linked. The pages are returned in `sources` (tool `"exa"`) and kept on the agent's `InterviewTurn`, so they appear in the export.
+- **What it is not:**
+  - not a claim: nothing is added to `statedSkills` or `preferences`;
+  - not the market data: the sourced salary ranges come from Part 2 (`JobMarket.salaryRange`, `CareerStep.salary`);
+  - never a statement about the seeker's own chances or worth.
 
 ## Part 2: Research (@cufelix)
 
@@ -92,6 +110,7 @@ sequenceDiagram
 | `GET /v1/research-runs/{runId}/companies` | Companies researched in this run, dream companies first | | `Company[]` (paged) |
 | `GET /v1/research-runs/{runId}/vacancies` | Vacancies found in this run. Filters: `?occupation=` `?companyId=` | | `Vacancy[]` (paged) |
 | `GET /v1/research-runs/{runId}/market` | Job market per career path: demand per skill, vacancy counts, salary ranges | | `JobMarket[]` |
+| `GET /v1/research-runs/{runId}/trends` | Then vs now per target occupation: each skill's demand about ten years ago against the last 12 months and today's vacancies, labelled rising, stable or fading, with quotes. Keeps advice built on older career paths current. | | `OccupationTrends[]` |
 | `GET /v1/research-runs/{runId}/seeker-research` | User research: what the seeker's links show, plus the opt-in name search | | `SeekerResearch` |
 | `DELETE /v1/research-runs/{runId}` | Cancel a running run or delete a finished one | | `{ deleted: true }` |
 | `GET /v1/seekers/{seekerId}/research-runs` | All runs stored for a seeker, with results (used by Part 1's export) | | `ResearchRun[]` |
@@ -165,7 +184,12 @@ type CareerPreferences = {
 
 type CareerPreferencesDraft = Partial<CareerPreferences>;   // what the interview has filled in so far
 
-type InterviewTurn = { role: "agent" | "seeker"; text: string; at: ISODate };
+type InterviewTurn = {
+  role: "agent" | "seeker";
+  text: string;
+  at: ISODate;
+  sources?: Source[];             // agent turns only: the pages behind a salary lookup, tool "exa"
+};
 
 type SeekerDocument = {
   id: string;                     // "doc_…"
@@ -224,6 +248,7 @@ type ResearchRun = {
 
 type ResearchResult = {
   careerPaths: CareerPath[];
+  trends: OccupationTrends[];
   companyIds: string[];
   vacancyIds: string[];
   market: JobMarket[];
@@ -290,9 +315,28 @@ type JobMarket = {
   salaryRange?: { p25: number; median: number; p75: number; currency: string; period: "month" | "year"; sampleSize: number };
 };
 
+type OccupationTrends = {
+  occupation: Occupation;
+  then: { from: ISODate; to: ISODate };   // about 10 to 7 years ago
+  now: { from: ISODate; to: ISODate };    // the last 12 months
+  thenDocs: number;                       // dated job ads and career articles read per era
+  nowDocs: number;
+  skills: {
+    skill: Skill;
+    thenShare: number;                    // share of then-era documents asking for it
+    nowShare: number;                     // share of now-era documents or today's vacancies, whichever is higher
+    trend: "rising" | "stable" | "fading";
+    sources: Source[];                    // verbatim quotes from both eras
+  }[];
+};
+
 type SeekerResearch = {
   links: {
     linkId: string;
+    platform: string;             // detected by Part 2: "github", "tiktok", "soundcloud", "web"…
+    status: "extracted" | "partial" | "unsupported" | "failed";
+    reason?: string;              // why partial, unsupported or failed, in plain words for the seeker
+    ownership: "confirmed" | "unconfirmed";   // unconfirmed: skills stay tier "stated", never proof
     reachable: boolean;
     fetchedAt: ISODate;
     provenSkills: Claim[];        // what the page actually shows, tier "single-source" or better, source tool "seeker-link"

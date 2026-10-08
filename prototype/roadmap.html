@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your roadmap</title>
+<link rel="stylesheet" href="styles.css">
+<script src="app.js"></script>
+</head>
+<body>
+<header id="top" data-step="5"></header>
+
+<main class="wrap" style="max-width: 1240px; gap: 48px">
+  <section class="col-main" style="flex-basis: 600px; gap: 40px">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 13px; color: var(--muted)">Your roadmap · Prague · built from 214 job ads</span>
+        <h1 style="font: 700 44px/1.05 var(--display)">Backend developer</h1>
+      </div>
+      <a class="ghost" href="paths.html">Change path</a>
+    </div>
+
+    <div class="done-row">
+      <span id="doneTile"></span>
+      <div style="flex: 1; min-width: 200px">
+        <div style="font-weight: 600; font-size: 16px; color: var(--muted)">Section 1 · Computer basics</div>
+        <div style="font-size: 13px; color: var(--faint)">How the web works · Command line basics</div>
+      </div>
+      <span class="chip" style="font-size: 13px; padding: 5px 10px">You've got this · from your CV</span>
+      <a class="review" href="module.html">Not sure? Review it</a>
+    </div>
+
+    <div id="sections" style="display: flex; flex-direction: column; gap: 40px"></div>
+  </section>
+
+  <aside class="col-side panel" style="flex-basis: 280px">
+    <div>
+      <div class="panel-title">The route</div>
+      <p class="hint">Each section builds on the one before. You can't sharpen the axe before you can hold it.</p>
+    </div>
+    <div class="progress" style="height: 6px"><div style="width: 12%; height: 6px"></div></div>
+    <div style="font-size: 13px; color: var(--muted)">2 of 16 modules · about 7 months at 10h a week</div>
+    <ol class="route" id="route"></ol>
+    <div class="legend" id="legend"></div>
+  </aside>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SECTIONS = [
+  { id: 's2', title: 'Your first language: Python', why: 'Everything after this is written in code. Python first, because 41 of 120 junior backend ads in Prague ask for it and it is the easiest to read.',
+    mods: [['Variables and logic', 'Code'], ['Functions', 'Code'], ['Working with files', 'Code'], ['Your first small project', 'Practice project']] },
+  { id: 's3', title: 'Data and databases', why: 'Backends store things. Once you can write code, you learn where the data lives.',
+    mods: [['SQL basics', 'Data'], ['Designing tables', 'Data'], ['Python talks to a database', 'Code']] },
+  { id: 's4', title: 'Building APIs', why: 'This is the actual job: code that apps call to get and save data.',
+    mods: [['How HTTP and REST work', 'Theory'], ['Build an API with FastAPI', 'Code'], ['Testing your code', 'Tools']] },
+  { id: 's5', title: 'Shipping it', why: 'Employers want to see something live. These skills get your work out of your laptop.',
+    mods: [['Git and GitHub', 'Tools'], ['Docker', 'Tools'], ['Deploy your first app', 'Practice project']] }
+];
+
+let n = 2;
+$('sections').innerHTML = SECTIONS.map((s, si) => {
+  const here = si === 0;
+  const nodes = s.mods.map(([name, cat], i) => {
+    n += 1;
+    const state = here ? (i === 0 ? 'current' : 'open') : 'later';
+    const right = i % 2 === 1;
+    return { name, cat, num: n, state, right, x: right ? 340 : 60, y: 40 + i * 120 };
+  });
+  const links = nodes.slice(0, -1).map((a, i) => {
+    const b = nodes[i + 1];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.sqrt(dx * dx + dy * dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    return `<div class="link ${here ? 'lit' : ''}" style="left:${a.x + 60}px;top:${a.y + 50}px;width:${len}px;transform:rotate(${ang}deg);${here && i > 0 ? 'border-top-style:dashed' : ''}"></div>`;
+  }).join('');
+  const tiles = nodes.map((d) => `
+    <a class="node ${d.state}" href="module.html" style="left:${d.x}px;top:${d.y}px" aria-label="${d.name}">
+      ${d.state === 'current' ? '<span class="here-pill">You start here</span>' : ''}
+      ${tile(d.state, d.num)}
+    </a>
+    <div class="node-label ${d.state === 'later' ? 'later' : ''}" style="left:${d.right ? d.x - 200 : d.x + 132}px;top:${d.y + 22}px;text-align:${d.right ? 'right' : 'left'}">
+      <b>${d.name}</b><span>${d.cat}</span>
+    </div>`).join('');
+  return `
+    <div class="section ${here ? 'here' : ''}" id="${s.id}">
+      <div class="section-head"><div>
+        <div class="kicker">Section ${si + 2}${here ? ' · You are here' : ''}</div>
+        <h2>${s.title}</h2>
+        <p>${s.why}</p>
+      </div></div>
+      <div class="map" style="height:${40 + s.mods.length * 120}px">${links}${tiles}</div>
+    </div>`;
+}).join('');
+
+$('doneTile').innerHTML = tile('done', '✓', 36, 30);
+$('route').innerHTML = '<li style="color: var(--faint)"><span class="sq" style="background:#4C7A2E"></span>Computer basics</li>' +
+  SECTIONS.map((s, i) => `<li><span class="sq" style="${i === 0 ? 'background:#B8F25B' : ''}"></span><a href="#${s.id}">${s.title}</a></li>`).join('');
+$('legend').innerHTML = [['current', 'Up next'], ['open', 'In this section'], ['later', 'Later']]
+  .map(([s, l]) => `<div>${tile(s, undefined, 22, 18)}${l}</div>`).join('');
+</script>
+</body>
+</html>
