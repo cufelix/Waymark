@@ -6,6 +6,7 @@ import { apiKeys } from "../config";
 import { StartRunBody } from "../contracts";
 import { newId } from "../ids";
 import { errorMessage, log } from "../log";
+import { part1Handler } from "./part1";
 import { deleteResearchForSeeker, deleteRun, listRunsForSeeker } from "../research/gdpr";
 import { getCompany, getVacancy, listRunCompanies, listRunVacancies } from "../research/market/read";
 import { RunError, getRun, getRunRow, startRun } from "../research/run";
@@ -161,6 +162,10 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
     const vacancy = await getVacancy(c.req.param("vacancyId"), true);
     return vacancy ? ok(c, vacancy) : fail(c, "not_found", `Vacancy ${c.req.param("vacancyId")} does not exist`);
   });
+
+  // Everything else under /v1/seekers is Part 1 (user input). Part 2's own seeker routes are registered above.
+  app.all("/v1/seekers", part1Handler);
+  app.all("/v1/seekers/*", part1Handler);
 
   app.notFound((c) => fail(c, "not_found", `No route ${c.req.method} ${c.req.path}`));
 

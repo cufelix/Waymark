@@ -1,4 +1,5 @@
-import { sha256 } from "../../ids";
+import { createHmac } from "node:crypto";
+import { config } from "../../config";
 // Light ownership check (docs/user-research.md §4): does a link plausibly belong to the seeker?
 // Pure function. Without a signal, content still shows, but its skills stay "stated".
 import type { SeekerLink } from "../../contracts";
@@ -40,8 +41,12 @@ const pointsAt = (href: string, target: SeekerLink): boolean => {
   return h === t || h.startsWith(t + "/");
 };
 
-/** The code a seeker puts in a bio or page they control to prove it is theirs. Derived from the seeker id, so it can't be guessed for another seeker. */
-export const proofToken = (seekerId: string): string => `ethera-${sha256(`ethera-proof:${seekerId}`).slice(0, 10)}`;
+/**
+ * The code a seeker puts in the bio, name or profile links of an account they control. Keyed with a server
+ * secret, so knowing a seeker id is not enough to compute it.
+ */
+export const proofToken = (seekerId: string): string =>
+  `ethera-${createHmac("sha256", config.PROOF_SECRET).update(`proof:${seekerId}`).digest("hex").slice(0, 12)}`;
 
 /**
  * Confirmed only when tied to this seeker: the page shows the seeker's proof token, or it links both ways with a
@@ -52,9 +57,10 @@ export function checkOwnership(artifacts: Artifact[], links: SeekerLink[], seeke
   const read = new Map(artifacts.filter((a) => a.status === "extracted" || a.status === "partial").map((a) => [a.inputId, a]));
   const result: Record<string, Ownership> = Object.fromEntries(links.map((l) => [l.id, "unconfirmed" as Ownership]));
   const token = proofToken(seekerId);
+  // Only fields the account owner controls count; page text can carry other people's comments or posts.
   const showsToken = (l: SeekerLink) => {
-    const a = read.get(l.id);
-    return !!a && (a.text.includes(token) || JSON.stringify(a.owner ?? {}).includes(token));
+    const o = read.get(l.id)?.owner;
+    return !!o && [o.displayName, o.handle, o.bio, ...o.links].some((f) => typeof f === "string" && f.includes(token));
   };
   const linksTo = (from: SeekerLink, to: SeekerLink) => (read.get(from.id)?.owner?.links ?? []).some((href) => pointsAt(href, to));
 

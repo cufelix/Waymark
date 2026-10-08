@@ -16,7 +16,7 @@ export type Artifact = {
   extractor: Extractor;
   status: ArtifactStatus;
   reason?: string;
-  owner?: { displayName?: string; handle?: string; links: string[] };
+  owner?: { displayName?: string; handle?: string; bio?: string; links: string[] };   // account-owner fields only
   text: string;
   fields: Record<string, unknown>;
   items: ArtifactItem[];
@@ -101,6 +101,7 @@ function profileCandidates(raw: unknown): Record<string, unknown>[] {
 export function findOwner(raws: unknown[]): Artifact["owner"] {
   let displayName: string | undefined;
   let handle: string | undefined;
+  let bio: string | undefined;
   const links = new Set<string>();
   for (const raw of raws) {
     for (const o of ownerCandidates(raw)) {
@@ -112,12 +113,16 @@ export function findOwner(raws: unknown[]): Artifact["owner"] {
         const v = str(o[k]);
         if (v && /^https?:\/\//.test(v)) links.add(v);
       }
-      for (const k of PROFILE_TEXT) for (const m of str(o[k])?.match(URL_RE) ?? []) links.add(m);
+      for (const k of PROFILE_TEXT) {
+        const text = str(o[k]);
+        bio ??= text?.slice(0, 1000);
+        for (const m of text?.match(URL_RE) ?? []) links.add(m);
+      }
     }
     if (isObj(raw) && Array.isArray(raw.links)) for (const l of raw.links) if (typeof l === "string" && /^https?:\/\//.test(l)) links.add(l);
   }
-  if (!displayName && !handle && links.size === 0) return undefined;
-  return { displayName, handle, links: [...links].slice(0, 200) };
+  if (!displayName && !handle && !bio && links.size === 0) return undefined;
+  return { displayName, handle, ...(bio ? { bio } : {}), links: [...links].slice(0, 200) };
 }
 
 export async function buildArtifact(

@@ -11,6 +11,8 @@ const Env = z.object({
   API_KEYS: z.string().default(""),
   SNAPSHOT_DIR: z.string().default("./data/snapshots"),
   ROLE: z.enum(["all", "api", "worker"]).default("all"),
+  // Keys the seekers' ownership proof tokens. Set a long random value in production; changing it invalidates existing tokens.
+  PROOF_SECRET: z.string().min(16).default("dev-only-proof-secret-change-me"),
 
   OPENROUTER_API_KEY: optional,
   LLM_AGENT_MODEL: z.string().default("anthropic/claude-sonnet-5.5"),
