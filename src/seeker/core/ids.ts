@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-export type IdPrefix = "skr" | "doc" | "lnk" | "clm" | "src" | "req";
+export type IdPrefix = "skr" | "doc" | "lnk" | "clm" | "src" | "req" | "val";
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 

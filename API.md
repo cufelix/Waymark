@@ -6,7 +6,7 @@ The single source of truth for how the parts talk to each other. If an endpoint 
 |---|---|---|
 | 1. User input: interview, career preferences, dream companies, CV, portfolio, GitHub and socials | @Dymyt-ry | building now, API only, no UI |
 | 2. Research: user research, company research, vacancy listing, job market, top career paths | @cufelix | building now |
-| 3. Validation: company requirements, requirement vs evidence per skill, market demand per career path | not assigned | names reserved below |
+| 3. Validation: company requirements, requirement vs evidence per skill, the typical job across markets, market facts | @Dymyt-ry | building now |
 | 4. Output: roadmap, curated resources | not assigned | names reserved below |
 
 ## How the parts connect
@@ -118,13 +118,45 @@ Seekers ask "what does this pay?" during the interview, long before the research
 | `GET /v1/companies/{companyId}` | One company with all its claims and sources (shared across runs) | | `Company` |
 | `GET /v1/vacancies/{vacancyId}` | One vacancy with every sighting (when and where it was seen) | | `Vacancy & { sightings: VacancySighting[] }` |
 
-## Parts 3 and 4: reserved, not designed yet
+## Part 3: Validation (@Dymyt-ry)
 
-These names are taken so the first two parts don't use them for something else.
-- `POST /v1/validations { profile, runId }` → `Validation` (requirements, requirement vs evidence per skill, market demand per career path; no chance-of-getting-hired estimate).
+Stage 3 of the whiteboard. It puts the seeker's evidence next to what employers ask for in one occupation, using a finished research run.
+- It scrapes nothing. Its inputs are the profile from Part 1 and the run's results from Part 2, which it reads over Part 2's HTTP API.
+- Code lives in `src/gap/`. It is framework-free like Part 1 and is mounted into the one server the same way, through `src/api/part3.ts`.
+
+| Method and path | Does | Body | Returns |
+|---|---|---|---|
+| `POST /v1/validations` | Build a validation for one occupation. The run must be `done` (otherwise `conflict`) and belong to `profile.seekerId` (otherwise `unprocessable`); the profile must be `complete`. The occupation is `occupationUri` if given, else `profile.careerChoice`, else the first target occupation; it must be one of the run's career paths or target occupations. Answers synchronously. | `ValidationRequest` | `Validation` |
+| `GET /v1/validations/{validationId}` | One stored validation | | `Validation` |
+| `GET /v1/seekers/{seekerId}/validations` | All validations stored for a seeker (used by Part 1's export) | | `Validation[]` |
+| `DELETE /v1/seekers/{seekerId}/validations` | Hard delete of every validation for a seeker (used by Part 1's delete) | | `{ deleted: true, validations: number }` |
+
+What the whiteboard's four steps become:
+
+| Whiteboard | Validation field |
+|---|---|
+| Analyze the company requirements | `companies`: per company (dream companies first), each skill its ads ask for, required or nice-to-have, with the sentence from the ad |
+| Analyze user match % | `skills`: per skill, how many vacancies and companies ask for it, next to the seeker's evidence: `proven` (a link the seeker owns shows it), `stated` (CV or interview only) or `none` |
+| Analyze chances to get each position | `market`: facts about how open the market is, not a probability: open vacancies, how many take juniors or people without experience, how long ads stay up, reposts, salary range |
+| Generalize job descriptions across markets | `jobProfile`: the typical job across the seeker's locations: which skills most, many or some ads ask for, the trend of each, the salary range and the career ladder |
+
+**Guardrail, as in the brief:** no number that summarises the seeker against the job. That means:
+- no match percentage, no "6 of 9 skills" total, no probability of being hired;
+- skills are ordered by employer demand, never by the seeker's evidence;
+- companies are never ranked by how well the seeker fits them.
+
+Each fact carries its sources. A skill without evidence says `none`; it is never guessed.
+
+**Matching skills:**
+- By ESCO URI first.
+- Part 1 still uses stub URIs (`urn:stub:skill:…`) until it moves to `src/shared/taxonomy/`, so the fallback is the same `slug()` of the label.
+
+## Part 4: reserved, not designed yet
+
+This name is taken so the first parts don't use it for something else.
 - `POST /v1/roadmaps { validationId }` → `Roadmap`.
 
-Guardrail for both: no single score, match percentage or ranking of a person. That comes from the brief.
+Guardrail for Parts 3 and 4: no single score, match percentage or ranking of a person. That comes from the brief.
 The same holds for career paths: the ladder and its salaries describe the occupation in the seeker's locations, never the seeker's chance of reaching a step. The seeker's `careerChoice` is their pick, not ours.
 
 ## Types
@@ -223,7 +255,7 @@ type CareerChoice = {
   chosenAt: ISODate;
 };
 
-type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: ResearchRun[] };
+type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: ResearchRun[]; validations: Validation[] };
 
 // ---------- Part 2: research ----------
 type ResearchOptions = {
@@ -344,6 +376,83 @@ type SeekerResearch = {
   nameSearch?: {                  // only when consent.nameSearch is true
     candidates: { url: string; title: string; snippet: string }[];   // "may be you": never stored as claims until the seeker confirms
   };
+};
+
+// ---------- Part 3: validation ----------
+type Evidence = "proven" | "stated" | "none";
+                                  // proven: a provenSkills claim from a seeker link with ownership "confirmed"
+                                  // stated: only in the CV or the interview (tier "stated"); none: nothing found
+
+type ValidationRequest = {
+  profile: SeekerProfile;
+  runId: string;
+  occupationUri?: EscoUri;        // default: profile.careerChoice, else the first target occupation
+};
+
+type Validation = {
+  validationId: string;           // "val_…"
+  seekerId: string;
+  runId: string;
+  profileVersion: number;
+  createdAt: ISODate;
+  occupation: Occupation;
+  locations: { country: Country; city?: string }[];
+  jobProfile: JobProfile;
+  skills: SkillCheck[];           // ordered by employer demand, never by the seeker's evidence
+  companies: CompanyCheck[];      // dream companies first, then by number of vacancies
+  market: MarketFacts[];          // one per location
+};
+
+type SalaryRange = { p25: number; median: number; p75: number; currency: string; period: "month" | "year"; sampleSize: number };
+
+type JobProfile = {               // the typical job across the seeker's locations
+  occupation: Occupation;
+  vacanciesAnalysed: number;
+  markets: { country: Country; city?: string; vacancies: number }[];
+  skills: {
+    skill: Skill;
+    vacanciesRequiring: number;
+    vacanciesTotal: number;
+    band: "most" | "many" | "some";   // most: at least half of the ads, many: 20-49 %, some: under 20 %
+    trend?: "rising" | "stable" | "fading";
+    sources: Source[];            // quotes from the ads
+  }[];
+  salaryRange?: SalaryRange;
+  ladder?: CareerStep[];
+  summary?: Claim;                // kind "inference": a plain description drawn from the ads, the ads as sources
+};
+
+type SkillCheck = {
+  skill: Skill;
+  demand: {
+    vacanciesRequiring: number;
+    vacanciesTotal: number;
+    companiesRequiring: number;   // "7 of 10 companies" describes companies, not the seeker
+    companiesTotal: number;
+    requiredIn: number;           // ads that mark it as required rather than nice-to-have
+    sources: Source[];
+  };
+  evidence: Evidence;
+  claims: Claim[];                // the seeker's own claims for this skill, stated and proven
+  trend?: "rising" | "stable" | "fading";
+};
+
+type CompanyCheck = {
+  companyId: string;
+  name: string;
+  isDreamCompany: boolean;
+  vacancyIds: string[];
+  requirements: { skill: Skill; required: boolean; evidence: Evidence; source: Source }[];   // quote = the sentence in the ad
+};
+
+type MarketFacts = {              // how open the market is; never a probability for the seeker
+  location: { country: Country; city?: string };
+  openVacancies: number;
+  entryLevelVacancies: number;    // ads for juniors, trainees or people without experience (title or requirement quote)
+  entryLevelSources: Source[];
+  medianDaysOpen?: number;        // from firstSeenAt to lastSeenAt
+  repostedVacancies: number;      // repostCount of at least 1
+  salaryRange?: SalaryRange;
 };
 ```
 
