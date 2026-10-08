@@ -51,7 +51,8 @@ export async function part1Handler(c: Context): Promise<Response> {
         fileName: f.name,
         mimeType: f.type,
         bytes: new Uint8Array(await f.arrayBuffer()),
-        ...(typeof kind === "string" ? { kind } : {}),
+        // A non-string kind (e.g. a file) becomes "", which Part 1 rejects as unprocessable instead of defaulting to "cv".
+        ...(kind === undefined ? {} : { kind: typeof kind === "string" ? kind : "" }),
       };
     }
   } else if (type.includes("json")) {
