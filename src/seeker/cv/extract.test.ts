@@ -50,8 +50,9 @@ test("extraction retries invalid JSON once then reports upstream_failed", async 
   assert.match(String(llm.calls[0].messages[0].content), /Never infer, judge, rank, or score/);
 });
 
-test("quote checks normalise whitespace but remain verbatim and case-sensitive", () => {
-  assert.equal(quoteAppearsInText("Built APIs with\nTypeScript", "Built APIs   with TypeScript"), true);
+test("quote checks require an exact verbatim, case-sensitive match", () => {
+  assert.equal(quoteAppearsInText("Built APIs with\nTypeScript", "Built APIs with TypeScript"), false);
+  assert.equal(quoteAppearsInText("Built APIs with TypeScript", "Built APIs with TypeScript"), true);
   assert.equal(quoteAppearsInText("Built APIs with TypeScript", "built APIs with TypeScript"), false);
 });
 

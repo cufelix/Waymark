@@ -95,6 +95,18 @@ test("an invented skill quote is dropped", async () => {
   assert.deepEqual((await store.get(SEEKER_ID))?.profile.statedSkills, []);
 });
 
+test("a skill quote with altered whitespace is dropped because it is not verbatim", async () => {
+  const store = await setup();
+  const llm = new FakeLlm([extraction([{ label: "TypeScript", quote: "Built  APIs with TypeScript" }])]);
+  const document = await uploadCv(
+    { store, llm },
+    SEEKER_ID,
+    { fileName: "jane.docx", mimeType: DOCX_MIME, bytes: makeDocx(JANE_EXAMPLE_XML) },
+  );
+  assert.deepEqual(document.statedSkills, []);
+  assert.deepEqual((await store.get(SEEKER_ID))?.profile.statedSkills, []);
+});
+
 test("files over 10 MB and renamed non-CVs are unprocessable without LLM calls", async () => {
   const store = await setup();
   const llm = new FakeLlm([]);

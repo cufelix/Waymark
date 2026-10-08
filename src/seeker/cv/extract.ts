@@ -242,7 +242,5 @@ export async function extractCvDetails(llm: LlmClient, text: string): Promise<Cv
 }
 
 export function quoteAppearsInText(text: string, quote: string): boolean {
-  const normaliseWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
-  const normalisedQuote = normaliseWhitespace(quote);
-  return normalisedQuote.length > 0 && normaliseWhitespace(text).includes(normalisedQuote);
+  return quote.length > 0 && text.includes(quote);
 }
