@@ -11,7 +11,13 @@ export type ContentPart =
   | { type: "file"; file: { filename: string; file_data: string } } // data:application/pdf;base64,…
   | { type: "image_url"; image_url: { url: string } }; // data:image/png;base64,…
 
-export type ChatRequest = { model: string; messages: ChatMessage[]; json?: boolean; temperature?: number };
+export type ChatRequest = {
+  model: string;
+  messages: ChatMessage[];
+  json?: boolean;
+  temperature?: number;
+  maxCompletionTokens?: number;
+};
 
 export interface LlmClient {
   chat(req: ChatRequest): Promise<string>;
@@ -34,9 +40,11 @@ export function unfence(raw: string): string {
 
 export class OpenRouterClient implements LlmClient {
   apiKey: string;
-  constructor(apiKey: string | undefined = process.env.OPENROUTER_API_KEY) {
+  timeoutMs: number;
+  constructor(apiKey: string | undefined = process.env.OPENROUTER_API_KEY, timeoutMs = 120_000) {
     if (!apiKey) throw new ApiError("internal", "OPENROUTER_API_KEY is not set");
     this.apiKey = apiKey;
+    this.timeoutMs = timeoutMs;
   }
 
   async chat(req: ChatRequest): Promise<string> {
@@ -47,12 +55,14 @@ export class OpenRouterClient implements LlmClient {
         model: req.model,
         messages: req.messages,
         temperature: req.temperature ?? 0.2,
+        ...(req.maxCompletionTokens === undefined ? {} : { max_completion_tokens: req.maxCompletionTokens }),
         provider: openRouterProviderPolicy(),
         // JSON mode through OpenRouter cuts Claude's longer replies off mid-object; unfence() parses plain replies instead.
         ...(req.json && !req.model.startsWith("anthropic/") ? { response_format: { type: "json_object" } } : {}),
         // Reasoning (on by default) spends the token budget before the answer; structured replies don't need it.
         ...(req.json ? { reasoning: { effort: "minimal" } } : {}),
       }),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
     // The upstream body can echo prompts or account details, so clients only get the status.
     if (!res.ok) throw new ApiError("upstream_failed", `LLM provider returned ${res.status}`);

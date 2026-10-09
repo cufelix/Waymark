@@ -29,7 +29,8 @@ function isArrayOf(value: unknown, item: (entry: unknown) => boolean): boolean {
 }
 
 function hasIdPrefix(value: unknown, prefix: "val" | "skr" | "run" | "clm" | "src"): value is string {
-  return typeof value === "string" && new RegExp(`^${prefix}_${ULID}$`).test(value);
+  // Part 2 currently mints lowercase ULIDs while Parts 1, 3 and 4 mint uppercase ULIDs.
+  return typeof value === "string" && new RegExp(`^${prefix}_${ULID}$`, "i").test(value);
 }
 
 function isSource(value: unknown): boolean {
@@ -38,7 +39,7 @@ function isSource(value: unknown): boolean {
     && isString(value.url)
     && isString(value.title)
     && isString(value.fetchedAt)
-    && ["apify", "firecrawl", "exa", "registry", "seeker-upload", "seeker-link", "seeker-interview"].includes(String(value.tool))
+    && ["apify", "firecrawl", "exa", "registry", "fetch", "official-api", "seeker-upload", "seeker-link", "seeker-interview"].includes(String(value.tool))
     && isString(value.contentHash)
     && (value.quote === undefined || isString(value.quote))
     && (value.snapshotKey === undefined || isString(value.snapshotKey));

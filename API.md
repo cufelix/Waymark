@@ -232,7 +232,7 @@ What the whiteboard's two steps become:
   - Every resource has a `source` (the page, tool `exa`) whose `quote` appears on that page.
   - `price`, `effortHours` and `scope` are filled only when the page states them.
   - Resources are cached per skill and language across seekers, because they hold nothing personal. Cached evidence expires after `RESOURCE_CACHE_TTL_HOURS` (seven days by default).
-  - Repeated URLs are removed across chapters when another verified resource is available. An unfinished chapter cannot make the roadmap `ready` when resource discovery is configured but finds nothing verified; `free-only` also requires at least one verified free resource per unfinished chapter.
+  - Repeated URLs are removed across chapters when another verified resource is available. When resource discovery is configured, an unfinished chapter without a verified resource is omitted rather than exposed as actionable; `free-only` likewise omits chapters without a verified free option. The build fails if no actionable unfinished chapter remains.
   - A provider failure marks the background build `failed`; it is not disguised as a ready roadmap with empty resources.
 
 **Guardrail:** the same as in Part 3. The roadmap has no progress percentage, no XP and no level. The API returns no "3 of 16 chapters" count, and nothing compares the seeker with other people.
@@ -255,7 +255,7 @@ type Source = {
   url: string;                    // web URL, or seeker-upload://… / seeker-interview://… (see Conventions)
   title: string;
   fetchedAt: ISODate;
-  tool: "apify" | "firecrawl" | "exa" | "registry" | "seeker-upload" | "seeker-link" | "seeker-interview";
+  tool: "apify" | "firecrawl" | "exa" | "registry" | "fetch" | "official-api" | "seeker-upload" | "seeker-link" | "seeker-interview";
   quote?: string;                 // must appear verbatim in the stored snapshot
   contentHash: string;
   snapshotKey?: string;           // raw copy in object storage

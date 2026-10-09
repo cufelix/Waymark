@@ -237,7 +237,31 @@ test("resource discovery removes repeated URLs when a chapter has an alternative
   assert.equal(chapters[1]!.topPickId, unique.resourceId);
 });
 
-test("a configured resource service cannot produce a ready roadmap with an unfinished empty chapter", async () => {
+test("a configured resource service omits an unavailable chapter and keeps an actionable roadmap", async () => {
+  const unavailable = evidenceChapter("chp_00000000000000000000000001");
+  const actionable = evidenceChapter("chp_00000000000000000000000002");
+  for (const chapter of [unavailable, actionable]) {
+    chapter.done = false;
+    delete chapter.doneBy;
+  }
+  const builders = fakeBuilders(modules([unavailable, actionable]));
+  builders.findResources = async (chapter) => chapter.chapterId === actionable.chapterId
+    ? { resources: [structuredClone(RESOURCE)] }
+    : { resources: [] };
+  const service = deps();
+  service.exa = { async search() { return []; } };
+  const created = await createRoadmap(service, request(), builders);
+
+  await created.buildPromise;
+
+  const ready = await getRoadmap(service, created.roadmapId);
+  assert.equal(ready.status, "ready");
+  assert.deepEqual(ready.modules[0]!.chapters.map(({ chapterId }) => chapterId), [actionable.chapterId]);
+  assert.equal(ready.modules[0]!.subtitle, actionable.title);
+  assert.equal(ready.modules[0]!.why, "Each chapter in this module has a verified learning resource and a practical outcome.");
+});
+
+test("a configured resource service fails when no actionable unfinished chapter remains", async () => {
   const unfinished = evidenceChapter();
   unfinished.done = false;
   delete unfinished.doneBy;

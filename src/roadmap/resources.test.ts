@@ -74,7 +74,8 @@ test("findResources searches once, uses the fast model and returns quote-checked
 });
 
 test("findResources drops a resource with a fabricated quote", async () => {
-  const llm = new FakeLlm([answer([candidate(0, { quote: "This sentence is not on the page." })])]);
+  const invalid = answer([candidate(0, { quote: "This sentence is not on the page." })]);
+  const llm = new FakeLlm([invalid, invalid]);
 
   const result = await findResources(chapter(), context, {
     exa: new FakeExa(EXA_PAGES),
@@ -116,7 +117,7 @@ test("findResources rejects empty zero-width quotes and ungrounded titles and pr
     title: "Python Basics",
     text: "Python Basics course is free.",
   };
-  const llm = new FakeLlm([answer([
+  const invalid = answer([
     {
       pageIndex: 0,
       title: "Python Basics course",
@@ -135,7 +136,8 @@ test("findResources rejects empty zero-width quotes and ungrounded titles and pr
       lang: "en",
       quote: page.text,
     },
-  ])]);
+  ]);
+  const llm = new FakeLlm([invalid, invalid]);
 
   const result = await findResources(chapter(), context, {
     exa: new FakeExa([page]),
@@ -444,6 +446,29 @@ test("findResources tries the next preferred language when the first search is e
   assert.equal(result.resources[0]!.lang, "cs");
 });
 
+test("findResources tries the next preferred language when first-language candidates fail verification", async () => {
+  const calls: string[] = [];
+  const exa: ExaClient = {
+    async search(query): Promise<ExaResult[]> {
+      calls.push(query);
+      return EXA_PAGES;
+    },
+  };
+  const llm = new FakeLlm([
+    answer([candidate(0, { quote: "This quote is not on the page." })]),
+    answer([candidate(0, { lang: "cs" })]),
+  ]);
+
+  const result = await findResources(chapter(), context, {
+    exa,
+    llm,
+    cache: new MemoryResourceCache(),
+  });
+
+  assert.deepEqual(calls.map((query) => query.slice(-5)), ["in en", "in cs"]);
+  assert.equal(result.resources[0]!.lang, "cs");
+});
+
 test("findResources can top-pick intermediate review material for a chapter done by evidence", async () => {
   const pages: ExaResult[] = [
     { url: "https://example.com/beginner", title: "Beginner course", text: "Beginner course: this Python course is free." },
@@ -514,4 +539,31 @@ test("a title found only in the page's own title still counts as grounded", asyn
 
   assert.equal(result.resources.length, 1);
   assert.equal(result.resources[0]!.title, "Example Python Primer");
+});
+
+test("an exact page-title quote can verify a free learning resource", async () => {
+  const page: ExaResult = {
+    url: "https://example.com/free-course",
+    title: "Python Foundations — Free Course",
+    text: "Learn variables, loops and functions through practical exercises.",
+  };
+  const llm = new FakeLlm([answer([{
+    pageIndex: 0,
+    title: "Python Foundations",
+    provider: "Python",
+    format: "course",
+    cost: "free",
+    lang: "en",
+    quote: page.title,
+  }])]);
+
+  const result = await findResources(chapter(), context, {
+    exa: new FakeExa([page]),
+    llm,
+    cache: new MemoryResourceCache(),
+  });
+
+  assert.equal(result.resources.length, 1);
+  assert.equal(result.resources[0]!.cost, "free");
+  assert.equal(result.resources[0]!.source.quote, page.title);
 });

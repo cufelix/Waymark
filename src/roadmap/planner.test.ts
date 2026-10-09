@@ -111,6 +111,29 @@ test("adds a fallback chapter for a missing most-demanded skill", async () => {
   assert.equal(fallback.done, false);
 });
 
+test("does not turn every many-band skill into a fallback chapter", async () => {
+  const llm = new FakeLlm([answer([
+    chapter("Python practice", "code", [PYTHON.uri], "Use Python in a practical task."),
+  ])]);
+
+  const chapters = allChapters(await planModules(VALIDATION, PROFILE, { llm }));
+  assert.ok(bySkill(chapters, PYTHON.uri));
+  assert.equal(chapters.some(({ skills }) => skills.some(({ uri }) => uri === SQL.uri)), false);
+});
+
+test("caps learn-fast plans even when the model returns too many chapters", async () => {
+  const chapters = Array.from({ length: 15 }, (_, index) =>
+    chapter(`Practice topic ${index}`, "project", [], "Complete a practical task."));
+  const llm = new FakeLlm([answer(chapters), answer(chapters)]);
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+
+  assert.equal(allChapters(modules).length, 8);
+  assert.match(llm.calls[0]!.messages[0]!.content as string, /chapterLimit/);
+  assert.match(llm.calls[0]!.messages[0]!.content as string, /one coherent learning route/);
+  assert.match(llm.calls[0]!.messages[1]!.content as string, /"chapterLimit":8/);
+});
+
 test("retries unsupported free-text numbers, then removes offending sentences", async () => {
   const first = answer([
     chapter("Python practice", "code", [PYTHON.uri], "Build a Python task."),

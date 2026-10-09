@@ -7,6 +7,11 @@ import type { Evidence, RoadmapChapter, RoadmapModule, SeekerProfile, Validation
 export type PlannerDeps = { llm: LlmClient };
 
 const CATEGORIES = new Set<RoadmapChapter["category"]>(["code", "data", "theory", "tools", "project", "soft"]);
+const CHAPTER_LIMIT: Record<SeekerProfile["preferences"]["goal"], number> = {
+  "learn-fast": 8,
+  stability: 14,
+  mission: 14,
+};
 const EVIDENCE_RANK: Record<Evidence, number> = { none: 0, stated: 1, proven: 2 };
 const NUMBER = /\d+/gu;
 const FORBIDDEN_SEEKER_SUMMARY = /%|\bxp\b|\blevel\s+\d+\b|\b\d+\s+of\s+\d+\s+(?:chapters?|modules?)\b|\b(?:scores?|percent(?:age)?s?|probabilit(?:y|ies))\b|\bfit\s+scores?\b|\bskills?\s+match(?:es|ing)?\b|\bmatch\s+(?:scores?|percent(?:age)?s?|probabilit(?:y|ies))\b/iu;
@@ -188,7 +193,17 @@ function fallbackChapter(skill: CatalogSkill): RoadmapChapter {
   };
 }
 
-function materializePlan(plan: ModelModule[], catalog: Map<string, CatalogSkill>): RoadmapModule[] {
+function limitChapters(modules: RoadmapModule[], limit: number): RoadmapModule[] {
+  let remaining = limit;
+  return modules.flatMap((module) => {
+    if (remaining === 0) return [];
+    const chapters = module.chapters.slice(0, remaining);
+    remaining -= chapters.length;
+    return chapters.length === 0 ? [] : [{ ...module, chapters }];
+  });
+}
+
+function materializePlan(plan: ModelModule[], catalog: Map<string, CatalogSkill>, limit: number): RoadmapModule[] {
   const modules = plan.map((module) => ({
     moduleId: newId("mod"),
     title: module.title,
@@ -198,10 +213,10 @@ function materializePlan(plan: ModelModule[], catalog: Map<string, CatalogSkill>
   }));
   const placedUris = new Set(modules.flatMap((module) => module.chapters.flatMap((chapter) => chapter.skills.map(({ uri }) => uri))));
   const missing = [...catalog.values()].filter(({ skill, band }) =>
-    (band === "most" || band === "many") && !placedUris.has(skill.uri)
+    band === "most" && !placedUris.has(skill.uri)
   );
   modules.at(-1)!.chapters.push(...missing.map(fallbackChapter));
-  return modules;
+  return limitChapters(modules, limit);
 }
 
 function allowedNumbers(chapters: RoadmapChapter[]): Set<string> {
@@ -260,6 +275,7 @@ function sanitizeNumbers(modules: RoadmapModule[]): RoadmapModule[] {
 }
 
 function prompts(validation: Validation, profile: SeekerProfile) {
+  const chapterLimit = CHAPTER_LIMIT[profile.preferences.goal];
   const skills = [...skillCatalog(validation).values()].map((entry) => ({
     label: entry.skill.label,
     uri: entry.skill.uri,
@@ -274,7 +290,7 @@ function prompts(validation: Validation, profile: SeekerProfile) {
     {
       role: "system" as const,
       content:
-        'Plan a learning roadmap in prerequisite order. Return only strict JSON: {"modules":[{"title":"string","subtitle":"string","why":"string","chapters":[{"title":"string","category":"code|data|theory|tools|project|soft","skillUris":["exact supplied URI"],"outcome":"string","estimatedHours":number?}]}]}. Use no other keys. Unknown skill URIs are forbidden. A foundation chapter may use an empty skillUris array. Do not write scores, fit scores, skill matches, percents, probabilities, progress, XP, numeric levels, rankings, or hiring predictions about the seeker. You may copy the supplied employer-demand vacancy counts as facts. Do not put a digit in title, subtitle, why, or outcome unless it exactly copies a supplied vacanciesRequiring or vacanciesTotal fact. Use hoursPerWeek only to shape scope: under-5 means fewer, smaller chapters. Use education only to set the starting depth: education none means start from basics, never lower expectations about ability. estimatedHours is the only numeric time output; do not write schedules or time-to-completion numbers in prose. For learn-fast, use fewer shorter chapters and place projects early. For stability, put the most-demanded skills first within prerequisite constraints. For mission, keep the natural prerequisite order.',
+        'Plan one coherent learning route in prerequisite order, not a survey of every listed requirement. Return only strict JSON: {"modules":[{"title":"string","subtitle":"string","why":"string","chapters":[{"title":"string","category":"code|data|theory|tools|project|soft","skillUris":["exact supplied URI"],"outcome":"string","estimatedHours":number?}]}]}. Use no other keys. Unknown skill URIs are forbidden. A foundation chapter may use an empty skillUris array. Treat the supplied chapterLimit as a ceiling, not a target; use fewer chapters when they cover the route. Prefer broadly transferable, teachable foundations. Do not mix unrelated specialist stacks. A niche requirement seen in only one vacancy is weak evidence and should be omitted unless it is essential to the chosen route. Omit job constraints such as years of experience, geography or employment eligibility. Do not write scores, fit scores, skill matches, percents, probabilities, progress, XP, numeric levels, rankings, or hiring predictions about the seeker. You may copy the supplied employer-demand vacancy counts as facts. Do not put a digit in title, subtitle, why, or outcome unless it exactly copies a supplied vacanciesRequiring or vacanciesTotal fact. Use hoursPerWeek only to shape scope: under-5 means fewer, smaller chapters. Use education only to set the starting depth: education none means start from basics, never lower expectations about ability. estimatedHours is the only numeric time output; do not write schedules or time-to-completion numbers in prose. For learn-fast, use fewer shorter chapters and place projects early. For stability, put the most-demanded skills first within prerequisite constraints. For mission, keep the natural prerequisite order.',
     },
     {
       role: "user" as const,
@@ -285,6 +301,7 @@ function prompts(validation: Validation, profile: SeekerProfile) {
         languages: profile.preferences.languages,
         hoursPerWeek: profile.preferences.hoursPerWeek,
         education: profile.preferences.education,
+        chapterLimit,
       }),
     },
   ];
@@ -300,6 +317,7 @@ async function callPlanner(
       model: MODELS.fast,
       json: true,
       temperature: 0,
+      maxCompletionTokens: 4_000,
       messages: correction === undefined
         ? messages
         : [...messages, { role: "assistant", content: correction.previous }, { role: "user", content: correction.instruction }],
@@ -318,12 +336,13 @@ export async function planModules(
 ): Promise<RoadmapModule[]> {
   const messages = prompts(validation, profile);
   const catalog = skillCatalog(validation);
+  const chapterLimit = CHAPTER_LIMIT[profile.preferences.goal];
   let firstRaw: string;
   try {
     firstRaw = await callPlanner(deps, messages);
   } catch {
     const retryRaw = await callPlanner(deps, messages);
-    return sanitizeNumbers(materializePlan(parsePlan(retryRaw), catalog));
+    return sanitizeNumbers(materializePlan(parsePlan(retryRaw), catalog, chapterLimit));
   }
   let firstPlan: ModelModule[] | undefined;
   try {
@@ -337,10 +356,10 @@ export async function planModules(
         instruction: "Your previous reply did not match the required JSON shape. Retry once with only the exact schema and allowed values.",
       },
     );
-    return sanitizeNumbers(materializePlan(parsePlan(firstRaw), catalog));
+    return sanitizeNumbers(materializePlan(parsePlan(firstRaw), catalog, chapterLimit));
   }
 
-  const firstModules = materializePlan(firstPlan, catalog);
+  const firstModules = materializePlan(firstPlan, catalog, chapterLimit);
   if (!planHasUnsupportedText(firstModules)) return firstModules;
 
   const secondRaw = await callPlanner(
@@ -351,6 +370,6 @@ export async function planModules(
       instruction: "Your previous reply introduced a digit that was not copied from demand facts or a forbidden seeker summary such as a score, fit score, skill match, percent, probability, numeric level, progress count, or XP. Retry once. Remove it and return only the exact JSON schema.",
     },
   );
-  const secondModules = materializePlan(parsePlan(secondRaw), catalog);
+  const secondModules = materializePlan(parsePlan(secondRaw), catalog, chapterLimit);
   return planHasUnsupportedText(secondModules) ? sanitizeNumbers(secondModules) : secondModules;
 }
