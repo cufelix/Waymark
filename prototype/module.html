@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Module: Variables and logic</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+.goal { position: relative; overflow: hidden; border-radius: 24px; padding: 32px; display: flex; flex-direction: column; gap: 14px; background: radial-gradient(circle at 85% 0%, rgba(184, 242, 91, .18), transparent 55%), linear-gradient(180deg, #1A2214, #131811); border: 1px solid var(--accent-line); }
+.goal-text { font: 700 32px/1.2 var(--display); max-width: 760px; }
+.goal-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.why-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 20px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+</style>
 <script src="app.js"></script>
 </head>
 <body>
@@ -21,20 +27,20 @@
     </div>
   </div>
 
-  <div class="grid2">
-    <div class="panel" style="gap: 12px">
-      <span class="lbl">Why this matters</span>
-      <div style="font: 700 30px/1.15 var(--display)"><span style="color: var(--accent)">41 of 120</span> junior backend ads in Prague ask for Python</div>
-      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
-        <span class="logo-ph">R</span><span class="logo-ph">P</span><span class="logo-ph">K</span>
-        <a href="#" style="font-size: 13px">See the ads</a>
-      </div>
+  <div class="goal">
+    <span class="lbl" style="color: var(--accent)">After this you can</span>
+    <div class="goal-text">Write a small program that takes input, makes decisions and gives an answer.</div>
+    <div class="goal-meta">
+      <span class="chip" style="font-size: 13px; padding: 5px 12px">For example: a tip calculator or a quiz</span>
+      <span style="font-size: 14px; color: var(--muted)">About 2 weeks at 10h a week</span>
     </div>
-    <div class="panel" style="gap: 12px">
-      <span class="lbl">After this you can</span>
-      <div style="font-size: 19px; line-height: 1.5; color: var(--text-soft)">Write a small program that takes input, makes decisions and gives an answer. For example a tip calculator or a quiz.</div>
-      <div style="font-size: 13px; color: var(--muted)">About 2 weeks at 10h a week</div>
-    </div>
+  </div>
+
+  <div class="why-row">
+    <span class="lbl">Why this matters</span>
+    <span style="font-size: 16px"><b style="color: var(--accent-hover)">41 of 120</b> junior backend ads in Prague ask for Python</span>
+    <span style="display: inline-flex; align-items: center; gap: 6px"><span class="logo-ph">R</span><span class="logo-ph">P</span><span class="logo-ph">K</span></span>
+    <a href="#" style="font-size: 13px">See the ads</a>
   </div>
 
   <div style="display: flex; flex-direction: column; gap: 14px">
@@ -62,7 +68,7 @@
 
   <div style="border-top: 1px solid var(--line); padding-top: 28px">
     <div id="todo" style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px">
-      <button class="cta" type="button" id="markDone"><span data-icon="check"></span>Mark as done</button>
+      <button class="cta" type="button" id="markDone" style="padding: 0 26px 0 22px; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Mark as done</button>
       <span style="font-size: 14px; color: var(--muted)">Next up: Functions</span>
     </div>
     <div class="unlocked" id="unlocked" hidden>
@@ -106,8 +112,8 @@ function render() {
     </a>`).join('');
 }
 $('markDone').onclick = () => { $('todo').hidden = true; $('unlocked').hidden = false; };
-$('heroTile').innerHTML = tile('current', 3, 96, 80);
-$('nextTile').innerHTML = tile('current', 4, 60, 50);
+$('heroTile').innerHTML = tile('current', 'logo', 96, 80);
+$('nextTile').innerHTML = tile('current', 'logo', 60, 50);
 document.querySelectorAll('[data-icon]').forEach((el) => el.innerHTML = ICON[el.dataset.icon]);
 render();
 </script>

@@ -10,12 +10,53 @@
 <body>
 <header id="top" data-step="1"></header>
 
-<main class="wrap" style="max-width: 1240px">
+<section class="voice-stage" id="voiceStage" aria-live="polite">
+  <button class="ghost cc-btn" type="button" id="ccBtn" aria-pressed="false">CC Captions</button>
+  <div class="v-step" id="vStep"></div>
+  <div class="orb-wrap"><div class="orb-glow" id="orbGlow"></div><div class="orb" id="orb"></div></div>
+  <div class="v-status" id="vStatus">Ready</div>
+  <div class="v-transcript" id="vTranscript"></div>
+  <div class="v-caption" id="vCaption" hidden></div>
+  <div class="v-actions" id="vActions"></div>
+  <div class="v-facts" id="vFacts"></div>
+</section>
+
+<div class="vbar" id="vbar" hidden>
+  <button class="mic" type="button" id="micBtn" aria-label="Talk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  <div class="vtext"><b id="vstate">Ready</b><span id="vlive">Tap the mic to talk</span></div>
+  <div class="waves" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <button class="ghost" type="button" id="voiceOff" style="min-height: 40px">👆 Switch to tapping</button>
+</div>
+<button class="alt talk-btn" type="button" id="voiceOn" hidden>🎙️ Talk instead</button>
+
+<div class="minimap" id="minimap" tabindex="0" role="button" aria-expanded="false" aria-label="Your map. Click to expand">
+  <div class="mm-head"><span class="mm-title"><span class="pulse"></span>Your map</span><span class="mm-hint">Paths that fit you pull closer. Drag things around.</span></div>
+  <div class="map-box" id="mapBox"><svg id="map" viewBox="0 0 328 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg></div>
+  <div class="map-legend"><span><i style="background: #B8F25B"></i>Top 3 right now</span><span><i style="background: #5A6452"></i>Other paths</span><span><i style="background: #D4FA92; width: 5px; height: 5px"></i>Liked task</span></div>
+</div>
+
+<main class="wrap" style="max-width: 900px">
   <section class="col-main">
     <!-- What to expect -->
     <div>
-      <div class="expect" id="expect"></div>
       <div class="expect-note" id="expectNote"></div>
+      <div class="know" id="know"><span class="lbl">What I know</span><div id="facts"></div></div>
+    </div>
+
+    <!-- Phase: talk or tap -->
+    <div id="modePhase" hidden>
+      <div class="bridge">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="lbl" style="color: var(--accent)">Before we start</span>
+          <h1 style="font: 700 36px/1.15 var(--display)">How do you want to do this?</h1>
+          <p class="lead">Same questions either way, about 3 minutes. You can switch any time.</p>
+        </div>
+        <div class="modes">
+          <button class="mode-opt" type="button" data-mode="voice"><span class="big">🎙️</span><b>Talk it through</b><span>I ask out loud, you answer out loud, like a chat with a career coach. Tapping still works whenever you want.</span></button>
+          <button class="mode-opt" type="button" data-mode="tap"><span class="big">👆</span><b>Just tap</b><span>Quiet mode. Tap the answers, type when you want to say more.</span></button>
+        </div>
+        <p class="hint" style="margin: 0">Prototype uses your browser's voice. The real product uses an ElevenLabs voice.</p>
+      </div>
     </div>
 
     <!-- Phase: warm up questions -->
@@ -69,16 +110,6 @@
       <div class="row"><span class="lbl">Time you can give it each week</span><div class="bubbles" style="padding: 0" data-group="hours"></div></div>
       <div class="row"><span class="lbl">Budget for courses</span><div class="bubbles" style="padding: 0" data-group="budget"></div></div>
       <div class="row"><span class="lbl">Education so far</span><div class="bubbles" style="padding: 0" data-group="degree"></div></div>
-      <div class="row"><span class="lbl">Languages you can work in</span><div class="bubbles" style="padding: 0" id="langs"></div></div>
-      <div class="row">
-        <span class="lbl">Companies you'd love to work for</span>
-        <form id="dreamForm" style="display: flex; gap: 10px">
-          <label for="dreamInput" class="sr-only">Company name</label>
-          <input id="dreamInput" class="field" type="text" placeholder="e.g. a company you admire…" autocomplete="off">
-          <button class="alt" type="submit" style="min-height: 44px; padding: 0 18px">Add</button>
-        </form>
-        <div class="bubbles" style="padding: 0" id="dream"></div>
-      </div>
       <div><button class="cta" type="button" id="practicalDone" disabled style="opacity: .4">Next <span data-icon="arrow"></span></button></div>
     </div>
 
@@ -121,20 +152,6 @@
 
   </section>
 
-  <aside class="col-side" style="flex-basis: 380px; display: flex; flex-direction: column; gap: 18px">
-    <div class="panel" style="gap: 12px">
-      <div class="panel-title">What I know about you</div>
-      <div id="facts" style="display: flex; flex-wrap: wrap; gap: 8px"></div>
-    </div>
-    <div class="panel" style="gap: 12px">
-      <div>
-        <div class="panel-title">Your map</div>
-        <p class="hint">Paths that fit you pull closer to you. Every task you rate attaches to its job. Drag things around.</p>
-      </div>
-      <div class="map-box" id="mapBox"><svg id="map" aria-label="Map of career paths and how close they are to you"></svg></div>
-      <div class="map-legend"><span><i style="background: #B8F25B"></i>Top 3 right now</span><span><i style="background: #5A6452"></i>Other paths</span><span><i style="background: #D4FA92; width: 5px; height: 5px"></i>Task you liked</span></div>
-    </div>
-  </aside>
 </main>
 
 <script>
@@ -199,17 +216,16 @@ const PRACTICAL = {
   budget: ['Free only', 'A little', 'Happy to invest'],
   degree: ['High school', 'Studying now', "Bachelor's", "Master's"]
 };
-const LANGS = ['Czech', 'Slovak', 'English', 'German', 'Ukrainian', 'Other'];
 const CV_SKILLS = ['Excel', 'Basic HTML', 'Python (school)', 'Customer service'];
-const PHASES = ['chat', 'bridge', 'cards', 'practical', 'cv'];
+const PHASES = ['mode', 'chat', 'bridge', 'cards', 'practical', 'cv'];
 
 // ---------- state ----------
 let S;
 function fresh(more) {
   let prev = null;
   try { prev = more && JSON.parse(localStorage.getItem('interview') || 'null'); } catch (e) {}
-  if (prev) { prev.langs = prev.langs || ['Czech']; prev.dream = prev.dream || []; prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; prev.ratings = prev.ratings || []; return prev; }
-  return { phase: 'chat', step: 0, answers: {}, practical: {}, langs: ['Czech'], dream: [], noDream: false, cv: null, links: [],
+  if (prev) { prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; prev.ratings = prev.ratings || []; return prev; }
+  return { phase: 'mode', step: 0, answers: {}, practical: {}, cv: null, links: [],
     score: Object.fromEntries(Object.keys(PATHS).map((k) => [k, 0])), shownBy: {}, likedBy: {}, seen: [], ratings: [], extraUntil: 0 };
 }
 const ranked = () => Object.keys(PATHS).sort((a, b) => S.score[b] - S.score[a]);
@@ -217,9 +233,11 @@ function addPrior(text) { Object.entries(PRIORS[text] || {}).forEach(([k, v]) =>
 
 // ---------- warm up chat ----------
 let busy = false;
-function agentSay(text) {
+function agentSay(text, then) {
+  say(text, then);
+  $('chat').querySelectorAll('.msg-agent, .msg-me').forEach((m) => { m.classList.add('old'); m.classList.remove('new'); });
   const d = document.createElement('div');
-  d.className = 'msg-agent';
+  d.className = 'msg-agent new';
   d.innerHTML = '<div class="avatar">' + LOGO.replace('width="28" height="28"', 'width="18" height="18"') + '</div><p>' + esc(text) + '</p>';
   $('chat').appendChild(d);
 }
@@ -235,17 +253,20 @@ function renderBubbles() {
     $('bubbles').appendChild(b);
   });
 }
-function answer(text) {
+function answer(text, label) {
   text = text.trim();
   if (!text || busy) return;
-  S.answers[OPENING[S.step].key] = text;
-  addPrior(text);
+  stopListening();
+  label = label || matchOption(text, OPENING[S.step].opts) || text;
+  S.answers[OPENING[S.step].key] = label;
+  addPrior(label);
+  if (label !== text) addKeywords(text); else if (!PRIORS[text]) addKeywords(text);
   meSay(text);
   busy = true; $('typing').hidden = false; renderBubbles(); renderSide();
   setTimeout(() => {
     busy = false; $('typing').hidden = true; S.step += 1;
     if (S.step >= OPENING.length) {
-      agentSay('Thanks, that helps a lot.');
+      agentSay('Thanks, that helps a lot.', () => {});
       renderBubbles();
       setTimeout(() => go('bridge'), 900);
     } else { agentSay(OPENING[S.step].q); renderBubbles(); }
@@ -273,11 +294,13 @@ function confident() {
 function showCard() {
   if (confident() || !(current = pickNext())) return S.extraUntil && S.practical.place ? finish() : go('practical');
   locked = false;
-  $('taskWrap').innerHTML = `<div class="task" id="task">
+  $('taskWrap').classList.remove('advance');
+  $('taskWrap').innerHTML = `<div class="ghost-card g2"></div><div class="ghost-card g1"></div><div class="task ${S.seen.length ? 'from-stack' : ''}" id="task">
     <div class="src"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>From a real job ad</div>
     <div class="text">${esc(current.text)}</div>
     <div class="reveal" id="reveal"></div></div>`;
   renderSide();
+  say(current.text + ' Would you enjoy that?');
 }
 function rate(kind) {
   if (S.phase !== 'cards' || locked || !current) return;
@@ -289,10 +312,15 @@ function rate(kind) {
   if (kind === 'like') S.likedBy[current.path] = (S.likedBy[current.path] || 0) + 1;
   S.seen.push(current.id);
   S.ratings.push({ id: current.id, path: current.path, kind });
-  $('reveal').textContent = 'That’s a ' + PATHS[current.path] + ' task.';
+  stopListening();
+  const reveal = 'That’s a ' + PATHS[current.path] + ' task.';
+  $('reveal').textContent = reveal;
   renderSide();
-  setTimeout(() => { $('task').classList.add('out-' + kind); }, 650);
-  setTimeout(showCard, 1000);
+  $('task').classList.add('tint-' + kind);
+  $('task').style.setProperty('--tilt', { like: '4deg', no: '-4deg', maybe: '0deg' }[kind]);
+  const swipe = () => { $('task').classList.add('out-down'); $('taskWrap').classList.add('advance'); setTimeout(showCard, 420); };
+  if (voice) { $('vStep').textContent = reveal; say(reveal, swipe); return; }
+  setTimeout(swipe, 650);
 }
 document.querySelectorAll('[data-rate]').forEach((b) => b.onclick = () => rate(b.dataset.rate));
 document.addEventListener('keydown', (e) => {
@@ -306,35 +334,23 @@ $('startCards').onclick = () => go('cards');
 function renderPractical() {
   document.querySelectorAll('[data-group]').forEach((g) => {
     const key = g.dataset.group;
-    g.innerHTML = PRACTICAL[key].map((o) => `<button type="button" class="bubble ${S.practical[key] === o ? 'on' : ''}">${o}</button>`).join('');
-    g.querySelectorAll('button').forEach((b) => b.onclick = () => { S.practical[key] = b.textContent; renderPractical(); renderSide(); });
+    g.innerHTML = PRACTICAL[key].map((o) => `<button type="button" class="bubble" data-opt="${o}">${o}</button>`).join('');
+    g.querySelectorAll('button').forEach((b) => b.onclick = () => {
+      stopListening(); S.practical[key] = b.dataset.opt; updatePractical(); renderSide(); if (voice) askPractical();
+    });
   });
-  // Languages: several allowed, at least one. Prefilled with the country's language.
-  $('langs').innerHTML = LANGS.map((l) => `<button type="button" class="bubble ${S.langs.includes(l) ? 'on' : ''}">${l}</button>`).join('');
-  $('langs').querySelectorAll('button').forEach((b) => b.onclick = () => {
-    const l = b.textContent;
-    S.langs = S.langs.includes(l) ? S.langs.filter((x) => x !== l) : [...S.langs, l];
-    renderPractical(); renderSide();
-  });
-  // Dream companies: a list, or an explicit "None yet". The research looks into each one.
-  $('dream').innerHTML = S.dream.map((c, i) => `<span class="chip">${esc(c)} <button type="button" class="icon-btn" data-i="${i}" aria-label="Remove ${esc(c)}" style="width: 20px; height: 20px">${ICON.x}</button></span>`).join('') +
-    `<button type="button" class="bubble ${S.noDream ? 'on' : ''}" id="noDream">None yet</button>`;
-  $('dream').querySelectorAll('[data-i]').forEach((b) => b.onclick = () => { S.dream.splice(Number(b.dataset.i), 1); renderPractical(); renderSide(); });
-  $('noDream').onclick = () => { S.noDream = !S.noDream; if (S.noDream) S.dream = []; renderPractical(); renderSide(); };
-  const ready = Object.keys(PRACTICAL).every((k) => S.practical[k]) && S.langs.length > 0 && (S.dream.length > 0 || S.noDream);
+  updatePractical();
+}
+function updatePractical() {
+  document.querySelectorAll('[data-group]').forEach((g) => g.querySelectorAll('button').forEach((b) => {
+    b.classList.add('no-anim');
+    b.classList.toggle('on', S.practical[g.dataset.group] === b.dataset.opt);
+  }));
+  const ready = Object.keys(PRACTICAL).every((k) => S.practical[k]);
   $('practicalDone').disabled = !ready;
   $('practicalDone').style.opacity = ready ? 1 : .4;
 }
 $('practicalDone').onclick = () => go('cv');
-$('dreamForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const c = $('dreamInput').value.trim();
-  if (c && !S.dream.includes(c)) { S.dream.push(c); S.noDream = false; }
-  $('dreamInput').value = '';
-  renderPractical(); renderSide();
-});
-const practicalDoneCount = () => Object.keys(S.practical).length + (S.langs.length ? 1 : 0) + (S.dream.length || S.noDream ? 1 : 0);
-const PRACTICAL_TOTAL = Object.keys(PRACTICAL).length + 2;
 
 // ---------- optional CV and links ----------
 function showFile(name) {
@@ -367,6 +383,7 @@ document.querySelectorAll('[data-finish]').forEach((b) => b.onclick = finish);
 
 // ---------- hand off to research ----------
 function finish() {
+  setVoice(false);
   const top = ranked().slice(0, 3);
   try {
     localStorage.setItem('interview', JSON.stringify(S));
@@ -377,28 +394,30 @@ function finish() {
 
 // ---------- what to expect ----------
 function renderExpect() {
-  const idx = { chat: 0, bridge: 1, cards: 1, practical: 2, cv: 3 }[S.phase];
+  const idx = { mode: 0, chat: 0, bridge: 1, cards: 1, practical: 2, cv: 3 }[S.phase];
   const steps = [
     ['Warm up', '3 questions', S.step / OPENING.length],
     ['Task cards', 'about 10', S.phase === 'bridge' ? 0 : Math.min(S.seen.length / 10, 1)],
-    ['Practical', PRACTICAL_TOTAL + ' quick ones', S.phase === 'practical' ? practicalDoneCount() / PRACTICAL_TOTAL : 0],
+    ['Practical', '4 quick ones', Object.keys(S.practical).length / 4],
     ['Your stuff', 'optional', 0]
   ];
-  $('expect').innerHTML = steps.map(([b, s, f], i) => {
-    const cls = i < idx ? 'done' : i === idx ? 'on' : '';
-    const w = i < idx ? 100 : i === idx ? Math.round(f * 100) : 0;
-    return `<div class="st ${cls}"><div class="ln"><div style="width:${w}%"></div></div><b>${b}</b><span>${s}</span></div>`;
-  }).join('');
-  let note = '';
-  if (S.phase === 'chat') note = (OPENING.length - S.step) + (OPENING.length - S.step === 1 ? ' question' : ' questions') + ' left in the warm up · about 3 minutes in total';
-  if (S.phase === 'bridge') note = 'Next: about 10 task cards, then a few practical bits';
-  if (S.phase === 'cards') {
-    const n = S.seen.length;
-    const left = S.extraUntil ? S.extraUntil - n : Math.max(8 - n, 0);
-    note = left > 0 ? 'About ' + left + ' more ' + (left === 1 ? 'card' : 'cards') : 'Almost there, just checking the close ones';
+  const pill = document.querySelector('.stepbar a.on');
+  if (pill) {
+    const [name, , f] = steps[Math.min(idx, 3)];
+    const pct = Math.round(((Math.min(idx, 3) + (S.phase === 'bridge' ? 0 : f)) / 4) * 100);
+    pill.innerHTML = pill.querySelector('svg').outerHTML + '<span>Interview</span><span class="sub">· ' + name + '</span><span class="fill" style="width:' + pct + '%"></span>';
   }
-  if (S.phase === 'practical') note = (PRACTICAL_TOTAL - practicalDoneCount()) + ' left, then you’re basically done';
-  if (S.phase === 'cv') note = 'Last step, and you can skip it';
+  // Plain, short wording.
+  let note = '';
+  if (S.phase === 'mode') note = 'Takes about 3 minutes';
+  if (S.phase === 'chat') { const q = OPENING.length - S.step; note = q + (q === 1 ? ' question left' : ' questions left'); }
+  if (S.phase === 'bridge') note = 'Next: about 10 quick cards';
+  if (S.phase === 'cards') {
+    const left = S.extraUntil ? S.extraUntil - S.seen.length : Math.max(8 - S.seen.length, 0);
+    note = left > 0 ? 'About ' + left + ' cards left' : 'Almost done';
+  }
+  if (S.phase === 'practical') { const q = 4 - Object.keys(S.practical).length; note = q + (q === 1 ? ' question left' : ' questions left'); }
+  if (S.phase === 'cv') note = 'Last step · optional';
   $('expectNote').textContent = note;
 }
 
@@ -406,11 +425,9 @@ function renderExpect() {
 function renderFacts() {
   const facts = [...OPENING.map((q) => S.answers[q.key]), ...Object.keys(PRACTICAL).map((k) => S.practical[k])].filter(Boolean)
     .map((f) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(f)}</span>`);
-  if (S.phase === 'practical' || S.phase === 'cv') S.langs.forEach((l) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(l)} <small>language</small></span>`));
-  S.dream.forEach((c) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(c)} <small>dream company</small></span>`));
   if (S.cv) S.cv.skills.forEach((s) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(s)} <small>CV</small></span>`));
   S.links.forEach((u) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(u)} <small>link</small></span>`));
-  $('facts').innerHTML = facts.length ? facts.join('') : '<span class="chip-empty">Nothing yet. Answer the first question.</span>';
+  $('facts').innerHTML = facts.length ? facts.join('') : '<span class="chip-empty" style="font-size: 13px; padding: 4px 10px">Nothing yet</span>';
 }
 
 // ---------- map (Obsidian style graph) ----------
@@ -438,9 +455,7 @@ function mkLink(a, b, kind) {
 }
 function initMap() {
   $('map').innerHTML = ''; M.nodes = []; M.links = []; M.byId = {};
-  const box = $('mapBox').getBoundingClientRect();
-  M.w = box.width || 340; M.h = box.height || 340;
-  $('map').setAttribute('viewBox', `0 0 ${M.w} ${M.h}`);
+  M.w = 328; M.h = 300;
   const you = mkNode('you', 'you', 'You', M.w / 2, M.h / 2);
   Object.keys(PATHS).forEach((k, i) => {
     const a = (i / 8) * Math.PI * 2;
@@ -529,13 +544,206 @@ function stepMap() {
   requestAnimationFrame(stepMap);
 }
 
+// ---------- voice (browser voice now, ElevenLabs later) ----------
+let voice = false, recog = null;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const KEYWORDS = [
+  [/code|coding|program|computer|app|website|tech/, { backend: 1, frontend: 1 }],
+  [/fix|broke|bug|debug|figur/, { backend: 1, qa: 1 }],
+  [/design|draw|art|visual|look|pretty|colou?r|photo/, { ux: 1.5, frontend: 1 }],
+  [/number|data|excel|spreadsheet|math|stat/, { data: 2 }],
+  [/people|talk|friend|help|team/, { sales: 1, ops: .5, ux: .5 }],
+  [/sell|convinc|persuad|pitch|negotiat/, { sales: 2 }],
+  [/write|writing|content|social|instagram|tiktok|video/, { marketing: 2 }],
+  [/plan|organi|event|schedul|list/, { ops: 2 }],
+  [/game|gaming/, { frontend: .5, qa: .5 }]
+];
+function addKeywords(text) {
+  const t = text.toLowerCase();
+  KEYWORDS.forEach(([re, w]) => { if (re.test(t)) Object.entries(w).forEach(([k, v]) => S.score[k] += v); });
+}
+const SYN = {
+  'Making things look good': /design|look good|pretty|visual|draw|style/, 'Figuring out why something broke': /fix|broke|figur|debug|why|problem/,
+  'Convincing people': /convinc|persuad|sell|argu/, 'Organising chaos': /organi|plan|chaos|tidy|sort/, 'Helping someone feel better': /help|support|care|listen|feel/,
+  'Working with people': /people|person|social|team/, 'Building things': /build|make|making|creat/, 'Working with information and numbers': /number|data|info|math|excel/,
+  'Playing with ideas and visuals': /idea|visual|creative|art/,
+  'Learn fast and grow': /learn|grow|fast/, 'A stable job and salary': /stab|salary|money|secur|safe/, 'Work that means something': /mean|purpose|impact|matter/,
+  'Full time': /full|forty|40|all day|every day/, '10 to 20h': /twenty|fifteen|1[0-9]|20|ten to/, '5 to 10h': /five|six|seven|eight|nine|ten|\b[5-9]\b/, 'Under 5h': /under|less|couple|few|one|two|three|four|\b[1-4]\b/,
+  'Free only': /free|no money|nothing|zero|broke/, 'A little': /little|some|bit|small|cheap/, 'Happy to invest': /invest|whatever|happy|a lot|lots|pay/,
+  'Studying now': /studying|student|still|currently/, "Master's": /master/, "Bachelor's": /bachelor|degree|university|graduat|\buni\b/, 'High school': /high school|school|secondary|gymnasium/,
+  'Prague': /prague|praha/, 'Anywhere in Czechia': /czech|anywhere/, 'Remote': /remote|home|online/, 'Abroad': /abroad|outside|another country|europe|london|berlin/
+};
+function matchOption(text, opts) {
+  const t = text.toLowerCase();
+  const ORDER = ['Full time', '10 to 20h', '5 to 10h', 'Under 5h'];
+  const byPriority = [...opts].sort((x, y) => (ORDER.indexOf(x) + 1 || 99) - (ORDER.indexOf(y) + 1 || 99));
+  return opts.find((o) => t.includes(o.toLowerCase())) || byPriority.find((o) => SYN[o] && SYN[o].test(t)) || null;
+}
+function classify(text) {
+  const t = text.toLowerCase();
+  if (/maybe|not sure|kind of|kinda|dunno|don'?t know|depends|meh|possibly|perhaps/.test(t)) return 'maybe';
+  if (/\bno\b|nah|nope|not for me|not really|boring|hate|never|don'?t like|wouldn'?t/.test(t)) return 'no';
+  if (/yes|yeah|yep|love|enjoy|sure|fun|cool|definitely|absolutely|would|interesting|nice|okay|\bok\b/.test(t)) return 'like';
+  return null;
+}
+const PRACTICAL_Q = {
+  place: 'Where do you want to work? Prague, anywhere in Czechia, remote, or abroad?',
+  hours: 'How many hours a week can you give it?',
+  budget: 'What’s your budget for courses? Free only, a little, or happy to invest?',
+  degree: 'And your education so far?'
+};
+function askPractical(first) {
+  const next = Object.keys(PRACTICAL).find((k) => !S.practical[k]);
+  if (!next) return say('Perfect.', () => go('cv'));
+  say((first ? 'A few practical bits. ' : '') + PRACTICAL_Q[next]);
+}
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  return vs.find((v) => /Samantha|Google US English|Google UK English Female/.test(v.name)) || vs.find((v) => v.lang && v.lang.startsWith('en')) || null;
+}
+function say(text, then) {
+  if (!voice || !('speechSynthesis' in window)) return;
+  stopListening();
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const v = pickVoice(); if (v) u.voice = v;
+  u.rate = 1.03;
+  u.onboundary = () => { orbLevel = .7 + Math.random() * .3; };
+  setBar('speaking', 'Speaking', text);
+  u.onend = () => { if (!voice) return; then ? then() : listen(); };
+  speechSynthesis.speak(u);
+}
+function setBar(state, title, sub) {
+  $('vbar').className = 'vbar ' + state;
+  $('vstate').textContent = title;
+  $('vlive').textContent = state === 'speaking' ? 'Tap the mic to jump in' : (sub || '');
+  document.body.classList.remove('v-speaking', 'v-listening', 'v-idle');
+  document.body.classList.add('v-' + state);
+  $('vStatus').textContent = title;
+  if (state === 'speaking') { $('vCaption').textContent = sub || ''; $('vTranscript').textContent = ''; }
+  else $('vTranscript').textContent = /^“/.test(sub || '') ? sub : '';
+  if (state !== 'listening') stopMeter();
+}
+function listen() {
+  if (!voice) return;
+  if (!SR) return setBar('idle', 'Voice answers need Chrome', 'Tap your answer instead');
+  stopListening();
+  let handled = false;
+  recog = new SR();
+  recog.lang = 'en-US'; recog.interimResults = true; recog.maxAlternatives = 1;
+  recog.onresult = (e) => {
+    const r = e.results[e.results.length - 1];
+    const text = r[0].transcript;
+    setBar('listening', 'Listening…', '“' + text + '”');
+    if (r.isFinal) { handled = true; recog = null; handleVoice(text); }
+  };
+  recog.onerror = () => {};
+  recog.onend = () => { if (!handled && voice) setBar('idle', 'Didn’t catch that', 'Tap the mic and try again, or just tap your answer'); };
+  setBar('listening', 'Listening…', 'Say it in your own words');
+  startMeter();
+  try { recog.start(); } catch (e) {}
+}
+function stopListening() { if (recog) { const r = recog; recog = null; r.onend = null; try { r.abort(); } catch (e) {} } }
+function handleVoice(text) {
+  const t = text.toLowerCase();
+  if (S.phase === 'chat') return answer(text);
+  if (S.phase === 'bridge') return /yes|ready|go|start|sure|ok|yeah|yep/.test(t) ? go('cards') : say('Just say ready when you are.');
+  if (S.phase === 'cards') { const k = classify(text); return k ? rate(k) : say('Sorry, was that a yes, a no, or a maybe?'); }
+  if (S.phase === 'practical') {
+    const next = Object.keys(PRACTICAL).find((k) => !S.practical[k]);
+    const opt = next && matchOption(text, PRACTICAL[next]);
+    if (!opt) return say('Sorry, I missed that. You can also tap one.');
+    S.practical[next] = opt; updatePractical(); renderSide();
+    return askPractical();
+  }
+  if (S.phase === 'cv') return /skip|no|nothing|don'?t|research|done|next|go/.test(t) ? finish() : say('You can drop a file or paste a link. Or say skip.');
+}
+function setVoice(on) {
+  voice = on;
+  if (!on) { stopListening(); stopMeter(); if ('speechSynthesis' in window) speechSynthesis.cancel(); document.body.classList.remove('v-speaking', 'v-listening', 'v-idle'); }
+  renderVoiceUI();
+}
+function renderVoiceUI() {
+  const inFlow = S && S.phase !== 'mode';
+  const on = !!(voice && inFlow);
+  $('vbar').hidden = !on;
+  $('voiceOn').hidden = voice || !inFlow;
+  document.body.classList.toggle('voice-mode', on);
+  if (!on) return;
+  $('vStep').textContent = $('expectNote').textContent;
+  $('vFacts').innerHTML = $('facts').querySelector('.chip') ? $('facts').innerHTML : '';
+  $('vActions').innerHTML = S.phase === 'cv'
+    ? '<label class="alt" for="file" style="cursor: pointer">Upload CV</label><button class="alt" type="button" id="vSkip">Skip</button>'
+    : '';
+  if ($('vSkip')) $('vSkip').onclick = finish;
+}
+// Orb: breathes when idle, pulses on each spoken word, follows mic volume while listening.
+let orbLevel = 0, meter = null;
+async function startMeter() {
+  if (meter || !navigator.mediaDevices) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const an = ctx.createAnalyser(); an.fftSize = 512;
+    ctx.createMediaStreamSource(stream).connect(an);
+    meter = { stream, ctx, an, buf: new Uint8Array(an.fftSize) };
+  } catch (e) {}
+}
+function stopMeter() {
+  if (!meter) return;
+  meter.stream.getTracks().forEach((t) => t.stop()); meter.ctx.close(); meter = null;
+}
+function orbLoop(t) {
+  if (meter) {
+    meter.an.getByteTimeDomainData(meter.buf);
+    let sum = 0; for (const v of meter.buf) sum += ((v - 128) / 128) ** 2;
+    orbLevel = Math.max(orbLevel, Math.min(1, Math.sqrt(sum / meter.buf.length) * 6));
+  }
+  orbLevel *= .9;
+  const breathe = Math.sin(t / 900) * .03;
+  $('orb').style.transform = 'scale(' + (1 + breathe + orbLevel * .22).toFixed(3) + ')';
+  $('orbGlow').style.opacity = (.55 + orbLevel * .45).toFixed(2);
+  requestAnimationFrame(orbLoop);
+}
+requestAnimationFrame(orbLoop);
+$('ccBtn').onclick = () => {
+  const on = $('ccBtn').getAttribute('aria-pressed') !== 'true';
+  $('ccBtn').setAttribute('aria-pressed', on);
+  $('vCaption').hidden = !on;
+};
+document.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => { setVoice(b.dataset.mode === 'voice'); go('chat'); });
+$('voiceOff').onclick = () => setVoice(false);
+$('voiceOn').onclick = () => {
+  setVoice(true);
+  const lines = { chat: S.step < OPENING.length ? OPENING[S.step].q : '', bridge: 'Ready for the task cards?', cards: current ? current.text + ' Would you enjoy that?' : '', cv: 'Got a CV or a link? Or say skip.' };
+  if (S.phase === 'practical') askPractical(); else if (lines[S.phase]) say(lines[S.phase]); else listen();
+};
+$('micBtn').onclick = () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); listen(); };
+if ('speechSynthesis' in window) speechSynthesis.getVoices();
+
+// ---------- mini map: grows on hover, click pins it open ----------
+const mm = $('minimap');
+let mmPinned = false;
+function mmSet(open) { mm.classList.toggle('open', open); mm.setAttribute('aria-expanded', open); }
+// Small hover delays so it doesn't snap open when the cursor just passes by.
+let mmTimer;
+mm.addEventListener('mouseenter', () => { clearTimeout(mmTimer); mmTimer = setTimeout(() => mmSet(true), 140); });
+mm.addEventListener('mouseleave', () => { clearTimeout(mmTimer); if (!mmPinned && !M.drag) mmTimer = setTimeout(() => mmSet(false), 260); });
+mm.addEventListener('click', (e) => { if (e.target.closest('.nd')) return; mmPinned = !mmPinned; mmSet(mmPinned); });
+document.addEventListener('click', (e) => { if (!mm.contains(e.target) && !M.drag) { mmPinned = false; mmSet(false); } });
+mm.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mmPinned = !mmPinned; mmSet(mmPinned); } });
+
 // ---------- shell ----------
-function renderSide() { renderFacts(); renderExpect(); syncMap(); }
+function renderSide() { renderFacts(); renderExpect(); syncMap(); renderVoiceUI(); }
 function go(phase) {
   S.phase = phase;
   PHASES.forEach((p) => { $(p + 'Phase').hidden = p !== phase; });
   if (phase === 'cards') showCard();
-  if (phase === 'practical') renderPractical();
+  if (phase === 'practical') { renderPractical(); if (voice) askPractical(true); }
+  if (phase === 'bridge') say('Now the fun part. Talking about yourself only gets us so far. So I’ll read you real tasks from real job ads. Just tell me if you’d enjoy it: yes, no, or maybe. Ready?');
+  if (phase === 'cv') say('Last one, and it’s optional. Got a CV or anything you’ve made? Drop it in or paste a link. Or just say skip.');
+  if (phase === 'chat' && !$('chat').children.length) { agentSay(OPENING[0].q); renderBubbles(); }
+  renderVoiceUI();
   renderSide();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -544,7 +752,6 @@ function start(more) {
   $('chat').innerHTML = ''; $('links').innerHTML = '';
   $('drop').hidden = false; $('fileCard').hidden = true;
   initMap();
-  if (S.phase === 'chat') { agentSay(OPENING[0].q); renderBubbles(); }
   go(S.phase);
 }
 $('own').addEventListener('submit', (e) => { e.preventDefault(); answer($('ownInput').value); $('ownInput').value = ''; });
