@@ -52,6 +52,7 @@ Every market fact is expected to keep provenance. Quotes produced from a source 
 | `API.md` | Shared HTTP and data contract |
 | `PLAN.md` | Architecture, product rules and delivery plan |
 | `docs/quality-evaluation.md` | Repeatable human review for recommendation and roadmap quality |
+| `docs/privacy-operations-runbook.md` | Deployment checklist for requests, backups, incidents and processors |
 
 ## Run locally
 

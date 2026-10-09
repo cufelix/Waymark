@@ -62,6 +62,7 @@ It is not ready for real personal data or public GDPR-compliance claims. The rec
 - Complete research exports include original profile/options, artifacts and ledger rows; research deletion now cascades to ledger rows.
 - Primary personal data uses a configurable 90-day default retention period with immediate expiry hiding and automatic snapshot-aware purge.
 - Failed cascade deletion is stored in PostgreSQL and retried automatically after restarts with bounded backoff.
+- Structured logging now redacts common sensitive fields, URLs, email addresses and raw exception messages, with regression tests.
 
 ## P1 — quality and operational hardening
 
@@ -95,10 +96,9 @@ The repeatable benchmark and acceptance thresholds are in [Quality evaluation](q
 ### Privacy operations
 
 - Snapshot files are not encrypted by the application and backup deletion is undefined.
-- Logs avoid expected seeker content, but error strings from reader/provider failures need systematic redaction tests.
 - Consent has a version/timestamp but there is no repository privacy notice to bind that version to.
 - Correction, restriction, objection and operational request tracking are not implemented.
-- There is no incident runbook, access review, ROPA or DPIA decision record.
+- A deployment runbook now covers requests, backup erasure, incidents and processor approval, but named owners, exercises, a ROPA and a DPIA decision remain operator work.
 
 ## P2 — polish after the gates
 

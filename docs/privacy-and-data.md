@@ -41,6 +41,7 @@ OpenRouter routes requests to model providers with provider-specific data practi
 - Personal-data stores carry a configurable 90-day default expiry; expired rows are hidden and a scheduled worker purges them in cascade order.
 - Snapshots are content-addressed; deletion keeps a shared file only when another run still references it.
 - Unexpected provider response bodies and stack traces are not returned to clients.
+- Structured logs centrally redact URLs, email addresses, authorization values, prompt/body fields and raw exception messages.
 - Secrets are expected through environment variables rather than committed files.
 
 ## Production blockers
@@ -59,7 +60,7 @@ Before production, document the controller, purposes and legal bases; list proce
 
 ### Security operations
 
-The code has no production incident runbook, breach-notification workflow, access review, backup/restore procedure or tested secret-rotation process. Disk snapshots and Postgres encryption depend on the deployment environment and are not enforced by the repository.
+The repository includes a [privacy operations runbook](privacy-operations-runbook.md), but a production operator must still assign its owners, fill in the deployed systems and processors, test every procedure and retain evidence. Disk snapshots and Postgres encryption depend on the deployment environment and are not enforced by the repository.
 
 ## Data-subject request checklist
 
