@@ -5,9 +5,12 @@ import { config } from "./config";
 import { migrate } from "./db/migrate";
 import { pool } from "./db/pool";
 import { errorMessage, log } from "./log";
+import { purgeExpiredPersonalData, startRetentionWorker } from "./privacy/retention";
 import { startWorker, stopBoss } from "./research/run";
 
 await migrate();
+await purgeExpiredPersonalData();
+const stopRetentionWorker = startRetentionWorker();
 
 const server =
   config.ROLE === "worker"
@@ -26,6 +29,7 @@ const shutdown = async (signal: string): Promise<void> => {
   log.info("shutting down", { signal });
   try {
     await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
+    stopRetentionWorker();
     await stopBoss();
     await pool.end();
     process.exit(0);

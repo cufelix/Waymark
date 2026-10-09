@@ -3,6 +3,7 @@
 // dynamic import and typed here only by what this adapter uses.
 import type { Context } from "hono";
 import { apiKeys, config } from "../config";
+import { pool } from "../db/pool";
 
 type Part4Request = { method: string; path: string; headers: Record<string, string>; body?: unknown };
 type Part4Response = { status: number; body: unknown };
@@ -17,7 +18,9 @@ function load(): Promise<{ part4: Part4; deps: unknown }> {
     const seekerAt = (path: string) => new URL(`../seeker/${path}`, import.meta.url).href;
     const [part4, store, resources, validations, llm, exa] = await Promise.all([
       import(roadmapAt("api.ts")) as Promise<Part4>,
-      import(roadmapAt("store.ts")) as Promise<{ MemoryRoadmapStore: new () => unknown }>,
+      import(roadmapAt("postgres-store.ts")) as Promise<{
+        PostgresRoadmapStore: new (db: typeof pool, retentionDays?: number) => unknown;
+      }>,
       import(roadmapAt("resources.ts")) as Promise<{ MemoryResourceCache: new () => unknown }>,
       import(roadmapAt("validation-client.ts")) as Promise<{
         HttpValidationReader: new (options: { baseUrl: string; apiKey: string }) => unknown;
@@ -30,7 +33,7 @@ function load(): Promise<{ part4: Part4; deps: unknown }> {
     return {
       part4,
       deps: {
-        store: new store.MemoryRoadmapStore(),
+        store: new store.PostgresRoadmapStore(pool, config.PERSONAL_DATA_RETENTION_DAYS),
         cache: new resources.MemoryResourceCache(),
         validations: new validations.HttpValidationReader({ baseUrl, apiKey }),
         llm: new llm.OpenRouterClient(config.OPENROUTER_API_KEY),

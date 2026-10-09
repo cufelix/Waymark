@@ -8,7 +8,7 @@ Method: code and contract review, local framework-free tests, dependency lockfil
 
 Waymark has unusually strong provenance guardrails for a prototype: source-linked market facts, verbatim quote checks, bounded model output, strict input validation, seeker-controlled progress and a deliberate ban on personalised fit scores or hiring probabilities.
 
-It is not ready for real personal data or public GDPR-compliance claims. The recommendation layer is still using a fake intake deck, output quality has only synthetic evaluation, three product parts are volatile in-memory services, export is incomplete relative to stored data, and the deployment lacks user authentication, retention and verified processor governance.
+It is not ready for real personal data or public GDPR-compliance claims. The recommendation layer is still using a fake intake deck, output quality has only synthetic evaluation, and the deployment lacks user authentication, verified processor governance, backup-erasure evidence and operational privacy documentation.
 
 ## What is already strong
 
@@ -48,10 +48,7 @@ It is not ready for real personal data or public GDPR-compliance claims. The rec
 | Finding | Why it matters | Exit condition |
 |---|---|---|
 | Intake uses `fake-0`, `example.com` sources and eight stub occupations | Career directions are not based on real local employer demand | Build, review and version a real deck; replace stub occupation IDs; add coverage/freshness metrics |
-| Part 1, validation and roadmap stores are in memory | Restarts lose access, export and deletion state while Postgres/snapshots can remain | Implement transactional Postgres stores and restart/retry tests |
 | One shared bearer key authorizes every seeker route | A valid caller can access any known seeker ID | Add real user identity and ownership checks to every user-owned object |
-| Export omits stored run profile/options and artifact content | “Everything stored” is false; access/portability is incomplete | Inventory every store and add complete, tested export representations |
-| No retention policy or automatic purge | Storage limitation is not implemented | Define retention per data class and add scheduled, observable deletion |
 | Request-level OpenRouter privacy routing is enforced, but approved endpoints and processing governance are absent | Zero-retention routing reduces provider storage but does not establish lawful processing, transfer safeguards or an approved provider chain | Enforce the policy at account level, allow-list reviewed providers/regions, and complete DPA/transfer assessment and endpoint verification |
 
 ### Closed on this branch
@@ -61,6 +58,10 @@ It is not ready for real personal data or public GDPR-compliance claims. The rec
 - The unused `mammoth` dependency was removed; vulnerable `axios` and `basic-ftp` transitive paths were overridden to fixed versions. A fresh OSV lockfile scan reports no known vulnerabilities.
 - CI now runs database migrations, Vitest, all framework-free Node tests and strict typechecking against PostgreSQL 17.
 - Apache-2.0 is selected and included in the repository.
+- Parts 1, 3 and 4 now use transactional PostgreSQL stores; restart persistence and atomic roadmap replacement are integration-tested.
+- Complete research exports include original profile/options, artifacts and ledger rows; research deletion now cascades to ledger rows.
+- Primary personal data uses a configurable 90-day default retention period with immediate expiry hiding and automatic snapshot-aware purge.
+- Failed cascade deletion is stored in PostgreSQL and retried automatically after restarts with bounded backoff.
 
 ## P1 — quality and operational hardening
 
@@ -88,8 +89,6 @@ Recommended rubric per roadmap: prerequisite correctness, coverage of high-deman
 
 ### Privacy operations
 
-- Cascade deletion retries only when the caller calls delete again; there is no durable retry job.
-- Deletion-pending lives in memory and is lost on restart.
 - Snapshot files are not encrypted by the application and backup deletion is undefined.
 - Logs avoid expected seeker content, but error strings from reader/provider failures need systematic redaction tests.
 - Consent has a version/timestamp but there is no repository privacy notice to bind that version to.
@@ -98,8 +97,6 @@ Recommended rubric per roadmap: prerequisite correctness, coverage of high-deman
 
 ## P2 — polish after the gates
 
-- Add stable CI and only then show a live build badge.
-- Choose a license intentionally; public visibility alone does not grant reuse rights.
 - Add screenshots or a short product walkthrough once the UI/API bridge is integrated.
 - Add architecture decision records for evidence tiers, no-score policy, processor routing and retention.
 - Add observability for source freshness, deletion jobs, provider failures and cost without logging seeker content.
@@ -107,10 +104,9 @@ Recommended rubric per roadmap: prerequisite correctness, coverage of high-deman
 
 ## Suggested work order
 
-1. Postgres stores for Parts 1/3/4 plus durable deletion jobs.
-2. User authentication and ownership authorization.
-3. Complete data inventory, export and retention implementation.
-4. Processor allow-list, account-level ZDR enforcement, transfer assessment and deployer privacy notice.
-5. Real CZ intake deck and human recommendation evaluation.
-6. Live roadmap quality benchmark and resource freshness checks.
-7. Public screenshots and a product walkthrough.
+1. User authentication and ownership authorization.
+2. Processor allow-list, account-level ZDR enforcement, transfer assessment and deployer privacy notice.
+3. Backup encryption, restore testing and backup-erasure procedure.
+4. Real CZ intake deck and human recommendation evaluation.
+5. Live roadmap quality benchmark and resource freshness checks.
+6. Public screenshots and a product walkthrough.

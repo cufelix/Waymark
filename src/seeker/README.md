@@ -19,7 +19,7 @@ Framework-free TypeScript run directly by modern Node type stripping, so:
 | `service/interview.ts`, `service/interview.prompts.ts` | Interview turns, preference draft and stated skills |
 | `service/documents.ts`, `cv/extract.ts` | CV/document upload and extraction |
 | `salary/` | Source-checked salary lookup |
-| `store/` | Store interface and current in-memory implementation |
+| `store/` | Store interface, PostgreSQL production store, durable deletion queue and in-memory test store |
 
 Tests live next to the file they test (`service/interview.test.ts`).
 

@@ -57,7 +57,7 @@ export async function startWorker(): Promise<void> {
   });
 }
 
-type RunRow = {
+export type RunRow = {
   id: string;
   seeker_id: string;
   profile_version: number;
@@ -72,7 +72,7 @@ type RunRow = {
 };
 
 export async function getRunRow(runId: string): Promise<RunRow | null> {
-  const [row] = await query<RunRow>("SELECT * FROM research_runs WHERE id = $1", [runId]);
+  const [row] = await query<RunRow>("SELECT * FROM research_runs WHERE id = $1 AND expires_at > now()", [runId]);
   return row ?? null;
 }
 
@@ -105,8 +105,9 @@ export async function startRun(profile: SeekerProfile, options: Partial<Options>
   const opts = ResearchOptions.parse(options);
   const runId = newId("run");
   await query(
-    "INSERT INTO research_runs (id, seeker_id, profile_version, profile, options, status) VALUES ($1, $2, $3, $4, $5, 'queued')",
-    [runId, profile.seekerId, profile.profileVersion, JSON.stringify(profile), JSON.stringify(opts)],
+    `INSERT INTO research_runs (id, seeker_id, profile_version, profile, options, status, expires_at)
+     VALUES ($1, $2, $3, $4, $5, 'queued', now() + ($6 * interval '1 day'))`,
+    [runId, profile.seekerId, profile.profileVersion, JSON.stringify(profile), JSON.stringify(opts), config.PERSONAL_DATA_RETENTION_DAYS],
   );
   const b = await getBoss();
   await b.send(QUEUE, { runId }, { expireInSeconds: 60 * 60 });

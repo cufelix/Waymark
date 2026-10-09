@@ -19,12 +19,12 @@ These defaults align with the GDPR principles of purpose limitation, data minimi
 
 | Data | Why it is used | Current storage | External recipients |
 |---|---|---|---|
-| Intake answers and preferences | Choose directions and shape the roadmap | Part 1 memory store | OpenRouter for free-text handling |
-| CV text and extracted history | Record seeker-stated evidence | Part 1 memory store | OpenRouter for PDF/image transcription and structured extraction |
+| Intake answers and preferences | Choose directions and shape the roadmap | PostgreSQL `seeker_records` | OpenRouter for free-text handling |
+| CV text and extracted history | Record seeker-stated evidence | PostgreSQL `seeker_records` | OpenRouter for PDF/image transcription and structured extraction |
 | Seeker-selected links | Verify public evidence the seeker chose to share | Postgres artifacts and disk snapshots | The linked site; potentially Firecrawl, Apify, Exa or GitHub |
 | Research-run profile copy | Reproduce and process one market run | Postgres `research_runs.profile` | Research providers used by that run |
 | Vacancies and company facts | Describe employer demand | PostgreSQL and source snapshots | Apify, Exa, Firecrawl, registries and public sites |
-| Validations and roadmaps | Show demand/evidence and learning steps | In-memory stores | OpenRouter and Exa for planning/resources |
+| Validations and roadmaps | Show demand/evidence and learning steps | PostgreSQL `validations` and `roadmaps` | OpenRouter and Exa for planning/resources |
 | Cost metadata | Enforce budgets | PostgreSQL `cost_ledger` | No application recipient |
 
 OpenRouter routes requests to model providers with provider-specific data practices. Waymark sends request-level routing controls that require zero data retention and deny provider data collection by default. Account settings, provider selection and contracts still materially change the privacy posture, and operators must verify that every configured model has an approved endpoint.
@@ -36,7 +36,9 @@ OpenRouter routes requests to model providers with provider-specific data practi
 - Public-page tooling rejects credentials, cookies and login-oriented actor input.
 - Claims and resources use source URLs, timestamps and hashes; important generated quotes must match source text.
 - The API offers a machine-readable export and a cascade delete across the four product parts.
-- A failed cascade marks the seeker deletion-pending so ordinary reads stop immediately.
+- Research export includes the stored input profile/options, extracted artifacts and exact cost-ledger rows as well as the public result.
+- A failed cascade marks the seeker deletion-pending so ordinary reads stop immediately and persists a retry job with bounded backoff.
+- Personal-data stores carry a configurable 90-day default expiry; expired rows are hidden and a scheduled worker purges them in cascade order.
 - Snapshots are content-addressed; deletion keeps a shared file only when another run still references it.
 - Unexpected provider response bodies and stack traces are not returned to clients.
 - Secrets are expected through environment variables rather than committed files.
@@ -47,17 +49,9 @@ OpenRouter routes requests to model providers with provider-specific data practi
 
 The current bearer key is shared across callers and is not bound to a seeker. Anyone holding a valid key can address another seeker ID. Production needs user authentication, authorization on every seeker-owned object, session management and an auditable privileged-access path.
 
-### Persistence and deletion durability
+### Backup retention and recovery
 
-Parts 1, 3 and 4 use process memory. A restart loses the seeker record, deletion-pending state, validations and roadmaps while Postgres research rows and disk snapshots may remain. This can orphan personal data and make later access/deletion impossible. Persistent stores and idempotent background deletion are required.
-
-### Export completeness
-
-The endpoint claims to export everything stored, but Part 2 stores more than its public `ResearchRun` response: the full input profile, run options and artifact records with extracted text/metadata. Those representations are deleted by the cascade but are not currently included in the export. The export contract and tests must cover every personal-data store.
-
-### Retention
-
-There is no documented retention period, automatic expiry or scheduled purge for seeker data, research runs, snapshots, cost metadata, logs or backups. Define retention by data class, expose it in the privacy notice and test deletion from primary storage and backups.
+Primary database rows now use a configurable retention period and cascade-aware purge. A deployment must still define log and backup retention, encryption, restore testing and erasure from backups; those controls depend on the operator's infrastructure and cannot be guaranteed by this repository alone.
 
 ### External processors and transfers
 
@@ -85,9 +79,9 @@ Before accepting real data, record evidence for each item:
 
 - [ ] named controller and privacy contact
 - [ ] published privacy notice with purposes, legal bases, recipients, transfers and retention
-- [ ] persistent Part 1/3/4 stores and per-user authorization
+- [ ] per-user authentication and authorization (primary stores are persistent)
 - [ ] complete access/export, correction, restriction and deletion flows
-- [ ] automatic retention and deletion-retry jobs
+- [x] automatic primary-store retention and durable deletion-retry jobs
 - [ ] processor agreements, subprocessor register and transfer assessment
 - [ ] approved OpenRouter provider list with zero-retention/data-collection controls
 - [ ] encryption, backups, restore and backup-erasure procedure

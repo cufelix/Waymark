@@ -1,15 +1,40 @@
 // Export and hard delete of everything Part 2 stores about a seeker.
-import type { ResearchRun } from "../contracts";
+import type { ResearchRunExport } from "../contracts";
 import { query } from "../db/pool";
 import { deleteSnapshot } from "../storage/snapshots";
 import { getRunRow, toRun } from "./run";
 
-export async function listRunsForSeeker(seekerId: string): Promise<ResearchRun[]> {
+export async function listRunsForSeeker(seekerId: string): Promise<ResearchRunExport[]> {
   const ids = await query<{ id: string }>("SELECT id FROM research_runs WHERE seeker_id = $1 ORDER BY created_at", [seekerId]);
-  const runs: ResearchRun[] = [];
+  const runs: ResearchRunExport[] = [];
   for (const { id } of ids) {
     const row = await getRunRow(id);
-    if (row) runs.push(await toRun(row));
+    if (!row) continue;
+    const artifacts = await query<{ id: string; input_id: string; data: unknown; created_at: Date }>(
+      "SELECT id, input_id, data, created_at FROM artifacts WHERE run_id = $1 ORDER BY created_at, id",
+      [id],
+    );
+    const costLedger = await query<{ at: Date; tool: string; units: string; usd: string; detail: string | null }>(
+      "SELECT at, tool, units, usd, detail FROM cost_ledger WHERE run_id = $1 ORDER BY at, id",
+      [id],
+    );
+    runs.push({
+      ...await toRun(row),
+      storedInput: { profile: row.profile, options: row.options },
+      artifacts: artifacts.map((artifact) => ({
+        artifactId: artifact.id,
+        inputId: artifact.input_id,
+        data: artifact.data,
+        createdAt: artifact.created_at.toISOString(),
+      })),
+      costLedger: costLedger.map((entry) => ({
+        at: entry.at.toISOString(),
+        tool: entry.tool,
+        units: Number(entry.units),
+        usd: Number(entry.usd),
+        ...(entry.detail ? { detail: entry.detail } : {}),
+      })),
+    });
   }
   return runs;
 }

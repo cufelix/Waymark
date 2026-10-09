@@ -15,6 +15,9 @@ const Env = z.object({
   UI_LOCAL: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Keys the seekers' ownership proof tokens. Set a long random value in production; changing it invalidates existing tokens.
   PROOF_SECRET: z.string().min(16).default("dev-only-proof-secret-change-me"),
+  PERSONAL_DATA_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+  RETENTION_PURGE_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
+  DELETION_RETRY_INTERVAL_SECONDS: z.coerce.number().int().min(10).max(3600).default(60),
 
   OPENROUTER_API_KEY: optional,
   LLM_AGENT_MODEL: z.string().default("anthropic/claude-sonnet-5.5"),

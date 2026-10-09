@@ -156,7 +156,7 @@ Seekers ask "what does this pay?" during the interview, long before the research
 | `GET /v1/research-runs/{runId}/trends` | Then vs now per target occupation: each skill's demand about ten years ago against the last 12 months and today's vacancies, labelled rising, stable or fading, with quotes. Keeps advice built on older career paths current. | | `OccupationTrends[]` |
 | `GET /v1/research-runs/{runId}/seeker-research` | User research: what the seeker's links show, plus the opt-in name search | | `SeekerResearch` |
 | `DELETE /v1/research-runs/{runId}` | Cancel a running run or delete a finished one | | `{ deleted: true }` |
-| `GET /v1/seekers/{seekerId}/research-runs` | All runs stored for a seeker, with results (used by Part 1's export) | | `ResearchRun[]` |
+| `GET /v1/seekers/{seekerId}/research-runs` | Complete stored research export for a seeker: public run, original profile/options, extracted artifacts and exact cost-ledger rows | | `ResearchRunExport[]` |
 | `DELETE /v1/seekers/{seekerId}/research` | Hard delete of every run, user-research result and name-search candidate for a seeker (used by Part 1's delete) | | `{ deleted: true, runs: number }` |
 | `GET /v1/companies/{companyId}` | One company with all its claims and sources (shared across runs) | | `Company` |
 | `GET /v1/vacancies/{vacancyId}` | One vacancy with every sighting (when and where it was seen) | | `Vacancy & { sightings: VacancySighting[] }` |
@@ -337,7 +337,14 @@ type CareerChoice = {
   chosenAt: ISODate;
 };
 
-type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; intake?: Intake; researchRuns: ResearchRun[]; validations: Validation[]; roadmaps: Roadmap[] };
+type ResearchRunExport = {
+  // all ResearchRun fields, plus every stored input representation:
+  storedInput: { profile: SeekerProfile; options: ResearchOptions };
+  artifacts: { artifactId: string; inputId: string; data: unknown; createdAt: ISODate }[];
+  costLedger: { at: ISODate; tool: string; units: number; usd: number; detail?: string }[];
+} & ResearchRun;
+
+type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; intake?: Intake; researchRuns: ResearchRunExport[]; validations: Validation[]; roadmaps: Roadmap[] };
 
 type TaskCard = {
   cardId: string;                 // "crd_…", stable within a deck

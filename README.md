@@ -12,7 +12,7 @@
 Waymark turns a person’s own preferences, experience and chosen links into a sourced view of the job market and a roadmap they can act on. It does not reduce a person to a score or claim to predict whether they will be hired.
 
 > [!IMPORTANT]
-> Waymark is a hackathon prototype, not a production service. The checked-in intake deck is fake test data, Parts 1, 3 and 4 currently use in-memory stores, and API-key access is not user authentication. See [Production readiness](#production-readiness) before using real personal data.
+> Waymark is a hackathon prototype, not a production service. The checked-in intake deck is fake test data and shared API-key access is not user authentication. See [Production readiness](#production-readiness) before using real personal data.
 
 ## What Waymark does
 
@@ -29,11 +29,11 @@ flowchart LR
   A[Guided intake<br/>CV and chosen links] --> B[Market and company research]
   B --> C[Evidence-led validation]
   C --> D[Learning roadmap]
-  B --> E[(PostgreSQL<br/>research data)]
+  B --> E[(PostgreSQL<br/>personal and research data)]
   B --> F[(Source snapshots)]
-  A -. current prototype .-> G[(In-memory stores)]
-  C -. current prototype .-> G
-  D -. current prototype .-> G
+  A --> E
+  C --> E
+  D --> E
 ```
 
 Every market fact is expected to keep provenance. Quotes produced from a source must occur verbatim in the fetched content or the claim is rejected. Model-written URLs are not trusted; verified source URLs win.
@@ -84,6 +84,8 @@ External services are optional by feature:
 |---|---|
 | `OPENROUTER_API_KEY` | Structured extraction, interview turns and roadmap planning |
 | `OPENROUTER_ZDR`, `OPENROUTER_DATA_COLLECTION` | Fail-closed provider privacy routing; defaults to zero retention and denied data collection |
+| `PERSONAL_DATA_RETENTION_DAYS` | Sliding retention period for seeker-owned primary data; defaults to 90 days |
+| `RETENTION_PURGE_INTERVAL_MINUTES`, `DELETION_RETRY_INTERVAL_SECONDS` | Automatic expiry and durable cascade-delete retry workers |
 | `EXA_API_KEY` | Discovery, salary sources, task cards and learning resources |
 | `FIRECRAWL_API_KEY` | Reading public pages selected by the seeker |
 | `APIFY_TOKEN` | Vetted public-data actors |
@@ -116,11 +118,13 @@ The codebase is designed around data minimisation and traceable evidence:
 - public-page readers do not use logins, cookies, captcha bypasses or paywalled content;
 - structured application logs are designed to exclude prompts, CV text and seeker content;
 - export and cascade-delete endpoints cover the four product parts;
+- seeker, validation, roadmap and deletion-pending state survive process restarts in PostgreSQL;
+- expired primary data is hidden immediately and purged automatically; failed cascade deletion is retried from a durable queue;
 - unexpected upstream bodies are not returned to clients.
 
 OpenRouter requests default to zero-retention endpoints with provider data collection denied. This routing control reduces provider-side retention; it does not keep data on this server or replace processor agreements and transfer safeguards.
 
-These controls are a foundation, not proof of GDPR compliance. A real deployment still needs persistent user-scoped storage and authentication, a retention schedule, a complete export, processor agreements and transfer safeguards, tested backup deletion, incident procedures and an operator-specific privacy notice. Read [Privacy and data handling](docs/privacy-and-data.md) and the [readiness audit](docs/readiness-audit.md).
+These controls are a foundation, not proof of GDPR compliance. A real deployment still needs real user authentication and ownership authorization, processor agreements and transfer safeguards, tested backup deletion, incident procedures and an operator-specific privacy notice. Read [Privacy and data handling](docs/privacy-and-data.md) and the [readiness audit](docs/readiness-audit.md).
 
 Security issues should be reported through the process in [SECURITY.md](SECURITY.md), not a public issue.
 
@@ -129,11 +133,10 @@ Security issues should be reported through the process in [SECURITY.md](SECURITY
 Do not use real seeker data until the P0 items in [docs/readiness-audit.md](docs/readiness-audit.md) are closed. The most important are:
 
 1. replace the fake intake deck and stub occupation identifiers with reviewed, sourced data;
-2. replace the in-memory seeker, validation and roadmap stores with persistent user-scoped storage;
-3. replace the shared API key with real user authentication and ownership checks;
-4. make export include every stored personal-data representation, not only the public result objects;
-5. define and enforce retention, processor and zero-retention policies;
-6. restore reproducible dependency installation, clear known dependency vulnerabilities and add CI.
+2. replace the shared API key with real user authentication and ownership checks;
+3. approve processors and model endpoints, then complete processing agreements and transfer safeguards;
+4. define encrypted backup, restore and backup-erasure procedures;
+5. validate recommendation and roadmap quality with reviewed real data and human evaluation.
 
 ## License
 

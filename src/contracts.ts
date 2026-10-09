@@ -244,3 +244,20 @@ export type ResearchRun = {
   result?: ResearchResult;
   cost: { tool: string; units: number; usd: number }[];
 };
+
+export type ResearchRunExport = ResearchRun & {
+  storedInput: { profile: SeekerProfile; options: ResearchOptions };
+  artifacts: {
+    artifactId: string;
+    inputId: string;
+    data: unknown;
+    createdAt: string;
+  }[];
+  costLedger: {
+    at: string;
+    tool: string;
+    units: number;
+    usd: number;
+    detail?: string;
+  }[];
+};

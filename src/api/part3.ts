@@ -3,6 +3,7 @@
 // dynamic import and typed here only by what this adapter uses.
 import type { Context } from "hono";
 import { apiKeys, config } from "../config";
+import { pool } from "../db/pool";
 
 type Part3Request = { method: string; path: string; headers: Record<string, string>; body?: unknown };
 type Part3Response = { status: number; body: unknown };
@@ -16,13 +17,15 @@ function load(): Promise<{ part3: Part3; deps: unknown }> {
     const at = (path: string) => new URL(`../gap/${path}`, import.meta.url).href;
     const [part3, store, part2] = await Promise.all([
       import(at("api.ts")) as Promise<Part3>,
-      import(at("store.ts")) as Promise<{ MemoryGapStore: new () => unknown }>,
+      import(at("postgres-store.ts")) as Promise<{
+        PostgresGapStore: new (db: typeof pool, retentionDays?: number) => unknown;
+      }>,
       import(at("part2-client.ts")) as Promise<{ HttpPart2Client: new (options: { baseUrl: string; apiKey: string }) => unknown }>,
     ]);
     return {
       part3,
       deps: {
-        store: new store.MemoryGapStore(),
+        store: new store.PostgresGapStore(pool, config.PERSONAL_DATA_RETENTION_DAYS),
         part2: new part2.HttpPart2Client({
           baseUrl: process.env.PART2_BASE_URL ?? `http://127.0.0.1:${config.PORT}`,
           apiKey: apiKeys()[0] ?? "",

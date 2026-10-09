@@ -3,6 +3,7 @@
 // dynamic import and typed here only by what this adapter uses.
 import type { Context } from "hono";
 import { apiKeys, config } from "../config";
+import { pool } from "../db/pool";
 
 type UploadedFile = { fileName: string; mimeType: string; bytes: Uint8Array; kind?: string };
 type Part1Request = { method: string; path: string; headers: Record<string, string>; body?: unknown; file?: UploadedFile };
@@ -15,9 +16,17 @@ let loaded: Promise<{ part1: Part1; deps: unknown }> | undefined;
 function load(): Promise<{ part1: Part1; deps: unknown }> {
   loaded ??= (async () => {
     const at = (p: string) => new URL(`../seeker/${p}`, import.meta.url).href;
-    const [part1, store, llm, research, validation, roadmap] = await Promise.all([
+    const [part1, store, deletionJobs, gdpr, llm, research, validation, roadmap] = await Promise.all([
       import(at("api.ts")) as Promise<Part1>,
-      import(at("store/memory.ts")) as Promise<{ MemoryStore: new () => unknown }>,
+      import(at("store/postgres.ts")) as Promise<{
+        PostgresSeekerStore: new (db: typeof pool, retentionDays?: number) => unknown;
+      }>,
+      import(at("store/deletion-jobs.ts")) as Promise<{
+        PostgresDeletionQueue: new (db: typeof pool) => unknown;
+      }>,
+      import(at("service/gdpr.ts")) as Promise<{
+        startDeletionRetryWorker: (deps: unknown, intervalSeconds?: number) => () => void;
+      }>,
       import(at("llm/llm.ts")) as Promise<{ OpenRouterClient: new (key?: string) => unknown }>,
       import(at("research-client.ts")) as Promise<{ HttpResearchClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
       import(at("validation-client.ts")) as Promise<{ HttpValidationClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
@@ -25,19 +34,18 @@ function load(): Promise<{ part1: Part1; deps: unknown }> {
     ]);
     const baseUrl = process.env.PART2_BASE_URL ?? `http://127.0.0.1:${config.PORT}`;
     const apiKey = apiKeys()[0] ?? "";
-    return {
-      part1,
-      deps: {
-        // ponytail: Part 1's in-memory store loses seekers on restart; swap in a Postgres SeekerStore before real users
-        store: new store.MemoryStore(),
-        llm: new llm.OpenRouterClient(config.OPENROUTER_API_KEY),
-        // Part 1 checks career choices and cascades GDPR deletes against Part 2 over HTTP; here that's this server.
-        research: new research.HttpResearchClient({ baseUrl, apiKey }),
-        validations: new validation.HttpValidationClient({ baseUrl, apiKey }),
-        roadmaps: new roadmap.HttpRoadmapClient({ baseUrl, apiKey }),
-        apiKeys: apiKeys(),
-      },
+    const deps = {
+      store: new store.PostgresSeekerStore(pool, config.PERSONAL_DATA_RETENTION_DAYS),
+      deletions: new deletionJobs.PostgresDeletionQueue(pool),
+      llm: new llm.OpenRouterClient(config.OPENROUTER_API_KEY),
+      // Part 1 checks career choices and cascades GDPR deletes against Part 2 over HTTP; here that's this server.
+      research: new research.HttpResearchClient({ baseUrl, apiKey }),
+      validations: new validation.HttpValidationClient({ baseUrl, apiKey }),
+      roadmaps: new roadmap.HttpRoadmapClient({ baseUrl, apiKey }),
+      apiKeys: apiKeys(),
     };
+    gdpr.startDeletionRetryWorker(deps, config.DELETION_RETRY_INTERVAL_SECONDS);
+    return { part1, deps };
   })();
   return loaded;
 }
