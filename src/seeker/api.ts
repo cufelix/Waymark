@@ -2,6 +2,17 @@ import { authenticate, parseApiKeys, type Headers } from "./core/auth.ts";
 import { ApiError, fail, ok, type Envelope } from "./core/errors.ts";
 import { newId } from "./core/ids.ts";
 import { validateCareerChoice, validateCreateSeeker, validateInterviewMessage, validateLinks, validatePreferences } from "./core/validate.ts";
+import { loadDeck } from "./intake/deck.ts";
+import {
+  answerWarmup,
+  finishChatWhenDone,
+  getIntake,
+  moreCards,
+  rateCard,
+  setPractical,
+  skipChat,
+  type IntakeDeps,
+} from "./intake/service.ts";
 import type { LlmClient } from "./llm/llm.ts";
 import type { ResearchClient } from "./research-client.ts";
 import type { RoadmapClient } from "./roadmap-client.ts";
@@ -36,16 +47,35 @@ export type ApiDeps = {
   research: ResearchClient;
   validations?: ValidationClient;
   roadmaps?: RoadmapClient;
+  intake?: Partial<Pick<IntakeDeps, "loadDeck" | "engine" | "warmupFreeText">>;
   apiKeys?: string[]; // default: env SEEKER_API_KEYS
 };
 
-type Params = { seekerId: string; documentId?: string };
+type Params = { seekerId: string; documentId?: string; cardId?: string };
 type Handler = (req: ApiRequest, deps: ApiDeps, params: Params) => Promise<unknown>;
 type Route = { method: string; pattern: RegExp; status?: number; seekerScoped?: boolean; handler: Handler };
 
 const SEEKER = "(skr_[0-9A-HJKMNP-TV-Z]{26})";
 const DOCUMENT = "(doc_[0-9A-HJKMNP-TV-Z]{26})";
-const route = (path: string): RegExp => new RegExp(`^${path.replace("{seekerId}", SEEKER).replace("{documentId}", DOCUMENT)}$`);
+const CARD = "(crd_[0-9A-HJKMNP-TV-Z]{26})";
+const route = (path: string): RegExp => new RegExp(
+  `^${path.replace("{seekerId}", SEEKER).replace("{documentId}", DOCUMENT).replace("{cardId}", CARD)}$`,
+);
+
+const intakeDeps = (deps: ApiDeps): IntakeDeps => ({
+  store: deps.store,
+  llm: deps.llm,
+  loadDeck: deps.intake?.loadDeck ?? loadDeck,
+  ...(deps.intake?.engine ? { engine: deps.intake.engine } : {}),
+  ...(deps.intake?.warmupFreeText ? { warmupFreeText: deps.intake.warmupFreeText } : {}),
+});
+
+function requireEmptyBody(body: unknown): void {
+  if (body === undefined) return;
+  if (typeof body !== "object" || body === null || Array.isArray(body) || Object.keys(body).length > 0) {
+    throw new ApiError("unprocessable", "body: must be empty");
+  }
+}
 
 // seekerScoped: the seeker must exist and not be deletion-pending before the handler runs.
 // Export and delete handle deletion-pending themselves, so they are not marked.
@@ -78,10 +108,59 @@ const ROUTES: Route[] = [
     pattern: route("/v1/seekers/{seekerId}/interview/messages"),
     seekerScoped: true,
     // undefined = the host passed no Exa client (e.g. src/api/part1.ts), so take it from EXA_API_KEY; null = off.
-    handler: async (req, deps, p) =>
-      interviewTurn({ ...deps, exa: deps.exa === undefined ? exaFromEnv() : deps.exa }, p.seekerId, validateInterviewMessage(req.body).text),
+    handler: async (req, deps, p) => {
+      const result = await interviewTurn(
+        { ...deps, exa: deps.exa === undefined ? exaFromEnv() : deps.exa },
+        p.seekerId,
+        validateInterviewMessage(req.body).text,
+      );
+      if (result.done) await finishChatWhenDone(intakeDeps(deps), p.seekerId);
+      return result;
+    },
   },
   { method: "GET", pattern: route("/v1/seekers/{seekerId}/interview"), seekerScoped: true, handler: async (_r, deps, p) => getInterview(deps, p.seekerId) },
+  {
+    method: "GET",
+    pattern: route("/v1/seekers/{seekerId}/intake"),
+    seekerScoped: true,
+    handler: async (_req, deps, p) => getIntake(intakeDeps(deps), p.seekerId),
+  },
+  {
+    method: "POST",
+    pattern: route("/v1/seekers/{seekerId}/intake/warmup"),
+    seekerScoped: true,
+    handler: async (req, deps, p) => answerWarmup(intakeDeps(deps), p.seekerId, req.body),
+  },
+  {
+    method: "POST",
+    pattern: route("/v1/seekers/{seekerId}/intake/cards/{cardId}/rating"),
+    seekerScoped: true,
+    handler: async (req, deps, p) => rateCard(intakeDeps(deps), p.seekerId, p.cardId!, req.body),
+  },
+  {
+    method: "POST",
+    pattern: route("/v1/seekers/{seekerId}/intake/cards/more"),
+    seekerScoped: true,
+    handler: async (req, deps, p) => {
+      requireEmptyBody(req.body);
+      return moreCards(intakeDeps(deps), p.seekerId);
+    },
+  },
+  {
+    method: "POST",
+    pattern: route("/v1/seekers/{seekerId}/intake/chat/skip"),
+    seekerScoped: true,
+    handler: async (req, deps, p) => {
+      requireEmptyBody(req.body);
+      return skipChat(intakeDeps(deps), p.seekerId);
+    },
+  },
+  {
+    method: "PUT",
+    pattern: route("/v1/seekers/{seekerId}/intake/practical"),
+    seekerScoped: true,
+    handler: async (req, deps, p) => setPractical(intakeDeps(deps), p.seekerId, req.body),
+  },
   {
     method: "POST",
     pattern: route("/v1/seekers/{seekerId}/documents"),
@@ -107,7 +186,16 @@ function matchRoute(method: string, path: string): { route: Route; params: Param
     const m = r.pattern.exec(path);
     if (!m) continue;
     pathMatched = true;
-    if (r.method === method) return { route: r, params: { seekerId: m[1], documentId: m[2] } };
+    if (r.method === method) {
+      return {
+        route: r,
+        params: {
+          seekerId: m[1],
+          ...(r.pattern.source.includes("doc_") ? { documentId: m[2] } : {}),
+          ...(r.pattern.source.includes("crd_") ? { cardId: m[2] } : {}),
+        },
+      };
+    }
   }
   if (pathMatched) throw new ApiError("bad_request", `Method ${method} is not allowed on ${path}`);
   throw new ApiError("not_found", `No route for ${method} ${path}`);

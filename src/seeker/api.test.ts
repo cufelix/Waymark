@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handle, type ApiDeps, type ApiRequest } from "./api.ts";
+import type { Intake } from "./contracts.ts";
+import type { Deck } from "./intake/deck.ts";
+import type { IntakeState } from "./intake/engine.ts";
+import type { IntakeEngine } from "./intake/service.ts";
+import { FAKE_DECK } from "./intake/testdata/deck.ts";
+import { WARMUP_QUESTIONS } from "./intake/warmup.ts";
 import { FakeLlm } from "./llm/llm.ts";
 import { FakeResearchClient } from "./research-client.ts";
 import { FakeExa } from "./salary/exa.ts";
@@ -19,9 +25,68 @@ const prefs = {
   languages: [{ lang: "en", level: "working" }],
 };
 
+const practical = {
+  locations: [{ country: "CZ", city: "Prague" }],
+  remote: "ok",
+  hoursPerWeek: "5-10",
+  courseBudget: "some",
+  education: "bachelor",
+  languages: [{ lang: "cs", level: "native" }],
+  dreamCompanies: [],
+};
+
+function intakePublic(state: IntakeState): Intake {
+  const { seekerId, phase, warmup, cards, paths, practical: saved, deck } = state;
+  return { seekerId, phase, warmup, cards, paths, ...(saved ? { practical: saved } : {}), deck };
+}
+
+const intakeEngine: IntakeEngine = {
+  newIntakeState(seekerId: string, deck: Deck): IntakeState {
+    return {
+      seekerId,
+      phase: "warmup",
+      warmup: { questions: structuredClone(WARMUP_QUESTIONS), answers: [], currentKey: "drawn" },
+      cards: { rated: [], done: false },
+      paths: deck.paths.map(({ occupation }, index) => ({ occupation, liked: 0, maybe: 0, notForMe: 0, top3: index < 3 })),
+      deck: { country: deck.country, version: deck.version },
+      scores: {},
+      shownCounts: {},
+      extraUntil: 0,
+    };
+  },
+  applyWarmup(state, deck, key, mappedTo, answer): IntakeState {
+    const index = state.warmup.questions.findIndex((question) => question.key === key);
+    const nextQuestion = state.warmup.questions[index + 1];
+    return {
+      ...state,
+      phase: nextQuestion ? "warmup" : "cards",
+      warmup: {
+        ...state.warmup,
+        answers: [...state.warmup.answers, { key, answer, mappedTo }],
+        currentKey: nextQuestion?.key,
+      },
+      cards: nextQuestion ? state.cards : { ...state.cards, current: deck.cards[0] },
+    };
+  },
+  applyRating(state, deck, cardId, rating, at): IntakeState {
+    const card = deck.cards.find((candidate) => candidate.cardId === cardId)!;
+    return { ...state, phase: "practical", cards: { rated: [...state.cards.rated, { card, rating, at }], done: true } };
+  },
+  addMoreCards(state, deck): IntakeState {
+    return { ...state, phase: "cards", cards: { ...state.cards, done: false, current: deck.cards[1] }, extraUntil: state.cards.rated.length + 4 };
+  },
+  toPublic: (state) => intakePublic(state),
+};
+
 function setup() {
   const research = new FakeResearchClient();
-  const deps: ApiDeps = { store: new MemoryStore(), llm: new FakeLlm([]), research, apiKeys: [KEY] };
+  const deps: ApiDeps = {
+    store: new MemoryStore(),
+    llm: new FakeLlm([]),
+    research,
+    intake: { loadDeck: () => FAKE_DECK, engine: intakeEngine },
+    apiKeys: [KEY],
+  };
   const call = (method: string, path: string, body?: unknown, headers: ApiRequest["headers"] = auth, file?: ApiRequest["file"]) =>
     handle({ method, path, headers, body, ...(file ? { file } : {}) }, deps);
   const create = async () => {
@@ -82,6 +147,103 @@ test("interview message and transcript routes validate input and round-trip the 
     assert.equal(response.status, 422);
     assert.equal(errCode(response), "unprocessable");
   }
+});
+
+test("guided intake routes cover warm-up, ratings, more cards, practical data, skip, export and delete", async () => {
+  const { call, create, deps } = setup();
+  const id = await create();
+  const unknownId = "skr_01M4EPBGAC0000000000000000";
+
+  assert.equal((await call("GET", `/v1/seekers/${unknownId}/intake`)).status, 404);
+  const initial = await call("GET", `/v1/seekers/${id}/intake`);
+  assert.equal(initial.status, 200);
+  assert.equal((initial.body.data as any).warmup.currentKey, "drawn");
+
+  const invalidWarmup = await call("POST", `/v1/seekers/${id}/intake/warmup`, { questionKey: "drawn", answer: "", extra: true });
+  assert.equal(invalidWarmup.status, 422);
+  assert.equal(errCode(invalidWarmup), "unprocessable");
+  const wrongWarmup = await call("POST", `/v1/seekers/${id}/intake/warmup`, { questionKey: "with", answer: "Building things" });
+  assert.equal(wrongWarmup.status, 409);
+  assert.equal(errCode(wrongWarmup), "conflict");
+
+  for (const body of [
+    { questionKey: "drawn", answer: "Organising chaos" },
+    { questionKey: "with", answer: "Building things" },
+    { questionKey: "goal", answer: "A stable job and salary" },
+  ]) {
+    assert.equal((await call("POST", `/v1/seekers/${id}/intake/warmup`, body)).status, 200);
+  }
+  let intake = (await call("GET", `/v1/seekers/${id}/intake`)).body.data as any;
+  const firstCardId = intake.cards.current.cardId as string;
+
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/more`)).status, 409);
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/more`, { extra: true })).status, 422);
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/${firstCardId}/rating`, { rating: "love" })).status, 422);
+  assert.equal(
+    (await call("POST", `/v1/seekers/${id}/intake/cards/${FAKE_DECK.cards[1].cardId}/rating`, { rating: "like" })).status,
+    409,
+  );
+  assert.equal(
+    (await call("POST", `/v1/seekers/${id}/intake/cards/crd_00000000000000000000000099/rating`, { rating: "like" })).status,
+    404,
+  );
+  const rated = await call("POST", `/v1/seekers/${id}/intake/cards/${firstCardId}/rating`, { rating: "maybe" });
+  assert.equal(rated.status, 200);
+  assert.equal((rated.body.data as any).cards.done, true);
+
+  const more = await call("POST", `/v1/seekers/${id}/intake/cards/more`);
+  assert.equal(more.status, 200);
+  const secondCardId = (more.body.data as any).cards.current.cardId as string;
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/${secondCardId}/rating`, { rating: "like" })).status, 200);
+
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/chat/skip`)).status, 409);
+  assert.equal((await call("PUT", `/v1/seekers/${id}/intake/practical`, { ...practical, languages: [] })).status, 422);
+  const { dreamCompanies: _omitted, ...missingDreamCompanies } = practical;
+  assert.equal((await call("PUT", `/v1/seekers/${id}/intake/practical`, missingDreamCompanies)).status, 422);
+  assert.equal((await call("PUT", `/v1/seekers/${unknownId}/intake/practical`, practical)).status, 404);
+  const saved = await call("PUT", `/v1/seekers/${id}/intake/practical`, practical);
+  assert.equal(saved.status, 200);
+  assert.equal((saved.body.data as any).phase, "chat");
+
+  const profile = (await call("GET", `/v1/seekers/${id}/profile`)).body.data as any;
+  assert.equal(profile.status, "complete");
+  assert.equal(profile.preferences.targetOccupations.length, 3);
+  assert.deepEqual(profile.preferences.languages, practical.languages);
+  assert.deepEqual(profile.preferences.dreamCompanies, []);
+
+  const exported = await call("GET", `/v1/seekers/${id}/export`);
+  assert.equal(exported.status, 200);
+  assert.equal((exported.body.data as any).intake.phase, "chat");
+  assert.equal("scores" in (exported.body.data as any).intake, false);
+  assert.equal("shownCounts" in (exported.body.data as any).intake, false);
+
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/chat/skip`, { extra: true })).status, 422);
+  const skipped = await call("POST", `/v1/seekers/${id}/intake/chat/skip`);
+  assert.equal(skipped.status, 200);
+  assert.equal((skipped.body.data as any).phase, "done");
+
+  assert.equal((await call("DELETE", `/v1/seekers/${id}`)).status, 200);
+  assert.equal(await deps.store.getIntake(id), undefined);
+});
+
+test("a done interview response ends an intake in the chat phase", async () => {
+  const { call, create, deps } = setup();
+  const id = await create();
+  await call("GET", `/v1/seekers/${id}/intake`);
+  await call("POST", `/v1/seekers/${id}/intake/warmup`, { questionKey: "drawn", answer: "Organising chaos" });
+  await call("POST", `/v1/seekers/${id}/intake/warmup`, { questionKey: "with", answer: "Working with people" });
+  const cards = await call("POST", `/v1/seekers/${id}/intake/warmup`, { questionKey: "goal", answer: "Learn fast and grow" });
+  const cardId = (cards.body.data as any).cards.current.cardId;
+  await call("POST", `/v1/seekers/${id}/intake/cards/${cardId}/rating`, { rating: "like" });
+  await call("PUT", `/v1/seekers/${id}/intake/practical`, practical);
+  deps.llm = new FakeLlm([
+    JSON.stringify({ reply: "That is everything I need.", done: true, mode: "direct", draftPatch: {}, statedSkills: [] }),
+  ]);
+
+  const response = await call("POST", `/v1/seekers/${id}/interview/messages`, { text: "Nothing else." });
+  assert.equal(response.status, 200);
+  assert.equal((response.body.data as any).done, true);
+  assert.equal(((await call("GET", `/v1/seekers/${id}/intake`)).body.data as any).phase, "done");
 });
 
 test("document upload and delete routes accept the file field and remove the document", async () => {
