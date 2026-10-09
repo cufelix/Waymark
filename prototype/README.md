@@ -26,7 +26,7 @@ All numbers, companies and the persona are sample data. Salaries and paid prices
 - First screen: Talk it through (voice) or Just tap. Voice mode is a full screen with a pulsing orb, no questions on screen, optional captions, and a floating bar with status and "Switch to tapping". Prototype uses the browser voice; the real product uses ElevenLabs (swap `say()` in `index.html`).
 - Warm up: 3 questions, bubbles plus a pill shaped free text field. Answered questions shrink so the newest one stands out.
 - "Now the fun part" screen, then task cards from real job ads rated 👎 / 🤷 / 😍. Cards sit in a visible stack and swipe down when answered. The agent picks each next card to separate the paths it is least sure about and stops once the top 3 are clear.
-- Practical bits (location, hours, budget, education), then optional CV and links, then straight into the research feed.
+- Practical bits (location, hours, budget, education, languages you can work in, companies you'd love to work for), then optional CV and links, then straight into the research feed. Languages and dream companies are required by the research (Part 2 researches each dream company).
 - A one line plain note shows what is left ("About 5 cards left"). "What I know" is a slim chip row with dividers.
 - "Your map" is a small floating thumbnail bottom right that eases open on hover or click and closes on click outside.
 

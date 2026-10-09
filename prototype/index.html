@@ -110,6 +110,16 @@
       <div class="row"><span class="lbl">Time you can give it each week</span><div class="bubbles" style="padding: 0" data-group="hours"></div></div>
       <div class="row"><span class="lbl">Budget for courses</span><div class="bubbles" style="padding: 0" data-group="budget"></div></div>
       <div class="row"><span class="lbl">Education so far</span><div class="bubbles" style="padding: 0" data-group="degree"></div></div>
+      <div class="row"><span class="lbl">Languages you can work in</span><div class="bubbles" style="padding: 0" id="langs"></div></div>
+      <div class="row">
+        <span class="lbl">Companies you'd love to work for</span>
+        <form id="dreamForm" style="display: flex; gap: 10px; max-width: 560px">
+          <label for="dreamInput" class="sr-only">Company name</label>
+          <input id="dreamInput" class="field" type="text" placeholder="e.g. a company you admire…" autocomplete="off" style="border-radius: 999px; padding: 0 20px">
+          <button class="alt" type="submit" style="min-height: 44px; padding: 0 18px">Add</button>
+        </form>
+        <div class="bubbles" style="padding: 0" id="dream"></div>
+      </div>
       <div><button class="cta" type="button" id="practicalDone" disabled style="opacity: .4">Next <span data-icon="arrow"></span></button></div>
     </div>
 
@@ -216,6 +226,7 @@ const PRACTICAL = {
   budget: ['Free only', 'A little', 'Happy to invest'],
   degree: ['High school', 'Studying now', "Bachelor's", "Master's"]
 };
+const LANGS = ['Czech', 'Slovak', 'English', 'German', 'Ukrainian', 'Other'];
 const CV_SKILLS = ['Excel', 'Basic HTML', 'Python (school)', 'Customer service'];
 const PHASES = ['mode', 'chat', 'bridge', 'cards', 'practical', 'cv'];
 
@@ -224,8 +235,8 @@ let S;
 function fresh(more) {
   let prev = null;
   try { prev = more && JSON.parse(localStorage.getItem('interview') || 'null'); } catch (e) {}
-  if (prev) { prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; prev.ratings = prev.ratings || []; return prev; }
-  return { phase: 'mode', step: 0, answers: {}, practical: {}, cv: null, links: [],
+  if (prev) { prev.langs = prev.langs || ['Czech']; prev.dream = prev.dream || []; prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; prev.ratings = prev.ratings || []; return prev; }
+  return { phase: 'mode', step: 0, answers: {}, practical: {}, langs: ['Czech'], dream: [], noDream: false, cv: null, links: [],
     score: Object.fromEntries(Object.keys(PATHS).map((k) => [k, 0])), shownBy: {}, likedBy: {}, seen: [], ratings: [], extraUntil: 0 };
 }
 const ranked = () => Object.keys(PATHS).sort((a, b) => S.score[b] - S.score[a]);
@@ -339,14 +350,41 @@ function renderPractical() {
       stopListening(); S.practical[key] = b.dataset.opt; updatePractical(); renderSide(); if (voice) askPractical();
     });
   });
+  renderExtras(); renderDream();
   updatePractical();
 }
+// Languages: several allowed, at least one. Prefilled with the country's language.
+// Dream companies: a list, or an explicit "None yet". The research looks into each one.
+function renderExtras() {
+  $('langs').innerHTML = LANGS.map((l) => `<button type="button" class="bubble no-anim" data-lang="${l}">${l}</button>`).join('');
+  $('langs').querySelectorAll('button').forEach((b) => b.onclick = () => {
+    const l = b.dataset.lang;
+    S.langs = S.langs.includes(l) ? S.langs.filter((x) => x !== l) : [...S.langs, l];
+    updatePractical(); renderSide();
+  });
+}
+function renderDream() {
+  $('dream').innerHTML = S.dream.map((c, i) => `<span class="chip">${esc(c)} <button type="button" class="icon-btn" data-i="${i}" aria-label="Remove ${esc(c)}" style="width: 20px; height: 20px">${ICON.x}</button></span>`).join('') +
+    `<button type="button" class="bubble no-anim ${S.noDream ? 'on' : ''}" id="noDream">None yet</button>`;
+  $('dream').querySelectorAll('[data-i]').forEach((b) => b.onclick = () => { S.dream.splice(Number(b.dataset.i), 1); renderDream(); updatePractical(); renderSide(); });
+  $('noDream').onclick = () => { S.noDream = !S.noDream; if (S.noDream) S.dream = []; renderDream(); updatePractical(); renderSide(); };
+}
+$('dreamForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const c = $('dreamInput').value.trim();
+  if (c && !S.dream.includes(c)) { S.dream.push(c); S.noDream = false; }
+  $('dreamInput').value = '';
+  renderDream(); updatePractical(); renderSide();
+});
+const practicalDoneCount = () => Object.keys(S.practical).length + (S.langs.length ? 1 : 0) + (S.dream.length || S.noDream ? 1 : 0);
+const PRACTICAL_TOTAL = Object.keys(PRACTICAL).length + 2;
 function updatePractical() {
+  $('langs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', S.langs.includes(b.dataset.lang)));
   document.querySelectorAll('[data-group]').forEach((g) => g.querySelectorAll('button').forEach((b) => {
     b.classList.add('no-anim');
     b.classList.toggle('on', S.practical[g.dataset.group] === b.dataset.opt);
   }));
-  const ready = Object.keys(PRACTICAL).every((k) => S.practical[k]);
+  const ready = Object.keys(PRACTICAL).every((k) => S.practical[k]) && S.langs.length > 0 && (S.dream.length > 0 || S.noDream);
   $('practicalDone').disabled = !ready;
   $('practicalDone').style.opacity = ready ? 1 : .4;
 }
@@ -398,7 +436,7 @@ function renderExpect() {
   const steps = [
     ['Warm up', '3 questions', S.step / OPENING.length],
     ['Task cards', 'about 10', S.phase === 'bridge' ? 0 : Math.min(S.seen.length / 10, 1)],
-    ['Practical', '4 quick ones', Object.keys(S.practical).length / 4],
+    ['Practical', PRACTICAL_TOTAL + ' quick ones', S.phase === 'practical' ? practicalDoneCount() / PRACTICAL_TOTAL : 0],
     ['Your stuff', 'optional', 0]
   ];
   const pill = document.querySelector('.stepbar a.on');
@@ -416,7 +454,7 @@ function renderExpect() {
     const left = S.extraUntil ? S.extraUntil - S.seen.length : Math.max(8 - S.seen.length, 0);
     note = left > 0 ? 'About ' + left + ' cards left' : 'Almost done';
   }
-  if (S.phase === 'practical') { const q = 4 - Object.keys(S.practical).length; note = q + (q === 1 ? ' question left' : ' questions left'); }
+  if (S.phase === 'practical') { const q = PRACTICAL_TOTAL - practicalDoneCount(); note = q ? q + (q === 1 ? ' question left' : ' questions left') : 'All set'; }
   if (S.phase === 'cv') note = 'Last step · optional';
   $('expectNote').textContent = note;
 }
@@ -425,6 +463,8 @@ function renderExpect() {
 function renderFacts() {
   const facts = [...OPENING.map((q) => S.answers[q.key]), ...Object.keys(PRACTICAL).map((k) => S.practical[k])].filter(Boolean)
     .map((f) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(f)}</span>`);
+  if (S.phase === 'practical' || S.phase === 'cv') S.langs.forEach((l) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(l)} <small>language</small></span>`));
+  S.dream.forEach((c) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(c)} <small>dream company</small></span>`));
   if (S.cv) S.cv.skills.forEach((s) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(s)} <small>CV</small></span>`));
   S.links.forEach((u) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(u)} <small>link</small></span>`));
   $('facts').innerHTML = facts.length ? facts.join('') : '<span class="chip-empty" style="font-size: 13px; padding: 4px 10px">Nothing yet</span>';
@@ -594,6 +634,8 @@ const PRACTICAL_Q = {
 };
 function askPractical(first) {
   const next = Object.keys(PRACTICAL).find((k) => !S.practical[k]);
+  if (!next && !S.langsAsked) { S.langsAsked = true; return say('Which languages can you work in? I have Czech so far.'); }
+  if (!next && !(S.dream.length || S.noDream)) return say('Any companies you\u2019d love to work for? Name them, or say none yet.');
   if (!next) return say('Perfect.', () => go('cv'));
   say((first ? 'A few practical bits. ' : '') + PRACTICAL_Q[next]);
 }
@@ -651,6 +693,16 @@ function handleVoice(text) {
   if (S.phase === 'cards') { const k = classify(text); return k ? rate(k) : say('Sorry, was that a yes, a no, or a maybe?'); }
   if (S.phase === 'practical') {
     const next = Object.keys(PRACTICAL).find((k) => !S.practical[k]);
+    if (!next && S.langsAsked && !S.langsDone) {
+      S.langsDone = true;
+      LANGS.forEach((l) => { if (t.includes(l.toLowerCase()) && !S.langs.includes(l)) S.langs.push(l); });
+      updatePractical(); renderSide(); return askPractical();
+    }
+    if (!next && !(S.dream.length || S.noDream)) {
+      if (/none|no\b|not yet|nothing|don'?t know/.test(t)) S.noDream = true;
+      else text.split(/,| and /).map((x) => x.trim()).filter(Boolean).forEach((c) => S.dream.push(c));
+      renderDream(); updatePractical(); renderSide(); return askPractical();
+    }
     const opt = next && matchOption(text, PRACTICAL[next]);
     if (!opt) return say('Sorry, I missed that. You can also tap one.');
     S.practical[next] = opt; updatePractical(); renderSide();
