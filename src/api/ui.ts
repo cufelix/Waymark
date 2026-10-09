@@ -42,6 +42,7 @@ type UiOptions = {
   local?: boolean;
   publicOrigin?: string;
   trustCloudflare?: boolean;
+  trustProxy?: boolean;
   publicRateLimitPerMinute?: number;
 };
 
@@ -51,9 +52,24 @@ export function mountUi(app: Hono<any>, {
   local = config.UI_LOCAL,
   publicOrigin = config.UI_PUBLIC_ORIGIN,
   trustCloudflare = config.TRUST_CLOUDFLARE,
+  trustProxy = config.TRUST_PROXY,
   publicRateLimitPerMinute = 120,
 }: UiOptions = {}): void {
   const publicUrl = publicOrigin ? new URL(publicOrigin) : undefined;
+  const PRIVATE_PEER = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1$|::ffff:(127|10|192\.168)\.|fc|fd)/i;
+  /**
+   * The visitor's address for rate limits. Cloudflare's header only with TRUST_CLOUDFLARE; the last
+   * X-Forwarded-For hop only with TRUST_PROXY and only when the socket peer is a private proxy (that hop is the
+   * one the proxy itself appended, so a client can't forge it).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const clientIpOf = (c: any): string => {
+    let peer = "";
+    try { peer = getConnInfo(c).remote.address ?? ""; } catch { /* no socket (tests) */ }
+    if (trustCloudflare) return c.req.header("cf-connecting-ip")?.trim() || peer;
+    if (trustProxy && PRIVATE_PEER.test(peer)) return c.req.header("x-forwarded-for")?.split(",").pop()?.trim() || peer;
+    return peer;
+  };
   const publicBuckets = new Map<string, { count: number; resetAt: number }>();
   let nextSweep = Date.now() + 60_000;
 
@@ -82,9 +98,7 @@ export function mountUi(app: Hono<any>, {
       if (c.req.header("x-ethera-ui") !== "1") return deny("Missing UI header");
       const origin = c.req.header("origin");
       if (origin && origin !== publicUrl.origin) return deny("Bad origin");
-      const clientIp = trustCloudflare
-        ? (c.req.header("cf-connecting-ip")?.trim() || getConnInfo(c).remote.address || "")
-        : (getConnInfo(c).remote.address ?? "");
+      const clientIp = clientIpOf(c);
       if (!takePublicRequest(clientIp)) {
         return c.json({ ok: false, data: null, error: { code: "rate_limited", message: `More than ${publicRateLimitPerMinute} requests a minute` }, meta: {} }, 429);
       }
@@ -139,10 +153,6 @@ export function mountUi(app: Hono<any>, {
     if (contentType) headers.set("content-type", contentType);
     return app.fetch(new Request(new URL(path, "http://internal"), { method, headers, ...(body !== undefined ? { body } : {}) }), c.env);
   };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const clientIpOf = (c: any): string =>
-    trustCloudflare ? (c.req.header("cf-connecting-ip")?.trim() || getConnInfo(c).remote.address || "") : (getConnInfo(c).remote.address ?? "");
 
   /** Does this seeker own the validation or roadmap with this id? Checked before the request runs. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -25,6 +25,8 @@ services:
       UI_PUBLIC_ORIGIN: ${UI_PUBLIC_ORIGIN:?set UI_PUBLIC_ORIGIN}
       # Only set to 1 when the origin accepts traffic from Cloudflare IP ranges only; otherwise CF-Connecting-IP is spoofable.
       TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-0}
+      # Coolify puts Traefik in front of the app: the client IP is its last X-Forwarded-For hop.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
     volumes:
       - snapshots:/app/data/snapshots
     depends_on:
