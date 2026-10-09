@@ -192,7 +192,7 @@ export function validatePreferences(v: unknown, path = ""): CareerPreferences {
     v,
     path,
     ["targetOccupations", "locations", "remote", "goal", "dreamCompanies", "dealBreakers", "languages"],
-    ["salaryExpectation"],
+    ["salaryExpectation", "hoursPerWeek", "courseBudget", "education"],
   );
   const prefs: CareerPreferences = {
     targetOccupations: array(o.targetOccupations, at(path, "targetOccupations"), taxonomyEntry, { min: 1, max: 10 }),
@@ -234,22 +234,36 @@ export function validatePreferences(v: unknown, path = ""): CareerPreferences {
     if (typeof s.min !== "number" || !Number.isFinite(s.min) || s.min < 0) bad(at(p, "min"), "must be a number >= 0");
     return { min: s.min, currency: currency(s.currency, at(p, "currency")), period: oneOf(s.period, at(p, "period"), ["month", "year"] as const) };
   });
-  return salary ? { ...prefs, salaryExpectation: salary } : prefs;
+  const hoursPerWeek = optional(o, "hoursPerWeek", path, (x, p) => oneOf(x, p, ["under-5", "5-10", "10-20", "full-time"] as const));
+  const courseBudget = optional(o, "courseBudget", path, (x, p) => oneOf(x, p, ["free-only", "some", "any"] as const));
+  const education = optional(o, "education", path, (x, p) =>
+    oneOf(x, p, ["none", "secondary", "vocational", "bachelor", "master-or-higher"] as const),
+  );
+  return {
+    ...prefs,
+    ...(salary !== undefined ? { salaryExpectation: salary } : {}),
+    ...(hoursPerWeek !== undefined ? { hoursPerWeek } : {}),
+    ...(courseBudget !== undefined ? { courseBudget } : {}),
+    ...(education !== undefined ? { education } : {}),
+  };
 }
 
 const LINK_KINDS = ["portfolio", "github", "linkedin", "social", "certificate", "publication", "other"] as const;
+const DOCUMENT_KINDS = ["cv", "certificate", "portfolio", "image", "other"] as const;
 
 function linkInput(v: unknown, path: string): SeekerLinkInput {
-  const o = object(v, path, ["url", "kind"]);
-  return { url: httpUrl(o.url, at(path, "url")), kind: oneOf(o.kind, at(path, "kind"), LINK_KINDS) };
+  const o = object(v, path, ["url"], ["kind"]);
+  const kind = optional(o, "kind", path, (x, p) => oneOf(x, p, LINK_KINDS));
+  return { url: httpUrl(o.url, at(path, "url")), ...(kind !== undefined ? { kind } : {}) };
 }
 
-// PUT /v1/seekers/{id}/links body: { links: SeekerLinkInput[] }. Duplicate url+kind is rejected.
+// PUT /v1/seekers/{id}/links body: { links: SeekerLinkInput[] }. The same URL is a
+// duplicate when either entry has no kind; otherwise only the same url+kind is.
 export function validateLinks(body: unknown): SeekerLinkInput[] {
   const o = object(body, "", ["links"]);
   const links = array(o.links, "links", linkInput, { max: 50 });
   links.forEach((l, i) => {
-    const first = links.findIndex((x) => x.url === l.url && x.kind === l.kind);
+    const first = links.findIndex((x) => x.url === l.url && (x.kind === undefined || l.kind === undefined || x.kind === l.kind));
     if (first !== i) bad(`links[${i}]`, `duplicate of links[${first}]`);
   });
   return links;
@@ -326,10 +340,9 @@ function period<K extends "organisation" | "institution">(v: unknown, path: stri
 
 function document(v: unknown, path: string, seekerId: string): SeekerDocument {
   const o = object(v, path, ["id", "kind", "fileName", "uploadedAt", "statedSkills", "experience", "education"]);
-  if (o.kind !== "cv") bad(at(path, "kind"), 'must be "cv"');
   return {
     id: prefixedId(o.id, at(path, "id"), "doc"),
-    kind: "cv",
+    kind: oneOf(o.kind, at(path, "kind"), DOCUMENT_KINDS),
     fileName: string(o.fileName, at(path, "fileName"), 255),
     uploadedAt: isoDate(o.uploadedAt, at(path, "uploadedAt")),
     statedSkills: array(o.statedSkills, at(path, "statedSkills"), (x, p) => statedClaim(x, p, seekerId), { max: 500 }),
@@ -339,9 +352,9 @@ function document(v: unknown, path: string, seekerId: string): SeekerDocument {
 }
 
 function link(v: unknown, path: string): SeekerLink {
-  const o = object(v, path, ["url", "kind", "id", "addedAt"]);
+  const o = object(v, path, ["url", "id", "addedAt"], ["kind"]);
   return {
-    ...linkInput({ url: o.url, kind: o.kind }, path),
+    ...linkInput({ url: o.url, ...(o.kind !== undefined ? { kind: o.kind } : {}) }, path),
     id: prefixedId(o.id, at(path, "id"), "lnk"),
     addedAt: isoDate(o.addedAt, at(path, "addedAt")),
   };

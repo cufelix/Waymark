@@ -26,7 +26,9 @@ export function rankCareerPaths(occupations: Occupation[], vacancies: PathVacanc
     return { occupation, vs, tieBreak };
   });
   scored.sort((a, b) => b.vs.length - a.vs.length || b.tieBreak - a.tieBreak);
-  return scored.slice(0, 3).map(({ occupation, vs }) => ({
+  // A path with no current vacancies isn't a path into work right now; it only stays if nothing has any.
+  const open = scored.filter((s) => s.vs.length > 0);
+  return (open.length ? open : scored).slice(0, 3).map(({ occupation, vs }) => ({
     occupation,
     vacancyCount: vs.length,
     why: vs.length ? [demandClaim(occupation, vs, now)] : [],
@@ -55,7 +57,7 @@ export async function careerPaths(runId: string, occupations: Occupation[], goal
     `SELECT v.company_id, COALESCE(rc.is_dream, false) AS is_dream, v.data
      FROM run_vacancies rv JOIN vacancies v ON v.id = rv.vacancy_id
      LEFT JOIN run_companies rc ON rc.run_id = rv.run_id AND rc.company_id = v.company_id
-     WHERE rv.run_id = $1`,
+     WHERE rv.run_id = $1 AND NOT rv.irrelevant`,
     [runId],
   );
   const vacancies: PathVacancy[] = rows

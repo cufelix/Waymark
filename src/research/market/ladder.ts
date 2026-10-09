@@ -23,10 +23,10 @@ export type LadderVacancy = {
   city?: string;
 };
 
-export type Classified = { level: CareerStep["level"]; minYears?: number; relevant?: boolean };
+export type Classified = { level: CareerStep["level"]; minYears?: number; relevant?: boolean; title?: string };
 
 const Levels = z.object({
-  jobs: z.array(z.object({ i: z.coerce.number(), relevant: z.boolean().optional(), level: z.enum(["entry", "junior", "mid", "senior", "lead", "executive"]), minYears: z.coerce.number().nullable().optional() })),
+  jobs: z.array(z.object({ i: z.coerce.number(), relevant: z.boolean().optional(), title: z.string().optional(), level: z.enum(["entry", "junior", "mid", "senior", "lead", "executive"]), minYears: z.coerce.number().nullable().optional() })),
 });
 
 /** Seniority of each ad, from its title and the start of its text, in any language. */
@@ -40,14 +40,14 @@ async function classify(vacancies: LadderVacancy[], occupation: Occupation, runI
         "You classify job ads by seniority level, in any language and any profession.",
         `Levels: entry (trainee, intern, apprentice, no experience), junior, mid, senior, lead (team lead, head of, principal, manager of a team), executive (director, chief, VP). ` +
           `For each ad give its level, the minimum years of experience it asks for (null if it doesn't say), ` +
-          `and relevant: whether the ad is really for the occupation "${occupation.label}" (false for unrelated jobs a search returned). ` +
-          `Return {"jobs":[{"i":0,"relevant":true,"level":"junior","minYears":1}]}.\n\n` +
+          `title: the plain job title without employer, place, pay, hours or gender tags (e.g. "Pflegefachkraft"), and relevant: whether the ad is really for the occupation "${occupation.label}" (false for unrelated jobs a search returned). ` +
+          `Return {"jobs":[{"i":0,"relevant":true,"title":"Pflegefachkraft","level":"junior","minYears":1}]}.\n\n` +
           batch.map((v, i) => `${i}. ${v.title}\n${v.description.slice(0, 400)}`).join("\n\n"),
         { runId, maxTokens: 1500 },
       );
       for (const j of value.jobs) {
         const v = batch[j.i];
-        if (v) out.set(v.id, { level: j.level, minYears: j.minYears ?? undefined, relevant: j.relevant ?? true });
+        if (v) out.set(v.id, { level: j.level, minYears: j.minYears ?? undefined, relevant: j.relevant ?? true, title: j.title?.trim() || undefined });
       }
     } catch (err) {
       log.warn("seniority classification failed", { runId, error: errorMessage(err) });
@@ -82,7 +82,7 @@ export function buildLadder(vacancies: LadderVacancy[], levels: Map<string, Clas
     }
     steps.push({
       level,
-      title: mostCommonTitle(vs.map((v) => v.title)),
+      title: mostCommonTitle(vs.map((v) => levels.get(v.id)?.title ?? v.title)),
       ...(years.length ? { typicalExperienceYears: { min: years[0]!, max: years.at(-1)! > years[0]! ? years.at(-1)! : undefined } } : {}),
       ...(salary ? { salary } : {}),
       claims: claims.filter((c) => c.sources.length > 0),
@@ -205,7 +205,12 @@ export async function ladders(runId: string, occupations: Occupation[]): Promise
         salary: r.data.salary, country: r.data.query!.country, city: r.data.query!.city ?? undefined,
       }));
     if (vs.length === 0) continue;
-    const ladder = buildLadder(vs, await classify(vs, occupation, runId));
+    const levels = await classify(vs, occupation, runId);
+    // Remember ads the model found unrelated to the occupation, so market numbers, career paths and
+    // requirement extraction leave them out (job boards return loose matches).
+    const unrelated = vs.filter((v) => levels.get(v.id)?.relevant === false).map((v) => v.id);
+    if (unrelated.length) await query("UPDATE run_vacancies SET irrelevant = true WHERE run_id = $1 AND vacancy_id = ANY($2)", [runId, unrelated]);
+    const ladder = buildLadder(vs, levels);
     const { country, city } = vs[0]!;
     out.set(occupation.uri, await Promise.all(ladder.map((step) => (step.salary ? step : salaryFromSites(step, country, city, runId)))));
   }

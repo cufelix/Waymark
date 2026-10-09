@@ -7,6 +7,9 @@ import { StartRunBody } from "../contracts";
 import { newId } from "../ids";
 import { errorMessage, log } from "../log";
 import { part1Handler } from "./part1";
+import { part3Handler } from "./part3";
+import { part4Handler } from "./part4";
+import { mountUi } from "./ui";
 import { deleteResearchForSeeker, deleteRun, listRunsForSeeker } from "../research/gdpr";
 import { getCompany, getVacancy, listRunCompanies, listRunVacancies } from "../research/market/read";
 import { RunError, getRun, getRunRow, startRun } from "../research/run";
@@ -49,6 +52,7 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
   });
 
   app.get("/health", (c) => ok(c, { status: "ok" }));
+  mountUi(app);
 
   app.use("/v1/*", async (c, next) => {
     const key = c.req.header("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
@@ -107,6 +111,11 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
     return ok(c, paths);
   });
 
+  app.get("/v1/research-runs/:runId/role-models", async (c) => {
+    const r = await doneRun(c);
+    return "error" in r ? r.error : ok(c, r.result.roleModels ?? []);
+  });
+
   app.get("/v1/research-runs/:runId/trends", async (c) => {
     const r = await doneRun(c);
     return "error" in r ? r.error : ok(c, r.result.trends ?? []);
@@ -162,6 +171,16 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
     const vacancy = await getVacancy(c.req.param("vacancyId"), true);
     return vacancy ? ok(c, vacancy) : fail(c, "not_found", `Vacancy ${c.req.param("vacancyId")} does not exist`);
   });
+
+  app.all("/v1/validations", part3Handler);
+  app.all("/v1/validations/*", part3Handler);
+  app.get("/v1/seekers/:seekerId/validations", part3Handler);
+  app.delete("/v1/seekers/:seekerId/validations", part3Handler);
+
+  app.all("/v1/roadmaps", part4Handler);
+  app.all("/v1/roadmaps/*", part4Handler);
+  app.get("/v1/seekers/:seekerId/roadmaps", part4Handler);
+  app.delete("/v1/seekers/:seekerId/roadmaps", part4Handler);
 
   // Everything else under /v1/seekers is Part 1 (user input). Part 2's own seeker routes are registered above.
   app.all("/v1/seekers", part1Handler);

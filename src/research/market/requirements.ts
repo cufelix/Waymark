@@ -43,7 +43,7 @@ export async function extractRequirements(runId: string, onBatch?: (done: number
   const rows = await query<Row>(
     `SELECT v.id, v.data FROM vacancies v JOIN run_vacancies rv ON rv.vacancy_id = v.id
      WHERE rv.run_id = $1 AND coalesce((v.data->>'requirementsExtracted')::boolean, false) = false
-       AND length(coalesce(v.data->>'description', '')) > 40`,
+       AND length(coalesce(v.data->>'description', '')) > 40 AND NOT rv.irrelevant`,
     [runId],
   );
   for (let i = 0; i < rows.length; i += BATCH) {

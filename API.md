@@ -51,7 +51,7 @@ sequenceDiagram
 
   Lists add `meta.page`, `meta.pageSize`, `meta.total`, and take `?page=` and `?pageSize=` (max 100).
 - **Error codes:** `bad_request` (400), `unauthorized` (401), `consent_required` (403), `not_found` (404), `conflict` (409), `unprocessable` (422, input fails validation), `rate_limited` (429), `upstream_failed` (502, a scraper or API failed), `internal` (500).
-- **IDs** are prefixed strings: `skr_` seeker, `doc_` document, `lnk_` link, `run_` research run, `cmp_` company, `vac_` vacancy, `clm_` claim, `src_` source, `val_` validation, `rmp_` roadmap, `mod_` roadmap module, `chp_` chapter, `res_` learning resource.
+- **IDs** are prefixed strings: `skr_` seeker, `doc_` document, `lnk_` link, `run_` research run, `cmp_` company, `vac_` vacancy, `clm_` claim, `src_` source, `crd_` task card, `val_` validation, `rmp_` roadmap, `mod_` roadmap module, `chp_` chapter, `res_` learning resource.
 - **Standards:**
   - Timestamps: ISO 8601 UTC, `2026-10-08T21:00:00Z`.
   - Countries: ISO 3166-1 alpha-2, `CZ`.
@@ -73,14 +73,57 @@ sequenceDiagram
 | `POST /v1/seekers` | Create a seeker. Consent is required here. | `{ consent: Consent }` | `{ seekerId }` |
 | `POST /v1/seekers/{seekerId}/interview/messages` | One turn of the intake interview. The agent asks; the client sends the seeker's answer. Send an empty `text` to get the first question. When the seeker asks about pay, the agent may run a quick salary lookup on the web and answer with an indicative range (see "Salary lookup in the interview" below). | `{ text: string }` (max 4,000 characters) | `{ reply: string, done: boolean, preferences: CareerPreferencesDraft, sources?: Source[] }` |
 | `GET /v1/seekers/{seekerId}/interview` | Full interview transcript | | `InterviewTurn[]` |
+| `GET /v1/seekers/{seekerId}/intake` | The guided intake (warm-up, task cards, practical bits) as it stands: the current question or card, the answers so far, and the paths in the seeker's order of interest. See "Guided intake" below. | | `Intake` |
+| `POST /v1/seekers/{seekerId}/intake/warmup` | Answer the current warm-up question: one of its options or free text (the fast model maps free text to the options). | `{ questionKey: string, answer: string }` (max 500 characters) | `Intake` |
+| `POST /v1/seekers/{seekerId}/intake/cards/{cardId}/rating` | Rate the current task card. Returns the next card, or `cards.done: true` once the top 3 are clear (8 to 12 cards). | `{ rating: "like" \| "maybe" \| "no" }` | `Intake` |
+| `POST /v1/seekers/{seekerId}/intake/cards/more` | "None of these feel right": 4 more cards, picked away from the current top 3. | | `Intake` |
+| `POST /v1/seekers/{seekerId}/intake/chat/skip` | End the "Anything else?" step without (more) chat | | `Intake` |
+| `PUT /v1/seekers/{seekerId}/intake/practical` | The practical bits, all required. Sets `preferences.locations`, `remote`, `hoursPerWeek`, `courseBudget`, `education`, `languages` (at least one) and `dreamCompanies` (may be empty only when sent as an explicit empty list, "none yet"); once the cards are done it also sets `targetOccupations` to the top 3 paths, which makes the profile `complete`. | `IntakePractical` | `Intake` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
-| `POST /v1/seekers/{seekerId}/documents` | Upload a CV (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file` | `SeekerDocument` |
-| `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a CV and everything parsed from it | | `{ deleted: true }` |
+| `POST /v1/seekers/{seekerId}/documents` | Upload a document (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file`; optional field `kind` (default `"cv"`) | `SeekerDocument` |
+| `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a document and everything parsed from it | | `{ deleted: true }` |
 | `PUT /v1/seekers/{seekerId}/links` | Replace the seeker's list of links (portfolio, GitHub, socials). Part 1 stores them; reading them is Part 2's user research. | `{ links: SeekerLinkInput[] }` | `SeekerLink[]` |
 | `PUT /v1/seekers/{seekerId}/career-choice` | The seeker picks one of the run's career paths, usually while the rest of the research is still running. Part 1 accepts only an occupation that run returned (`unprocessable` otherwise), stores it as `profile.careerChoice` (profileVersion +1) and leaves `preferences` as they are. Calling it again replaces the choice. | `{ runId: string, occupationUri: EscoUri }` | `CareerChoice` |
 | `GET /v1/seekers/{seekerId}/profile` | **The handoff object.** `status` is `"complete"` once preferences have at least one target occupation and consent is given. | | `SeekerProfile` |
 | `GET /v1/seekers/{seekerId}/export` | Everything stored about the seeker in both parts (GDPR). Part 1 adds the runs from Part 2's `GET /v1/seekers/{seekerId}/research-runs`. | | `SeekerExport` |
 | `DELETE /v1/seekers/{seekerId}` | Hard delete in both parts (GDPR). Part 1 calls Part 2's `DELETE /v1/seekers/{seekerId}/research` first. If that fails, it answers `upstream_failed`, marks the seeker `deletion-pending` and retries until both are gone. | | `{ deleted: true }` |
+
+### Guided intake (task cards)
+
+The UI runs five steps:
+1. a few warm-up questions;
+2. tasks from real job ads instead of asking the seeker to describe themselves;
+3. the practical bits;
+4. a short "Anything else?" chat with the interview agent;
+5. the optional CV and links.
+
+The free-text interview above is part of this flow (steps 1 and 4).
+- **What the research needs is never left to goodwill.** Dream companies and languages are part of the required practical step, where the UI can't go on without them.
+  - Dream companies can be an explicit "none yet".
+  - Languages need at least one entry, prefilled with the country's language.
+- The optional chat in step 4 only adds deal breakers, the salary expectation and answers to questions.
+
+- **Warm-up:**
+  - Three fixed questions with options: what pulls you in, people / things / information / ideas, and what matters right now.
+  - The last answer sets `preferences.goal`.
+  - Each option nudges some paths (a fixed table in the code).
+  - **Free text** goes through the interview agent (the same one as `POST …/interview/messages`). It replies in the chat, adds any skills or preferences it hears to the profile (tier `stated`, source `seeker-interview://`), and maps the answer to the closest options. The reply comes back in `Intake.warmup.answers[].reply`.
+- **Task cards:**
+  - Each card is one task from a real job ad, rewritten in plain words ("Find out why the website gets slow every Monday morning, and fix it.").
+  - The card's `source` holds the verbatim sentence from the ad and the ad's URL. After a rating, the UI reveals which job the card came from.
+  - Cards come from a prebuilt **deck per country**: `scripts/build-task-deck.ts` searches real ads with Exa for about 12 entry-level occupations, the fast model picks tasks, and every card keeps a quote that appears verbatim in the ad. The deck is a JSON file in `src/seeker/intake/decks/`. It holds nothing personal and costs nothing per seeker.
+  - The next card is picked to separate the paths the seeker's answers leave closest. The cards stop once the top 3 are clear, never before 8 cards and never after 12. "None of these feel right" adds 4 cards from outside the current top 3.
+- **Paths:**
+  - `paths` lists each candidate occupation in the seeker's order of interest, with how many of its cards they liked, were unsure about or didn't want.
+  - The order comes only from the seeker's own answers. It says what they would enjoy, not what they are good at or how likely they are to get hired.
+  - There is no score field. The UI's map draws closeness from the order, and the path cards cite the counts ("You liked 4 of 5 coding tasks").
+- **"Anything else?" (step 4, phase `chat`):**
+  - After the practical bits, the interview agent asks only for what is still missing, in a few short turns: deal breakers and the salary expectation. It may also add dream companies the seeker thinks of now.
+  - It doesn't re-ask anything the intake already knows (goal, location, hours, the top 3 paths).
+  - Pay questions get the salary lookup.
+  - The client uses `POST …/interview/messages` as today; the reply's `done: true` ends the step. `POST …/intake/chat/skip` ends it at once ("Skip, I'm done").
+  - Either way, the phase moves to `done`.
+- **Handoff:** once the cards are done and the practical bits are in, the top 3 paths become `preferences.targetOccupations`, so the research run covers them. The seeker can still change everything with `PUT /preferences`.
 
 ### Salary lookup in the interview
 
@@ -183,7 +226,8 @@ What the whiteboard's two steps become:
 - **Numbers are copied, never generated:** every number in a chapter (`demand`) comes from the validation with its sources. The model writes no numbers into `why` or `outcome` that are not in those facts.
 - **What the seeker already has:**
   - The chapter carries `evidence` and `claims` from the validation. A chapter that is `proven` or `stated` stays on the map as "you've got this", with an option to review it.
-  - `done` is the seeker's own tick and is never proof. Proof still comes only from a link the seeker owns (Part 2).
+  - A chapter whose skills the seeker already has (every skill `stated` or `proven` in the validation, from the CV, the interview or a link) starts as `done: true` with `doneBy: "evidence"`, so the roadmap doesn't teach what the seeker already knows. It still carries its resources, so the seeker can review it, and the seeker can un-tick it.
+  - Otherwise `done` is the seeker's own tick (`doneBy: "seeker"`). `done` is never proof: proof still comes only from a link the seeker owns (Part 2).
 - **Resources:**
   - Every resource has a `source` (the page, tool `exa`) whose `quote` appears on that page.
   - `price`, `effortHours` and `scope` are filled only when the page states them.
@@ -247,6 +291,9 @@ type CareerPreferences = {
   dealBreakers: string[];                   // free text from the interview
   languages: { lang: string; level: "basic" | "working" | "fluent" | "native" }[];
   salaryExpectation?: { min: number; currency: string; period: "month" | "year" };
+  hoursPerWeek?: "under-5" | "5-10" | "10-20" | "full-time";   // time for learning; the roadmap uses it for "about N weeks"
+  courseBudget?: "free-only" | "some" | "any";                   // the roadmap's top pick respects it
+  education?: "none" | "secondary" | "vocational" | "bachelor" | "master-or-higher";
 };
 
 type CareerPreferencesDraft = Partial<CareerPreferences>;   // what the interview has filled in so far
@@ -260,7 +307,7 @@ type InterviewTurn = {
 
 type SeekerDocument = {
   id: string;                     // "doc_…"
-  kind: "cv";
+  kind: "cv" | "certificate" | "portfolio" | "image" | "other";
   fileName: string;
   uploadedAt: ISODate;
   statedSkills: Claim[];          // tier "stated", source tool "seeker-upload"
@@ -268,7 +315,7 @@ type SeekerDocument = {
   education: { title: string; institution?: string; from?: string; to?: string }[];
 };
 
-type SeekerLinkInput = { url: string; kind: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other" };
+type SeekerLinkInput = { url: string; kind?: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other" };
 type SeekerLink = SeekerLinkInput & { id: string; addedAt: ISODate };   // "lnk_…"
 
 type SeekerProfile = {
@@ -290,7 +337,55 @@ type CareerChoice = {
   chosenAt: ISODate;
 };
 
-type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: ResearchRun[]; validations: Validation[]; roadmaps: Roadmap[] };
+type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; intake?: Intake; researchRuns: ResearchRun[]; validations: Validation[]; roadmaps: Roadmap[] };
+
+type TaskCard = {
+  cardId: string;                 // "crd_…", stable within a deck
+  text: string;                   // the task in plain words
+  occupation: Occupation;         // the job it came from, revealed after the rating
+  related: { occupation: Occupation; weight: number }[];   // other paths the task also says something about (0 to 1)
+  source: Source;                 // the ad: URL, tool "exa", quote = the verbatim sentence the card rewrites
+};
+
+type IntakeCurrentCard = {
+  cardId: string;
+  text: string;
+  source: Pick<Source, "id" | "fetchedAt" | "tool" | "quote" | "contentHash" | "snapshotKey">;
+                                  // title and URL stay hidden until the card is rated
+};
+
+type IntakePractical = {
+  locations: { country: Country; city?: string }[];
+  remote: "only" | "ok" | "no";
+  hoursPerWeek: CareerPreferences["hoursPerWeek"];
+  courseBudget: CareerPreferences["courseBudget"];
+  education: CareerPreferences["education"];
+  languages: CareerPreferences["languages"];          // at least one; the UI prefills the country's language
+  dreamCompanies: CareerPreferences["dreamCompanies"];   // [] = the seeker chose "none yet"
+};
+
+type Intake = {
+  seekerId: string;
+  phase: "warmup" | "cards" | "practical" | "chat" | "done";
+  warmup: {
+    questions: { key: string; text: string; options: string[] }[];
+    answers: { key: string; answer: string; mappedTo: string[]; reply?: string }[];
+                                  // mappedTo: the options a free-text answer was read as; reply: the interview agent's answer to free text
+    currentKey?: string;
+  };
+  cards: {
+    current?: IntakeCurrentCard;  // occupation, related paths and identifying source fields stay hidden until the rating
+    rated: { card: TaskCard; rating: "like" | "maybe" | "no"; at: ISODate }[];
+    done: boolean;
+  };
+  paths: {                        // the seeker's order of interest, never a score
+    occupation: Occupation;
+    liked: number; maybe: number; notForMe: number;   // counts of this path's cards
+    top3: boolean;
+  }[];
+  practical?: IntakePractical;
+  deck: { country: Country; version: string };
+};
 
 // ---------- Part 2: research ----------
 type ResearchOptions = {
@@ -542,7 +637,8 @@ type RoadmapChapter = {
   estimatedHours?: number;        // the planner's estimate, shown as "about"
   resources: LearningResource[];  // free first
   topPickId?: string;             // resourceId of the one to start with
-  done: boolean;                  // the seeker's own tick, never proof
+  done: boolean;                  // never proof
+  doneBy?: "evidence" | "seeker"; // evidence: the seeker already has every skill (stated or proven); seeker: their own tick
   doneAt?: ISODate;
 };
 

@@ -1,0 +1,184 @@
+{
+  "country": "CZ",
+  "version": "fake-0",
+  "paths": [
+    { "key": "backend", "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" }, "kind": "coding" },
+    { "key": "frontend", "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" }, "kind": "web building" },
+    { "key": "data", "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" }, "kind": "data" },
+    { "key": "qa", "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" }, "kind": "testing" },
+    { "key": "ux", "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "kind": "design research" },
+    { "key": "sales", "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" }, "kind": "sales" },
+    { "key": "marketing", "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" }, "kind": "marketing" },
+    { "key": "ops", "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" }, "kind": "organising" }
+  ],
+  "cards": [
+    {
+      "cardId": "crd_00000000000000000000000001",
+      "text": "Build the part of an app that saves a customer’s order and sends the receipt.",
+      "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" },
+      "related": [], "pathKey": "backend",
+      "source": { "id": "src_00000000000000000000000001", "url": "https://example.com/jobs/backend-1", "title": "[FAKE] Backend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Build the part of an app that saves a customer’s order and sends the receipt.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000002",
+      "text": "Find out why the website gets slow every Monday morning, and fix it.",
+      "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" }, "weight": 0.5 }], "pathKey": "backend",
+      "source": { "id": "src_00000000000000000000000002", "url": "https://example.com/jobs/backend-2", "title": "[FAKE] Backend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Find out why the website gets slow every Monday morning, and fix it.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000003",
+      "text": "Connect the online shop to a new payment provider.",
+      "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" },
+      "related": [], "pathKey": "backend",
+      "source": { "id": "src_00000000000000000000000003", "url": "https://example.com/jobs/backend-3", "title": "[FAKE] Backend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Connect the online shop to a new payment provider.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000004",
+      "text": "Rebuild the signup page so it works on every phone.",
+      "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" },
+      "related": [], "pathKey": "frontend",
+      "source": { "id": "src_00000000000000000000000004", "url": "https://example.com/jobs/frontend-1", "title": "[FAKE] Frontend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Rebuild the signup page so it works on every phone.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000005",
+      "text": "Turn a designer’s mockup into a working web page.",
+      "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "weight": 0.5 }], "pathKey": "frontend",
+      "source": { "id": "src_00000000000000000000000005", "url": "https://example.com/jobs/frontend-2", "title": "[FAKE] Frontend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Turn a designer’s mockup into a working web page.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000006",
+      "text": "Add a smooth animation when someone adds an item to the cart.",
+      "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" },
+      "related": [], "pathKey": "frontend",
+      "source": { "id": "src_00000000000000000000000006", "url": "https://example.com/jobs/frontend-3", "title": "[FAKE] Frontend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Add a smooth animation when someone adds an item to the cart.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000007",
+      "text": "Figure out why 30% of customers abandon checkout.",
+      "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "weight": 0.3 }], "pathKey": "data",
+      "source": { "id": "src_00000000000000000000000007", "url": "https://example.com/jobs/data-1", "title": "[FAKE] Data analyst ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Figure out why 30% of customers abandon checkout.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000008",
+      "text": "Build a weekly sales dashboard the boss checks every Monday.",
+      "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" },
+      "related": [], "pathKey": "data",
+      "source": { "id": "src_00000000000000000000000008", "url": "https://example.com/jobs/data-2", "title": "[FAKE] Data analyst ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Build a weekly sales dashboard the boss checks every Monday.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000009",
+      "text": "Clean up a spreadsheet of 10,000 messy customer records.",
+      "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" }, "weight": 0.5 }], "pathKey": "data",
+      "source": { "id": "src_00000000000000000000000009", "url": "https://example.com/jobs/data-3", "title": "[FAKE] Data analyst ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Clean up a spreadsheet of 10,000 messy customer records.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000010",
+      "text": "Try to break a new feature before it goes live, and write down exactly how you did it.",
+      "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" },
+      "related": [], "pathKey": "qa",
+      "source": { "id": "src_00000000000000000000000010", "url": "https://example.com/jobs/qa-1", "title": "[FAKE] QA engineer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Try to break a new feature before it goes live, and write down exactly how you did it.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000011",
+      "text": "Test the app on 10 different phones and report everything that looks wrong.",
+      "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" },
+      "related": [], "pathKey": "qa",
+      "source": { "id": "src_00000000000000000000000011", "url": "https://example.com/jobs/qa-2", "title": "[FAKE] QA engineer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Test the app on 10 different phones and report everything that looks wrong.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000012",
+      "text": "Write a small script that checks the login page still works, every night.",
+      "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" }, "weight": 0.5 }], "pathKey": "qa",
+      "source": { "id": "src_00000000000000000000000012", "url": "https://example.com/jobs/qa-3", "title": "[FAKE] QA engineer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Write a small script that checks the login page still works, every night.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000013",
+      "text": "Interview 5 users and find out why they get stuck on the settings page.",
+      "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" }, "weight": 0.3 }], "pathKey": "ux",
+      "source": { "id": "src_00000000000000000000000013", "url": "https://example.com/jobs/ux-1", "title": "[FAKE] UX designer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Interview 5 users and find out why they get stuck on the settings page.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000014",
+      "text": "Sketch three different layouts for a new home screen.",
+      "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" }, "weight": 0.3 }], "pathKey": "ux",
+      "source": { "id": "src_00000000000000000000000014", "url": "https://example.com/jobs/ux-2", "title": "[FAKE] UX designer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Sketch three different layouts for a new home screen.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000015",
+      "text": "Watch screen recordings of people using the app and spot what confuses them.",
+      "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" },
+      "related": [], "pathKey": "ux",
+      "source": { "id": "src_00000000000000000000000015", "url": "https://example.com/jobs/ux-3", "title": "[FAKE] UX designer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Watch screen recordings of people using the app and spot what confuses them.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000016",
+      "text": "Call 20 small businesses and find out what they struggle with.",
+      "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "weight": 0.3 }], "pathKey": "sales",
+      "source": { "id": "src_00000000000000000000000016", "url": "https://example.com/jobs/sales-1", "title": "[FAKE] Sales ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Call 20 small businesses and find out what they struggle with.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000017",
+      "text": "Give a 15 minute demo of the product to a potential client.",
+      "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" },
+      "related": [], "pathKey": "sales",
+      "source": { "id": "src_00000000000000000000000017", "url": "https://example.com/jobs/sales-2", "title": "[FAKE] Sales ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Give a 15 minute demo of the product to a potential client.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000018",
+      "text": "Follow up with a customer who went quiet, and win them back.",
+      "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" },
+      "related": [], "pathKey": "sales",
+      "source": { "id": "src_00000000000000000000000018", "url": "https://example.com/jobs/sales-3", "title": "[FAKE] Sales ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Follow up with a customer who went quiet, and win them back.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000019",
+      "text": "Write the posts for a product launch on Instagram and LinkedIn.",
+      "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" },
+      "related": [], "pathKey": "marketing",
+      "source": { "id": "src_00000000000000000000000019", "url": "https://example.com/jobs/marketing-1", "title": "[FAKE] Marketing ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Write the posts for a product launch on Instagram and LinkedIn.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000020",
+      "text": "Run two versions of an ad and work out which one works better.",
+      "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" }, "weight": 0.5 }], "pathKey": "marketing",
+      "source": { "id": "src_00000000000000000000000020", "url": "https://example.com/jobs/marketing-2", "title": "[FAKE] Marketing ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Run two versions of an ad and work out which one works better.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000021",
+      "text": "Plan a month of content for the company blog.",
+      "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" },
+      "related": [], "pathKey": "marketing",
+      "source": { "id": "src_00000000000000000000000021", "url": "https://example.com/jobs/marketing-3", "title": "[FAKE] Marketing ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Plan a month of content for the company blog.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000022",
+      "text": "Plan a team offsite for 40 people: venue, travel, schedule.",
+      "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" },
+      "related": [], "pathKey": "ops",
+      "source": { "id": "src_00000000000000000000000022", "url": "https://example.com/jobs/ops-1", "title": "[FAKE] Project coordinator ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Plan a team offsite for 40 people: venue, travel, schedule.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000023",
+      "text": "Keep a project on track: who does what by when, and chase what’s late.",
+      "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" },
+      "related": [], "pathKey": "ops",
+      "source": { "id": "src_00000000000000000000000023", "url": "https://example.com/jobs/ops-2", "title": "[FAKE] Project coordinator ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Keep a project on track: who does what by when, and chase what’s late.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    },
+    {
+      "cardId": "crd_00000000000000000000000024",
+      "text": "Set up a simple system so customer requests stop getting lost.",
+      "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" },
+      "related": [{ "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" }, "weight": 0.2 }], "pathKey": "ops",
+      "source": { "id": "src_00000000000000000000000024", "url": "https://example.com/jobs/ops-3", "title": "[FAKE] Project coordinator ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Set up a simple system so customer requests stop getting lost.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+    }
+  ]
+}

@@ -16,6 +16,8 @@
     "test"
   ],
   "exclude": [
-    "src/seeker"
+    "src/seeker",
+    "src/gap",
+    "src/roadmap"
   ]
 }
