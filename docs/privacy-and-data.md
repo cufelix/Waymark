@@ -25,9 +25,12 @@ These defaults align with the GDPR principles of purpose limitation, data minimi
 | Research-run profile copy | Reproduce and process one market run | Postgres `research_runs.profile` | Research providers used by that run |
 | Vacancies and company facts | Describe employer demand | PostgreSQL and source snapshots | Apify, Exa, Firecrawl, registries and public sites |
 | Validations and roadmaps | Show demand/evidence and learning steps | PostgreSQL `validations` and `roadmaps` | OpenRouter and Exa for planning/resources |
+| Voice-mode spoken text and audio | Speak prompts and transcribe the seeker's answers after they choose voice mode | Not stored by the voice proxy; resulting intake answers follow the normal intake storage | ElevenLabs |
 | Cost metadata | Enforce budgets | PostgreSQL `cost_ledger` | No application recipient |
 
 OpenRouter routes requests to model providers with provider-specific data practices. Waymark sends request-level routing controls that require zero data retention and deny provider data collection by default. Account settings, provider selection and contracts still materially change the privacy posture, and operators must verify that every configured model has an approved endpoint.
+
+ElevenLabs is an optional processor used only in voice mode. It receives prompt text for text-to-speech and the seeker's recorded audio for transcription. Operators must review its retention, model-training and transfer settings before enabling `ELEVENLABS_API_KEY` in production.
 
 ## Controls already present
 

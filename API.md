@@ -667,6 +667,17 @@ type LearningResource = {
 };
 ```
 
+## Voice
+
+Voice is optional and is used only after the seeker chooses voice mode. Both routes use the same Bearer authentication and per-key rate limit as every other `/v1` route.
+
+| Method and path | Does | Body | Returns |
+|---|---|---|---|
+| `POST /v1/voice/speech` | Turns up to 600 characters into speech with ElevenLabs. | `{ text: string }` | `audio/mpeg` |
+| `POST /v1/voice/transcribe` | Transcribes an audio recording of at most 10 MB with ElevenLabs Scribe. | multipart field `file` | `{ text }` in the normal JSON envelope |
+
+`ELEVENLABS_API_KEY` enables the routes. `ELEVENLABS_VOICE_ID` selects the voice, `ELEVENLABS_TTS_MODEL` defaults to `eleven_flash_v2_5`, and `CAP_ELEVENLABS_CHARS_PER_DAY` defaults to 20,000 characters per process-day. Both routes answer `unprocessable` with `Voice is not configured` when no key is configured. The speech route answers `rate_limited` after the daily character cap, and provider failures on either route answer `upstream_failed` without returning provider response bodies.
+
 ## Testing the seam
 
 - Part 1 keeps example profiles in `fixtures/profiles/*.json`, each valid against `SeekerProfile`.
