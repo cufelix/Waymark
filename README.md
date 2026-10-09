@@ -201,7 +201,7 @@ The dependency policy may reject packages published too recently. Do not bypass 
 
 The app waits for PostgreSQL to become healthy and runs migrations before starting the API and worker. Data and source snapshots use named volumes.
 
-**Public demo that can’t spend money:** set `UI_DEMO_ONLY=1` and leave every provider key empty. The UI bridge is then closed (the browser can’t reach any route that calls a model or provider) and every page runs on the built-in sample data. Anyone can click through the whole product; their answers never leave the browser and no paid API is called.
+**Public demo that can’t spend money:** set `UI_DEMO_ONLY=1` and leave every provider key empty. The root URL then serves the landing page, `/demo` starts the app, the UI bridge is closed (the browser can’t reach any route that calls a model or provider) and every app page runs on the built-in sample data. Anyone can click through the whole product; their answers never leave the browser and no paid API is called.
 
 Without `UI_DEMO_ONLY`, this public setup is a live demo, not a multi-user production deployment: the UI bridge uses one shared server API key and there is no per-user login. Use only obviously fake data (for example “Jane Example” and `example.com`). See the [readiness audit](docs/readiness-audit.md).
 

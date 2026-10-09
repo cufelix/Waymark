@@ -2,6 +2,7 @@
 // Local mode (this machine only) forwards everything. Public mode is scoped to one seeker per browser: creating a
 // seeker sets a signed HttpOnly session cookie, and every later request may only touch that seeker's own data.
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { serveStatic } from "@hono/node-server/serve-static";
 import type { Hono } from "hono";
@@ -93,8 +94,12 @@ export function mountUi(app: Hono<any>, {
     // Nothing from the browser reaches the API, so no visitor can trigger a paid model or provider call.
     app.all("/ui/api/*", (c) =>
       c.json({ ok: false, data: null, error: { code: "unauthorized", message: "This is a demo with sample data only" }, meta: {} }, 401));
+    // The landing page sits at the root, like a product site; /demo starts the app.
+    app.get("/", async (c) => {
+      const page = await readFile("./landing/index.html", "utf8").catch(() => null);
+      return page === null ? c.redirect("/demo") : c.html(page);
+    });
     // Every page runs on the built-in fictional data (prototype/sample.js) instead of the live API.
-    app.get("/", (c) => c.redirect("/index.html?sample=1"));
     app.get("/*", async (c, next) => {
       const url = new URL(c.req.url);
       if (!url.pathname.endsWith(".html") || url.searchParams.get("sample") === "1") return next();
@@ -245,5 +250,6 @@ export function mountUi(app: Hono<any>, {
     return forward(c, path + new URL(c.req.url).search, method, body, contentType);
   };
   app.get("/", (c) => c.redirect("/index.html"));
+  app.get("/demo", (c) => c.redirect("/index.html?sample=1"));
   app.use("/*", serveStatic({ root: "./prototype" }));
 }
