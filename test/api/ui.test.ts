@@ -184,11 +184,15 @@ describe("demo-only mode", () => {
     expect(calls).toEqual([]);
   });
 
-  it("sends every page to the sample data", async () => {
+  it("serves the landing page at the root and sends every app page to the sample data", async () => {
     const { app } = demoApp();
     const root = await app.request(`${PUBLIC_ORIGIN}/`, { headers: { host: "waymark.example.com" } });
-    expect(root.status).toBe(302);
-    expect(root.headers.get("location")).toBe("/index.html?sample=1");
+    expect(root.status).toBe(200);
+    expect(await root.text()).toContain('href="/demo"');
+
+    const demo = await app.request(`${PUBLIC_ORIGIN}/demo`, { headers: { host: "waymark.example.com" } });
+    expect(demo.status).toBe(302);
+    expect(demo.headers.get("location")).toBe("/index.html?sample=1");
 
     const page = await app.request(`${PUBLIC_ORIGIN}/module.html?chapterId=chp_1`, { headers: { host: "waymark.example.com" } });
     expect(page.status).toBe(302);

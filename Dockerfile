@@ -12,6 +12,7 @@ RUN pnpm install --frozen-lockfile --prod
 
 COPY --chown=node:node src ./src
 COPY --chown=node:node prototype ./prototype
+COPY --chown=node:node landing ./landing
 COPY --chown=node:node fixtures ./fixtures
 
 RUN mkdir -p /app/data/snapshots && chown -R node:node /app/data
