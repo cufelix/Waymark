@@ -201,7 +201,9 @@ The dependency policy may reject packages published too recently. Do not bypass 
 
 The app waits for PostgreSQL to become healthy and runs migrations before starting the API and worker. Data and source snapshots use named volumes.
 
-This public setup is a demo, not a multi-user production deployment: the UI bridge uses one shared server API key and there is no per-user login. Use only obviously fake data (for example “Jane Example” and `example.com`). See the [readiness audit](docs/readiness-audit.md).
+**Public demo that can’t spend money:** set `UI_DEMO_ONLY=1` and leave every provider key empty. The UI bridge is then closed (the browser can’t reach any route that calls a model or provider) and every page runs on the built-in sample data. Anyone can click through the whole product; their answers never leave the browser and no paid API is called.
+
+Without `UI_DEMO_ONLY`, this public setup is a live demo, not a multi-user production deployment: the UI bridge uses one shared server API key and there is no per-user login. Use only obviously fake data (for example “Jane Example” and `example.com`). See the [readiness audit](docs/readiness-audit.md).
 
 </details>
 
@@ -238,7 +240,7 @@ node --test $(git ls-files 'src/seeker/*.test.ts' 'src/seeker/**/*.test.ts' 'src
 Waymark was built around data minimisation and traceable evidence: OpenRouter requests fail closed to zero-retention endpoints, structured logs redact sensitive fields, emails, URLs and bearer tokens, and the code avoids logging seeker content, personal data expires and is purged automatically, and failed cascade deletes retry from a durable queue.
 
 > [!IMPORTANT]
-> Waymark is a hackathon project, not a production service. Before using real personal data, close the P0 items in the [readiness audit](docs/readiness-audit.md): reviewed real task-deck data instead of test data, real user authentication and ownership checks instead of a shared API key, approved processors with signed agreements, encrypted backups with tested erasure, and a human evaluation of recommendation quality ([method](docs/quality-evaluation.md)).
+> Waymark is a hackathon project, not a production service. Before using real personal data, close the P0 items in the [readiness audit](docs/readiness-audit.md): a human review of the task deck built from job ads, real occupation identifiers instead of stub ones, real user authentication and ownership checks instead of a shared API key, approved processors with signed agreements, encrypted backups with tested erasure, and a human evaluation of recommendation quality ([method](docs/quality-evaluation.md)).
 
 More: [Privacy and data handling](docs/privacy-and-data.md) · [Privacy operations runbook](docs/privacy-operations-runbook.md) · [Security policy](SECURITY.md) (please report vulnerabilities privately, not in a public issue).
 

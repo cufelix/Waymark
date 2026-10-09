@@ -163,3 +163,40 @@ describe("client address behind a proxy", () => {
     expect((await req("198.51.100.2")).status).toBe(429);
   });
 });
+
+describe("demo-only mode", () => {
+  function demoApp(): { app: Hono; calls: string[] } {
+    const calls: string[] = [];
+    const app = new Hono();
+    mountUi(app, { publicOrigin: PUBLIC_ORIGIN, trustCloudflare: true, demoOnly: true });
+    app.all("/v1/*", (c) => { calls.push(c.req.path); return c.json({ ok: true, data: {} }); });
+    return { app, calls };
+  }
+
+  it("closes the UI bridge, so no request reaches the API", async () => {
+    const { app, calls } = demoApp();
+    const create = await app.request(`${PUBLIC_ORIGIN}/ui/api/v1/seekers`, { method: "POST", headers: { ...goodHeaders(), "content-type": "application/json" }, body: "{}" });
+    const voice = await app.request(`${PUBLIC_ORIGIN}/ui/api/v1/voice/speech`, { method: "POST", headers: { ...goodHeaders(), "content-type": "application/json" }, body: '{"text":"hi"}' });
+    expect(create.status).toBe(401);
+    expect(voice.status).toBe(401);
+    expect(await create.json()).toMatchObject({ ok: false, data: null, error: { code: "unauthorized" } });
+    expect(create.headers.get("set-cookie")).toBeNull();
+    expect(calls).toEqual([]);
+  });
+
+  it("sends every page to the sample data", async () => {
+    const { app } = demoApp();
+    const root = await app.request(`${PUBLIC_ORIGIN}/`, { headers: { host: "waymark.example.com" } });
+    expect(root.status).toBe(302);
+    expect(root.headers.get("location")).toBe("/index.html?sample=1");
+
+    const page = await app.request(`${PUBLIC_ORIGIN}/module.html?chapterId=chp_1`, { headers: { host: "waymark.example.com" } });
+    expect(page.status).toBe(302);
+    expect(page.headers.get("location")).toBe("/module.html?chapterId=chp_1&sample=1");
+
+    const sample = await app.request(`${PUBLIC_ORIGIN}/paths.html?sample=1`, { headers: { host: "waymark.example.com" } });
+    expect(sample.status).toBe(200);
+    const asset = await app.request(`${PUBLIC_ORIGIN}/styles.css`, { headers: { host: "waymark.example.com" } });
+    expect(asset.status).toBe(200);
+  });
+});
