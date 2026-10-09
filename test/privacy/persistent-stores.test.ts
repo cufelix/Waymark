@@ -96,6 +96,35 @@ describe("PostgreSQL personal-data stores", () => {
     expect(await pool.query("SELECT 1 FROM seeker_records WHERE seeker_id = $1", [seekerId])).toHaveProperty("rowCount", 0);
   });
 
+  it("does not purge a seeker while an update is refreshing its expiry", async () => {
+    const racingSeekerId = `skr_retention_race_${suffix}`;
+    await pool.query(
+      `INSERT INTO seeker_records (seeker_id, record, expires_at)
+       VALUES ($1, $2::jsonb, now() - interval '1 second')`,
+      [racingSeekerId, JSON.stringify({ ...seeker, profile: { ...seeker.profile, seekerId: racingSeekerId } })],
+    );
+    const updater = await pool.connect();
+    try {
+      await updater.query("BEGIN");
+      await updater.query(
+        "UPDATE seeker_records SET expires_at = now() + interval '90 days', updated_at = now() WHERE seeker_id = $1",
+        [racingSeekerId],
+      );
+
+      await purgeExpiredPersonalData();
+      await updater.query("COMMIT");
+
+      expect((await pool.query(
+        "SELECT expires_at > now() AS live FROM seeker_records WHERE seeker_id = $1",
+        [racingSeekerId],
+      )).rows[0]).toEqual({ live: true });
+    } finally {
+      await updater.query("ROLLBACK").catch(() => undefined);
+      updater.release();
+      await pool.query("DELETE FROM seeker_records WHERE seeker_id = $1", [racingSeekerId]);
+    }
+  });
+
   it("persists and atomically claims deletion retries", async () => {
     const queue = new PostgresDeletionQueue(pool);
     await queue.request(seekerId);

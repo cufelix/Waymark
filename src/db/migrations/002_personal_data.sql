@@ -32,8 +32,11 @@ CREATE TABLE roadmaps (
 CREATE INDEX roadmaps_seeker ON roadmaps (seeker_id);
 CREATE INDEX roadmaps_expiry ON roadmaps (expires_at);
 
-ALTER TABLE research_runs
-  ADD COLUMN expires_at timestamptz NOT NULL DEFAULT (now() + interval '90 days');
+ALTER TABLE research_runs ADD COLUMN expires_at timestamptz;
+UPDATE research_runs
+   SET expires_at = created_at
+     + (current_setting('waymark.personal_data_retention_days')::integer * interval '1 day');
+ALTER TABLE research_runs ALTER COLUMN expires_at SET NOT NULL;
 CREATE INDEX research_runs_expiry ON research_runs (expires_at);
 
 CREATE TABLE seeker_deletion_jobs (
