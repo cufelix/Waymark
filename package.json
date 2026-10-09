@@ -1,7 +1,8 @@
 {
-  "name": "ethera-research",
+  "name": "waymark",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.8.1",
   "engines": {
     "node": ">=22"
   },
