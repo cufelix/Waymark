@@ -27,7 +27,7 @@ These defaults align with the GDPR principles of purpose limitation, data minimi
 | Validations and roadmaps | Show demand/evidence and learning steps | In-memory stores | OpenRouter and Exa for planning/resources |
 | Cost metadata | Enforce budgets | PostgreSQL `cost_ledger` | No application recipient |
 
-OpenRouter routes requests to model providers with provider-specific data practices. Its own documentation exposes provider controls for zero data retention and denial of data collection; the current code does not enforce those routing fields. Account settings, provider selection and contracts therefore materially change the privacy posture.
+OpenRouter routes requests to model providers with provider-specific data practices. Waymark sends request-level routing controls that require zero data retention and deny provider data collection by default. Account settings, provider selection and contracts still materially change the privacy posture, and operators must verify that every configured model has an approved endpoint.
 
 ## Controls already present
 
@@ -61,7 +61,7 @@ There is no documented retention period, automatic expiry or scheduled purge for
 
 ### External processors and transfers
 
-Before production, document the controller, purposes and legal bases; list processors and subprocessors; execute appropriate processing agreements; determine international-transfer safeguards; and restrict routing to approved providers/regions. For OpenRouter, enforce zero-retention and data-collection controls at the account and/or request layer and verify that the selected model endpoints support them.
+Before production, document the controller, purposes and legal bases; list processors and subprocessors; execute appropriate processing agreements; determine international-transfer safeguards; and restrict routing to approved providers/regions. For OpenRouter, keep the request-level zero-retention and data-collection defaults, enforce compatible policy at account level and verify that every selected model endpoint supports it.
 
 ### Security operations
 
@@ -103,4 +103,4 @@ Before accepting real data, record evidence for each item:
 - [European Commission — organisational obligations and breaches](https://commission.europa.eu/law/law-topic/data-protection/information-business-and-organisations/obligations_en)
 - [OpenRouter — privacy policy](https://openrouter.ai/privacy)
 - [OpenRouter — privacy guardrails](https://openrouter.ai/docs/guides/features/guardrails/overview)
-
+- [OpenRouter — zero data retention controls](https://openrouter.ai/blog/insights/zero-data-retention/)

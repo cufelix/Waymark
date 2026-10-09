@@ -1,14 +1,14 @@
 # Product and production readiness audit
 
-Audit date: 2026-10-09  
-Scope: current `main` after guided intake PR #22  
+Audit date: 2026-10-09
+Scope: current `main` after guided intake PR #22 plus the privacy-routing hardening on this branch
 Method: code and contract review, local framework-free tests, dependency lockfile scan and review of official privacy guidance. No paid/live provider calls were made.
 
 ## Executive verdict
 
 Waymark has unusually strong provenance guardrails for a prototype: source-linked market facts, verbatim quote checks, bounded model output, strict input validation, seeker-controlled progress and a deliberate ban on personalised fit scores or hiring probabilities.
 
-It is not ready for real personal data or public GDPR-compliance claims. The recommendation layer is still using a fake intake deck, output quality has only synthetic evaluation, three product parts are volatile in-memory services, export is incomplete relative to stored data, and the deployment lacks user authentication, retention and verified processor controls.
+It is not ready for real personal data or public GDPR-compliance claims. The recommendation layer is still using a fake intake deck, output quality has only synthetic evaluation, three product parts are volatile in-memory services, export is incomplete relative to stored data, and the deployment lacks user authentication, retention and verified processor governance.
 
 ## What is already strong
 
@@ -52,7 +52,7 @@ It is not ready for real personal data or public GDPR-compliance claims. The rec
 | One shared bearer key authorizes every seeker route | A valid caller can access any known seeker ID | Add real user identity and ownership checks to every user-owned object |
 | Export omits stored run profile/options and artifact content | “Everything stored” is false; access/portability is incomplete | Inventory every store and add complete, tested export representations |
 | No retention policy or automatic purge | Storage limitation is not implemented | Define retention per data class and add scheduled, observable deletion |
-| External processing controls are not enforced in code | Prompts/CVs can follow provider-specific retention/training/transfer rules | Approved provider/region list, DPA/transfer assessment, ZDR and data-collection denial enforced and tested |
+| Request-level OpenRouter privacy routing is enforced, but approved endpoints and processing governance are absent | Zero-retention routing reduces provider storage but does not establish lawful processing, transfer safeguards or an approved provider chain | Enforce the policy at account level, allow-list reviewed providers/regions, and complete DPA/transfer assessment and endpoint verification |
 | Dependency install is not currently reproducible under policy | CI/build cannot be trusted | Resolve recent-package policy gate, use frozen pnpm install and add CI |
 | Lockfile scan reports 14 known vulnerabilities in 3 transitive packages | 8 are high severity; release hygiene is not acceptable | Upgrade/override affected chains, retest, scan clean or document accepted unreachable risk |
 
@@ -111,8 +111,7 @@ Recommended rubric per roadmap: prerequisite correctness, coverage of high-deman
 2. Postgres stores for Parts 1/3/4 plus durable deletion jobs.
 3. User authentication and ownership authorization.
 4. Complete data inventory, export and retention implementation.
-5. Processor/ZDR/transfer configuration and deployer privacy notice.
+5. Processor allow-list, account-level ZDR enforcement, transfer assessment and deployer privacy notice.
 6. Real CZ intake deck and human recommendation evaluation.
 7. Live roadmap quality benchmark and resource freshness checks.
 8. Public screenshots, status badges and chosen license.
-

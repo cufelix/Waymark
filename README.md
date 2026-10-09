@@ -81,6 +81,7 @@ External services are optional by feature:
 | Variable | Used for |
 |---|---|
 | `OPENROUTER_API_KEY` | Structured extraction, interview turns and roadmap planning |
+| `OPENROUTER_ZDR`, `OPENROUTER_DATA_COLLECTION` | Fail-closed provider privacy routing; defaults to zero retention and denied data collection |
 | `EXA_API_KEY` | Discovery, salary sources, task cards and learning resources |
 | `FIRECRAWL_API_KEY` | Reading public pages selected by the seeker |
 | `APIFY_TOKEN` | Vetted public-data actors |
@@ -115,6 +116,8 @@ The codebase is designed around data minimisation and traceable evidence:
 - structured application logs are designed to exclude prompts, CV text and seeker content;
 - export and cascade-delete endpoints cover the four product parts;
 - unexpected upstream bodies are not returned to clients.
+
+OpenRouter requests default to zero-retention endpoints with provider data collection denied. This routing control reduces provider-side retention; it does not keep data on this server or replace processor agreements and transfer safeguards.
 
 These controls are a foundation, not proof of GDPR compliance. A real deployment still needs persistent user-scoped storage and authentication, a retention schedule, a complete export, processor agreements and transfer safeguards, tested backup deletion, incident procedures and an operator-specific privacy notice. Read [Privacy and data handling](docs/privacy-and-data.md) and the [readiness audit](docs/readiness-audit.md).
 
