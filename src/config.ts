@@ -11,8 +11,12 @@ const Env = z.object({
   API_KEYS: z.string().default(""),
   SNAPSHOT_DIR: z.string().default("./data/snapshots"),
   ROLE: z.enum(["all", "api", "worker"]).default("all"),
-  // Serve the UI with a key-less bridge to the API, for requests from this machine only.
+  // Local UI bridge: requests must come from this machine.
   UI_LOCAL: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
+  // Public fake-data demo bridge: requests must match this exact origin.
+  UI_PUBLIC_ORIGIN: z.url().transform((value) => new URL(value).origin).optional(),
+  // Trust Cloudflare's client IP header only when all public traffic actually comes through Cloudflare.
+  TRUST_CLOUDFLARE: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Keys the seekers' ownership proof tokens. Set a long random value in production; changing it invalidates existing tokens.
   PROOF_SECRET: z.string().min(16).default("dev-only-proof-secret-change-me"),
   PERSONAL_DATA_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
