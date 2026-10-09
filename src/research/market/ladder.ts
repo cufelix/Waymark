@@ -209,7 +209,7 @@ export async function ladders(runId: string, occupations: Occupation[]): Promise
     // Remember ads the model found unrelated to the occupation, so market numbers, career paths and
     // requirement extraction leave them out (job boards return loose matches).
     const unrelated = vs.filter((v) => levels.get(v.id)?.relevant === false).map((v) => v.id);
-    if (unrelated.length) await query("UPDATE vacancies SET data = jsonb_set(data, '{irrelevant}', 'true') WHERE id = ANY($1)", [unrelated]);
+    if (unrelated.length) await query("UPDATE run_vacancies SET irrelevant = true WHERE run_id = $1 AND vacancy_id = ANY($2)", [runId, unrelated]);
     const ladder = buildLadder(vs, levels);
     const { country, city } = vs[0]!;
     out.set(occupation.uri, await Promise.all(ladder.map((step) => (step.salary ? step : salaryFromSites(step, country, city, runId)))));
