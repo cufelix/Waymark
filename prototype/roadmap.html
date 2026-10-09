@@ -19,6 +19,16 @@
     <a class="ghost" href="paths.html">Change path</a>
   </div>
 
+  <div class="done-row" id="doneRow" hidden>
+    <span id="doneTile"></span>
+    <div style="flex: 1; min-width: 200px">
+      <div id="doneTitle" style="font-weight: 600; font-size: 16px; color: var(--muted)"></div>
+      <div id="doneDetails" style="font-size: 13px; color: var(--faint)"></div>
+    </div>
+    <span class="chip" id="doneChip" style="font-size: 13px; padding: 5px 10px"></span>
+    <a class="review" id="doneReview" href="module.html">Not sure? Review it</a>
+  </div>
+
   <div id="target"></div>
 
   <div id="sections" style="display: flex; flex-direction: column; gap: 40px"></div>
@@ -28,14 +38,14 @@
 <div class="info-dock" id="infoDock" tabindex="0" role="button" aria-expanded="false" aria-label="Progress and legend">
   <div class="id-mini">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-    <span id="dockNext">Next up</span>
+    <span id="dockProgress">0 of 0 done</span>
   </div>
   <div class="id-body">
     <div>
-      <div style="font:600 15px var(--display)">Your roadmap</div>
-      <div id="dockText" style="font-size:13px;color:var(--muted);margin-top:4px">The next useful chapter is highlighted.</div>
+      <div style="font: 600 15px var(--display)">Your progress</div>
+      <div id="dockText" style="font-size: 13px; color: var(--muted); margin-top: 4px">0 of 0 modules</div>
     </div>
-
+    <div class="progress" style="height: 6px"><div id="progressBar" style="width: 0; height: 6px"></div></div>
     <div class="legend" id="legend" style="border-top: none; padding-top: 0"></div>
   </div>
 </div>

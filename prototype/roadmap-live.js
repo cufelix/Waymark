@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const validationId = Live.store.get('validationId');
 let roadmap = null;
+let profile = null;
 let pollTimer = null;
 
 function sources(list) {
@@ -16,8 +17,50 @@ function resourceCard(resource, topPickId) {
   return `<div class="res ${resource.resourceId === topPickId ? 'top' : ''}"><a class="meta" href="${esc(resource.url)}" target="_blank" rel="noopener"><div class="title">${esc(resource.title)}</div><div class="by">${esc(resource.provider)}</div><div class="tags">${tags.map((tag) => `<span class="tag ${resource.cost === 'free' ? 'free' : resource.cost === 'paid' ? 'paid' : ''}">${esc(String(tag))}</span>`).join('')}</div></a><span style="font-size:13px">${resource.source?.url ? `<a href="${esc(resource.source.url)}" target="_blank" rel="noopener">Source</a>` : ''}</span></div>`;
 }
 
-function nextChapter() {
-  return roadmap.modules.flatMap((module) => module.chapters).find((chapter) => !chapter.done);
+function allChapters() { return roadmap.modules.flatMap((module) => module.chapters); }
+function isDone(chapter) { return Boolean(chapter.done || chapter.doneBy); }
+function nextChapter() { return allChapters().find((chapter) => !isDone(chapter)); }
+
+function selectedEffortHours(chapter) {
+  const resource = chapter.resources.find((item) => item.resourceId === chapter.topPickId) || chapter.resources[0];
+  return Number.isFinite(resource?.effortHours) ? resource.effortHours : null;
+}
+
+function remainingTimeText(chapters) {
+  const weekly = { 'under-5': 4, '5-10': 10, '10-20': 20, 'full-time': 40 }[profile?.preferences?.hoursPerWeek];
+  const remaining = chapters.filter((chapter) => !isDone(chapter));
+  if (!weekly || !remaining.length) return '';
+  const hours = remaining.map(selectedEffortHours);
+  if (hours.some((value) => value === null)) return '';
+  const weeks = Math.max(1, Math.ceil(hours.reduce((sum, value) => sum + value, 0) / weekly));
+  if (weeks < 8) return `about ${weeks} ${weeks === 1 ? 'week' : 'weeks'} at ${weekly}h a week`;
+  const months = Math.max(1, Math.round(weeks / 4.345));
+  return `about ${months} ${months === 1 ? 'month' : 'months'} at ${weekly}h a week`;
+}
+
+function renderCompletedChapter() {
+  const chapters = allChapters();
+  const completed = chapters.find(isDone);
+  $('doneRow').hidden = !completed;
+  if (!completed) return;
+  const sectionIndex = roadmap.modules.findIndex((module) => module.chapters.some((chapter) => chapter.chapterId === completed.chapterId));
+  const section = roadmap.modules[sectionIndex];
+  const details = [completed.title, completed.skills.map((skill) => skill.label).join(' · ')].filter(Boolean).join(' · ');
+  $('doneTile').innerHTML = tile('done', '✓', 36, 30, 6);
+  $('doneTitle').textContent = `Section ${sectionIndex + 1} · ${section.title}`;
+  $('doneDetails').textContent = details;
+  $('doneChip').textContent = completed.doneBy === 'evidence' ? "You've got this · from your profile" : 'Marked done by you';
+  $('doneReview').href = Live.href('module.html?chapterId=' + encodeURIComponent(completed.chapterId));
+}
+
+function renderProgress() {
+  const chapters = allChapters();
+  const done = chapters.filter(isDone).length;
+  const total = chapters.length;
+  const time = remainingTimeText(chapters);
+  $('dockProgress').textContent = `${done} of ${total} done`;
+  $('dockText').textContent = `${done} of ${total} modules${time ? ' · ' + time : ''}`;
+  $('progressBar').style.width = `${total ? (done / total) * 100 : 0}%`;
 }
 
 function renderTarget() {
@@ -30,22 +73,23 @@ function render() {
   $('occupation').textContent = roadmap.occupation.label;
   $('roadmapContext').textContent = roadmap.status === 'ready' ? 'A sourced path through the skills employers ask for' : 'Building your sourced roadmap…';
   renderTarget();
+  renderCompletedChapter();
+  renderProgress();
   const next = nextChapter();
-  $('dockNext').textContent = next ? 'Next up: ' + next.title : 'Roadmap reviewed';
-  $('dockText').textContent = next ? 'Open the highlighted chapter when you are ready.' : 'You can un-tick a chapter to revisit it.';
   $('sections').innerHTML = roadmap.modules.map((module) => {
     const chapters = module.chapters;
     const height = Math.max(180, 60 + chapters.length * 150);
     const chapterMarkup = chapters.map((chapter, i) => {
       const isNext = next?.chapterId === chapter.chapterId;
-      const state = chapter.done ? 'done' : isNext ? 'current' : 'open';
+      const chapterDone = isDone(chapter);
+      const state = chapterDone ? 'done' : isNext ? 'current' : 'open';
       const left = i % 2 ? 460 : 180; const top = 36 + i * 145;
       const skills = chapter.skills.map((item) => item.label).join(' · ');
       const demand = chapter.demand ? `${chapter.demand.vacanciesRequiring} of ${chapter.demand.vacanciesTotal} current ads ask for this` : '';
       const query = 'module.html?chapterId=' + encodeURIComponent(chapter.chapterId);
       return `<div>
-        <a class="node ${state}" data-chapter="${esc(chapter.chapterId)}" href="${Live.href(query)}" style="left:${left}px;top:${top}px" aria-label="Open ${esc(chapter.title)}">${isNext ? '<span class="here-pill">You start here</span>' : ''}${tile(state, chapter.done ? '✓' : 'logo')}</a>
-        <div class="node-label" style="left:${i % 2 ? left + 134 : left - 214}px;top:${top + 16}px;width:200px;text-align:${i % 2 ? 'left' : 'right'}"><b>${esc(chapter.title)}</b><span>${esc([chapter.category, skills].filter(Boolean).join(' · '))}</span><button class="textlink" type="button" data-progress="${esc(chapter.chapterId)}" data-done="${chapter.done}">${chapter.done ? (chapter.doneBy === 'evidence' ? 'Already covered · un-tick' : 'Done · un-tick') : 'Mark as done'}</button></div>
+        <a class="node ${state}" data-chapter="${esc(chapter.chapterId)}" href="${Live.href(query)}" style="left:${left}px;top:${top}px" aria-label="Open ${esc(chapter.title)}">${isNext ? '<span class="here-pill">You start here</span>' : ''}${tile(state, chapterDone ? '✓' : 'logo')}</a>
+        <div class="node-label" style="left:${i % 2 ? left + 134 : left - 214}px;top:${top + 16}px;width:200px;text-align:${i % 2 ? 'left' : 'right'}"><b>${esc(chapter.title)}</b><span>${esc([chapter.category, skills].filter(Boolean).join(' · '))}</span><button class="textlink" type="button" data-progress="${esc(chapter.chapterId)}" data-done="${chapterDone}">${chapterDone ? (chapter.doneBy === 'evidence' ? 'Already covered · un-tick' : 'Done · un-tick') : 'Mark as done'}</button></div>
       </div>`;
     }).join('');
     const wires = `<svg class="wire" width="760" height="${height}">${chapters.slice(0, -1).map((_, i) => { const ax = (i % 2 ? 460 : 180) + 60; const bx = ((i + 1) % 2 ? 460 : 180) + 60; const ay = 86 + i * 145; const by = 86 + (i + 1) * 145; return `<path d="M${ax} ${ay} C${ax} ${ay + 70},${bx} ${by - 70},${bx} ${by}" fill="none" stroke="#5C8F2A" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 8"/>`; }).join('')}</svg>`;
@@ -84,10 +128,15 @@ async function load() {
   if (!validationId) { $('roadmapContext').textContent = 'Choose a path before building a roadmap.'; return; }
   try {
     const existingId = Live.store.get('roadmapId');
-    if (existingId) roadmap = await Live.api('GET', '/v1/roadmaps/' + existingId);
+    const seekerId = await Live.seeker();
+    if (existingId) {
+      [roadmap, profile] = await Promise.all([
+        Live.api('GET', '/v1/roadmaps/' + existingId),
+        Live.api('GET', '/v1/seekers/' + seekerId + '/profile'),
+      ]);
+    }
     else {
-      const seekerId = await Live.seeker();
-      const profile = await Live.api('GET', '/v1/seekers/' + seekerId + '/profile');
+      profile = await Live.api('GET', '/v1/seekers/' + seekerId + '/profile');
       roadmap = await Live.api('POST', '/v1/roadmaps', { validationId, profile });
       Live.store.set('roadmapId', roadmap.roadmapId);
     }

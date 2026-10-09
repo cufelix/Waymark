@@ -4,6 +4,7 @@ const requestedId = new URLSearchParams(location.search).get('chapterId') || Liv
 let roadmap = null;
 let module = null;
 let chapter = null;
+let profile = null;
 let filter = 'Free first';
 
 function sourceLink(source, label = 'Source') {
@@ -17,6 +18,15 @@ function resourceMarkup(resource, top = false) {
 }
 
 function allChapters() { return roadmap.modules.flatMap((item) => item.chapters); }
+function isDone(item) { return Boolean(item.done || item.doneBy); }
+
+function chapterTimeText() {
+  const weekly = { 'under-5': 4, '5-10': 10, '10-20': 20, 'full-time': 40 }[profile?.preferences?.hoursPerWeek];
+  const resource = chapter.resources.find((item) => item.resourceId === chapter.topPickId) || chapter.resources[0];
+  if (!weekly || !Number.isFinite(resource?.effortHours)) return '';
+  const weeks = Math.max(1, Math.ceil(resource.effortHours / weekly));
+  return `About ${weeks} ${weeks === 1 ? 'week' : 'weeks'} at ${weekly}h a week`;
+}
 
 function renderResources() {
   const top = chapter.resources.find((resource) => resource.resourceId === chapter.topPickId) || chapter.resources[0];
@@ -31,24 +41,36 @@ function renderResources() {
 }
 
 function renderProgress() {
-  const chapters = allChapters(); const index = chapters.findIndex((item) => item.chapterId === chapter.chapterId); const next = chapters.slice(index + 1).find((item) => !item.done);
-  $('markDone').innerHTML = chapter.done ? 'Un-tick this chapter' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Mark as done';
-  $('markDone').onclick = () => setProgress(!chapter.done);
+  const chapters = allChapters();
+  const index = chapters.findIndex((item) => item.chapterId === chapter.chapterId);
+  const next = chapters.slice(index + 1).find((item) => !isDone(item));
+  const done = chapters.filter(isDone).length;
+  const chapterDone = isDone(chapter);
+  $('markDone').disabled = false;
+  $('markDone').innerHTML = chapterDone ? 'Un-tick this chapter' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Mark as done';
+  $('markDone').onclick = () => setProgress(!chapterDone);
   $('todo').querySelector('span').textContent = next ? 'Next up: ' + next.title : 'You can revisit any chapter from the roadmap.';
-  $('unlocked').hidden = true;
+  $('todo').hidden = chapterDone;
+  $('unlocked').hidden = !chapterDone;
+  $('nextTitle').textContent = next ? 'Unlocked: ' + next.title : 'Roadmap complete';
+  $('completionText').textContent = next
+    ? `Nice. That's ${done} of ${chapters.length}. Your next module is ready.`
+    : `Nice. That's ${done} of ${chapters.length}. Your roadmap is complete.`;
 }
 
 function render() {
   $('chapterTitle').textContent = chapter.title; document.title = 'Chapter: ' + chapter.title;
-  $('moduleMeta').textContent = module.title + ' · ' + module.subtitle;
+  const sectionIndex = roadmap.modules.findIndex((item) => item.moduleId === module.moduleId);
+  const chapterIndex = module.chapters.findIndex((item) => item.chapterId === chapter.chapterId);
+  $('moduleMeta').textContent = `Section ${sectionIndex + 1} · ${module.title} · Module ${chapterIndex + 1} of ${module.chapters.length}`;
   $('outcome').textContent = chapter.outcome;
   $('skillsMeta').textContent = chapter.skills.length ? chapter.skills.map((skill) => skill.label).join(' · ') : chapter.category;
   $('skillsMeta').hidden = !$('skillsMeta').textContent;
-  $('effortMeta').textContent = chapter.estimatedHours !== undefined ? `Planner estimate: about ${chapter.estimatedHours} hours` : '';
+  $('effortMeta').textContent = chapterTimeText();
   const demand = chapter.demand;
   const evidenceSources = (chapter.claims || []).flatMap((claim) => claim.sources || []).map((source) => sourceLink(source)).filter(Boolean).join(' · ');
   $('whyRow').innerHTML = `<span class="lbl">Why this matters</span><span style="font-size:16px">${demand ? `<b style="color:var(--accent-hover)">${demand.vacanciesRequiring} of ${demand.vacanciesTotal}</b> current ads ask for these skills` : esc(module.why)}</span>${demand ? (demand.sources || []).map((source) => sourceLink(source)).filter(Boolean).join(' · ') : ''}${evidenceSources ? `<span class="hint">Your evidence: ${evidenceSources}</span>` : ''}`;
-  $('heroTile').innerHTML = tile(chapter.done ? 'done' : 'current', chapter.done ? '✓' : 'logo', 96, 80);
+  $('heroTile').innerHTML = tile(isDone(chapter) ? 'done' : 'current', isDone(chapter) ? '✓' : 'logo', 96, 80);
   renderResources(); renderProgress();
 }
 
@@ -64,7 +86,11 @@ async function setProgress(done) {
 async function load() {
   if (!roadmapId || !requestedId) { Live.banner('Open a chapter from your roadmap first.', 'error'); return; }
   try {
-    roadmap = await Live.api('GET', '/v1/roadmaps/' + roadmapId);
+    const seekerId = await Live.seeker();
+    [roadmap, profile] = await Promise.all([
+      Live.api('GET', '/v1/roadmaps/' + roadmapId),
+      Live.api('GET', '/v1/seekers/' + seekerId + '/profile'),
+    ]);
     module = roadmap.modules.find((item) => item.chapters.some((candidate) => candidate.chapterId === requestedId));
     chapter = module?.chapters.find((candidate) => candidate.chapterId === requestedId);
     if (!chapter) throw new Error('This chapter is not in the stored roadmap');
