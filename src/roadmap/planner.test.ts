@@ -64,6 +64,23 @@ test("plans modules with the fast model and copies validation facts", async () =
   assert.deepEqual(python.resources, []);
 });
 
+test("passes weekly study time and education to the planner as scope context", async () => {
+  const llm = new FakeLlm([completeReply()]);
+  const profile = structuredClone(PROFILE);
+  profile.preferences.hoursPerWeek = "under-5";
+  profile.preferences.education = "none";
+
+  await planModules(VALIDATION, profile, { llm });
+
+  const system = llm.calls[0]!.messages[0]!.content as string;
+  const context = JSON.parse(llm.calls[0]!.messages[1]!.content as string) as Record<string, unknown>;
+  assert.equal(context.hoursPerWeek, "under-5");
+  assert.equal(context.education, "none");
+  assert.match(system, /under-5.*fewer, smaller chapters/);
+  assert.match(system, /education.*start from basics/);
+  assert.match(system, /estimatedHours.*only numeric time/);
+});
+
 test("drops unknown skill URIs without inventing a skill or demand", async () => {
   const llm = new FakeLlm([answer([
     chapter("Unknown foundation", "theory", ["https://example.com/not-an-esco-skill"], "Understand a useful foundation."),

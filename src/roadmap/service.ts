@@ -82,6 +82,7 @@ async function addResources(
           occupation,
           goal: request.profile.preferences.goal,
           langs: request.profile.preferences.languages.map(({ lang }) => lang),
+          courseBudget: request.profile.preferences.courseBudget,
         },
         { exa: deps.exa, llm: deps.llm, cache: deps.cache },
       );

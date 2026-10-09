@@ -262,23 +262,35 @@ function verifyCandidates(
   return resources;
 }
 
-function orderResources(resources: LearningResource[]): LearningResource[] {
+function sortResources(resources: LearningResource[]): LearningResource[] {
   const order: Record<LearningResource["cost"], number> = { free: 0, freemium: 1, paid: 2 };
   return resources.map((resource, index) => ({ resource, index }))
     .sort((a, b) => order[a.resource.cost] - order[b.resource.cost] || a.index - b.index)
-    .slice(0, 6)
     .map(({ resource }) => resource);
 }
 
-function pickTop(resources: LearningResource[], chapter: RoadmapChapter, goal: Roadmap["goal"]): string | undefined {
+function orderResources(resources: LearningResource[]): LearningResource[] {
+  return sortResources(resources).slice(0, 6);
+}
+
+function pickTop(
+  resources: LearningResource[],
+  chapter: RoadmapChapter,
+  goal: Roadmap["goal"],
+  courseBudget?: "free-only" | "some" | "any",
+): string | undefined {
   if (resources.length === 0) return undefined;
+  if (courseBudget === "free-only" && !resources.some(({ cost }) => cost === "free")) return undefined;
   const desiredLevel = chapter.done && chapter.doneBy === "evidence"
     ? "intermediate"
     : chapter.evidence === "none" || chapter.evidence === "stated" ? "beginner" : undefined;
   let candidates = resources.filter((resource) => resource.cost === "free" && (!desiredLevel || resource.level === desiredLevel));
   if (candidates.length === 0) {
-    const firstCost = resources[0]?.cost;
-    candidates = resources.filter(({ cost }) => cost === firstCost);
+    if (courseBudget === "free-only") candidates = resources.filter(({ cost }) => cost === "free");
+    else {
+      const firstCost = resources[0]?.cost;
+      candidates = resources.filter(({ cost }) => cost === firstCost);
+    }
   }
   if (goal === "learn-fast") {
     const active = candidates.find(({ format }) => format === "practice" || format === "video");
@@ -290,7 +302,7 @@ function pickTop(resources: LearningResource[], chapter: RoadmapChapter, goal: R
 /** Finds, verifies and orders resources for one chapter, with free resources first and one optional top pick. */
 export async function findResources(
   chapter: RoadmapChapter,
-  ctx: { occupation: Occupation; goal: Roadmap["goal"]; langs: string[] },
+  ctx: { occupation: Occupation; goal: Roadmap["goal"]; langs: string[]; courseBudget?: "free-only" | "some" | "any" },
   deps: ResourceDeps,
 ): Promise<{ resources: LearningResource[]; topPickId?: string }> {
   const lang = ctx.langs[0]?.trim() || "en";
@@ -298,8 +310,9 @@ export async function findResources(
   try {
     const cached = await deps.cache.get(key);
     if (cached !== undefined) {
-      const topPickId = pickTop(cached, chapter, ctx.goal);
-      return { resources: cached, ...(topPickId ? { topPickId } : {}) };
+      const resources = ctx.courseBudget === "free-only" ? sortResources(cached) : cached;
+      const topPickId = pickTop(resources, chapter, ctx.goal, ctx.courseBudget);
+      return { resources, ...(topPickId ? { topPickId } : {}) };
     }
   } catch {
     // A cache outage should not prevent a resource lookup.
@@ -346,7 +359,7 @@ export async function findResources(
     } catch {
       // The verified result is still useful when the cache cannot be written.
     }
-    const topPickId = pickTop(resources, chapter, ctx.goal);
+    const topPickId = pickTop(resources, chapter, ctx.goal, ctx.courseBudget);
     return { resources, ...(topPickId ? { topPickId } : {}) };
   } catch {
     return { resources: [] };
