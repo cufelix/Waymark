@@ -23,6 +23,14 @@ export const MODELS = {
 };
 
 // OpenRouter's OpenAI-compatible chat completions endpoint.
+/** Strips a ```json fence or text around a single JSON object; returns the input unchanged when there is none. */
+export function unfence(raw: string): string {
+  const inner = /```(?:json)?\s*([\s\S]*?)```/.exec(raw)?.[1] ?? raw;
+  const start = inner.indexOf("{");
+  const end = inner.lastIndexOf("}");
+  return start >= 0 && end > start ? inner.slice(start, end + 1) : raw;
+}
+
 export class OpenRouterClient implements LlmClient {
   apiKey: string;
   constructor(apiKey: string | undefined = process.env.OPENROUTER_API_KEY) {
@@ -38,7 +46,10 @@ export class OpenRouterClient implements LlmClient {
         model: req.model,
         messages: req.messages,
         temperature: req.temperature ?? 0.2,
-        ...(req.json ? { response_format: { type: "json_object" } } : {}),
+        // JSON mode through OpenRouter cuts Claude's longer replies off mid-object; unfence() parses plain replies instead.
+        ...(req.json && !req.model.startsWith("anthropic/") ? { response_format: { type: "json_object" } } : {}),
+        // Reasoning (on by default) spends the token budget before the answer; structured replies don't need it.
+        ...(req.json ? { reasoning: { effort: "minimal" } } : {}),
       }),
     });
     // The upstream body can echo prompts or account details, so clients only get the status.
@@ -46,7 +57,8 @@ export class OpenRouterClient implements LlmClient {
     const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     const content = body.choices?.[0]?.message?.content;
     if (typeof content !== "string") throw new ApiError("upstream_failed", "OpenRouter returned no content");
-    return content;
+    // Claude via OpenRouter often wraps JSON-mode replies in a ```json fence; hand callers the bare object.
+    return req.json ? unfence(content) : content;
   }
 }
 

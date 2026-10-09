@@ -29,6 +29,34 @@ test("memory store updates are isolated copies", async () => {
   await assert.rejects(s.update("skr_x", (r) => r), /does not exist/);
 });
 
+test("memory store updates a seeker record and intake as one transaction", async () => {
+  const s = new MemoryStore();
+  const rec: any = { profile: { seekerId: "skr_1", profileVersion: 1 }, interview: [], draft: {}, cvTexts: {} };
+  const intake: any = {
+    seekerId: "skr_1",
+    phase: "cards",
+    warmup: { questions: [], answers: [] },
+    cards: { rated: [], done: false },
+    paths: [],
+    deck: { country: "CZ", version: "fake-0" },
+  };
+  await s.create(rec);
+  await s.putIntake(intake);
+
+  const updated = await s.updateRecordAndIntake("skr_1", (record, current) => ({
+    record: { ...record, profile: { ...record.profile, profileVersion: 2 } },
+    intake: { ...current, phase: "chat" },
+  }));
+  assert.equal(updated.record.profile.profileVersion, 2);
+  assert.equal(updated.intake.phase, "chat");
+
+  await assert.rejects(s.updateRecordAndIntake("skr_1", () => {
+    throw new Error("transaction failed");
+  }), /transaction failed/);
+  assert.equal((await s.get("skr_1"))!.profile.profileVersion, 2);
+  assert.equal((await s.getIntake("skr_1"))!.phase, "chat");
+});
+
 test("fake llm returns queued answers", async () => {
   const llm = new FakeLlm(["a"]);
   assert.equal(await llm.chat({ model: "m", messages: [] }), "a");
@@ -51,4 +79,11 @@ test("stated skills merge by uri and drop when sources are removed", () => {
   assert.equal(merged[0].sources.length, 2);
   assert.equal(removeSources(merged, "seeker-upload://doc_A")[0].sources.length, 1);
   assert.equal(removeSources(removeSources(merged, "seeker-upload://doc_A"), "seeker-interview://").length, 0);
+});
+
+test("unfence strips a json fence from JSON-mode replies", async () => {
+  const { unfence } = await import("../llm/llm.ts");
+  assert.equal(unfence('```json\n{"a":1}\n```'), '{"a":1}');
+  assert.equal(unfence('{"a":1}'), '{"a":1}');
+  assert.equal(unfence("no json here"), "no json here");
 });

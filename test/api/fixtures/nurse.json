@@ -1,0 +1,50 @@
+{
+  "seekerId": "skr_fixture_nurse",
+  "profileVersion": 3,
+  "status": "complete",
+  "consent": {
+    "dataProcessing": true,
+    "nameSearch": false,
+    "givenAt": "2026-10-08T20:00:00Z",
+    "policyVersion": "2026-10"
+  },
+  "preferences": {
+    "targetOccupations": [
+      {
+        "uri": "http://data.europa.eu/esco/occupation/8d3e8aaa-791b-4c75-a465-f3f827028f50",
+        "label": "nurse responsible for general care",
+        "lang": "en"
+      }
+    ],
+    "locations": [
+      {
+        "country": "DE",
+        "city": "Berlin"
+      }
+    ],
+    "remote": "no",
+    "goal": "stability",
+    "dreamCompanies": [
+      {
+        "name": "Charit\u00e9"
+      }
+    ],
+    "dealBreakers": [
+      "no unpaid overtime"
+    ],
+    "languages": [
+      {
+        "lang": "cs",
+        "level": "native"
+      },
+      {
+        "lang": "en",
+        "level": "fluent"
+      }
+    ]
+  },
+  "statedSkills": [],
+  "documents": [],
+  "links": [],
+  "updatedAt": "2026-10-08T20:03:00Z"
+}

@@ -88,6 +88,19 @@ test("preferences: enums, country, currency, language, salary", () => {
   rejects(() => validatePreferences({ ...validPreferences(), dreamCompanies: [{ name: "X", url: "ftp://x.example.com" }] }), "unprocessable", /dreamCompanies\[0\]\.url/);
 });
 
+test("preferences: guided intake fields accept only their contract enums", () => {
+  const guided = {
+    ...validPreferences(),
+    hoursPerWeek: "10-20",
+    courseBudget: "some",
+    education: "vocational",
+  };
+  assert.deepEqual(validatePreferences(guided), guided);
+  rejects(() => validatePreferences({ ...guided, hoursPerWeek: "weekends" }), "unprocessable", /^hoursPerWeek: must be one of/);
+  rejects(() => validatePreferences({ ...guided, courseBudget: "expensive" }), "unprocessable", /^courseBudget: must be one of/);
+  rejects(() => validatePreferences({ ...guided, education: "doctorate" }), "unprocessable", /^education: must be one of/);
+});
+
 test("standards", () => {
   assert.equal(country("CZ", "c"), "CZ");
   for (const bad of ["UK", "EU", "XX", "cz", "CZE", 1]) rejects(() => country(bad, "c"), "unprocessable");
@@ -107,18 +120,35 @@ test("links: valid list, bad kind, bad url, duplicates, unknown field", () => {
     { url: "https://a.example.com", kind: "portfolio" },
   ];
   assert.deepEqual(validateLinks({ links }), links);
+  assert.deepEqual(validateLinks({ links: [{ url: "https://unknown.example.com" }] }), [{ url: "https://unknown.example.com" }]);
+  assert.deepEqual(validateLinks({ links: [links[1], { ...links[1], kind: "publication" }] }), [
+    links[1],
+    { ...links[1], kind: "publication" },
+  ]);
   assert.deepEqual(validateLinks({ links: [] }), []);
   rejects(() => validateLinks({ links: [{ url: "https://a.example.com", kind: "blog" }] }), "unprocessable", /links\[0\]\.kind/);
   rejects(() => validateLinks({ links: [{ url: "mailto:a@example.com", kind: "other" }] }), "unprocessable", /links\[0\]\.url/);
   rejects(() => validateLinks({ links: [links[0], links[0]] }), "unprocessable", /links\[1\]: duplicate of links\[0\]/);
+  rejects(
+    () => validateLinks({ links: [{ url: links[0].url }, links[0]] }),
+    "unprocessable",
+    /links\[1\]: duplicate of links\[0\]/,
+  );
+  rejects(
+    () => validateLinks({ links: [links[0], { url: links[0].url }] }),
+    "unprocessable",
+    /links\[1\]: duplicate of links\[0\]/,
+  );
   rejects(() => validateLinks({ links: [{ ...links[0], id: "lnk_x" }] }), "unprocessable", /links\[0\]\.id: unknown field/);
   rejects(() => validateLinks(links), "unprocessable", /body: must be an object/);
 });
 
-test("interview message: empty text allowed, unknown field rejected", () => {
+test("interview message: empty text allowed, exact shape and 4000-character limit enforced", () => {
   assert.deepEqual(validateInterviewMessage({ text: "" }), { text: "" });
+  assert.equal(validateInterviewMessage({ text: "x".repeat(4000) }).text.length, 4000);
   rejects(() => validateInterviewMessage({ text: "hi", role: "agent" }), "unprocessable", /role: unknown field/);
   rejects(() => validateInterviewMessage({ text: 1 }), "unprocessable", /^text/);
+  rejects(() => validateInterviewMessage({ text: "x".repeat(4001) }), "unprocessable", /at most 4000 characters/);
 });
 
 const FIXTURES = join(import.meta.dirname, "../../../fixtures/profiles");
@@ -155,4 +185,38 @@ test("profile validator rejects proven tiers, foreign subjects and wrong status"
   const extra = structuredClone(raw);
   extra.score = 87;
   rejects(() => validateSeekerProfile(extra), "unprocessable", /^score: unknown field/);
+});
+
+test("profile validator accepts every document kind and links without a kind", () => {
+  const raw = JSON.parse(readFileSync(join(FIXTURES, "junior-backend-prague.json"), "utf8"));
+  for (const kind of ["cv", "certificate", "portfolio", "image", "other"]) {
+    const profile = structuredClone(raw);
+    profile.documents[0].kind = kind;
+    assert.equal(validateSeekerProfile(profile).documents[0].kind, kind);
+  }
+  const untypedLink = structuredClone(raw);
+  delete untypedLink.links[0].kind;
+  assert.equal("kind" in validateSeekerProfile(untypedLink).links[0], false);
+
+  const invalid = structuredClone(raw);
+  invalid.documents[0].kind = "transcript";
+  rejects(() => validateSeekerProfile(invalid), "unprocessable", /documents\[0\]\.kind/);
+});
+
+test("profile validator accepts and rejects guided intake preference enums", () => {
+  const raw = JSON.parse(readFileSync(join(FIXTURES, "junior-backend-prague.json"), "utf8"));
+  raw.preferences.hoursPerWeek = "5-10";
+  raw.preferences.courseBudget = "free-only";
+  raw.preferences.education = "bachelor";
+  assert.deepEqual(validateSeekerProfile(raw).preferences, raw.preferences);
+
+  for (const [field, value] of [
+    ["hoursPerWeek", "sometimes"],
+    ["courseBudget", "lots"],
+    ["education", "phd"],
+  ]) {
+    const invalid = structuredClone(raw);
+    invalid.preferences[field] = value;
+    rejects(() => validateSeekerProfile(invalid), "unprocessable", new RegExp(`preferences\\.${field}`));
+  }
 });

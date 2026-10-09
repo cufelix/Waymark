@@ -200,6 +200,7 @@ type RoadmapNode = {
 };
 
 type Roadmap = { seekerId: string; occupation: string; goal: "learn-fast" | "stability" | "mission"; modules: { name: string; nodes: RoadmapNode[] }[] };
+// Superseded by API.md "Part 4: Roadmap" (Roadmap, RoadmapModule, RoadmapChapter, LearningResource).
 ```
 
 **Guardrail baked into the contracts:** there is no number that summarises a person. That means:
@@ -247,7 +248,7 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 | A8 | Registry adapters for the pilot countries (company status, insolvency where public) | each claim tier "verified" with its register link; adding a country means adding one adapter |
 | A9 | Validation layer: provenance and verbatim-quote check, evidence tiers, freshness, double extraction on a sample | invalid claims never reach the API (tests) |
 | A10 | Ghost-job signals from post history | shown only after the minimum observation window |
-| A11 | Gap engine: `SkillDemand` per city and role, `Gap` per seeker, goal-based ordering (never by fit) | API returns gaps for a real seeker |
+| A11 | Gap engine: `SkillDemand` per city and role, `Gap` per seeker, goal-based ordering (never by fit) | API returns gaps for a real seeker. The per-seeker gap now lives in B8 (Stage 3); A11 keeps `SkillDemand` |
 | A15 | Top 3 career paths early in the run: the `career-paths` step first, each path with its career ladder (junior → mid → senior → lead → executive) and a sourced salary per step from job ads and salary sites (API.md `CareerStep`), so the seeker has something to read and choose while the rest of the research runs | `GET /v1/research-runs/{runId}/career-paths` answers while the run is `running`; no salary without a source |
 | A12 | API endpoints for companies, demand, gaps, roadmap, review queue; rate limiting | the app's screens run on the real API |
 | A13 | Cost ledger: every Apify, Firecrawl, Exa and Claude call recorded, with a hard monthly cap per tool | a run stops at the cap and alerts |
@@ -262,6 +263,10 @@ Each issue is about half a day or less, with tests. "Done" means merged to `main
 | B4 | Link check: fetch each link the seeker gave (A's Firecrawl client), read it, turn what it shows into *proven* claims; optional opt-in name search with Exa | a shared project link proves its skill with a stored snapshot |
 | B5 | Account privacy: view, export, delete everything | delete removes all seeker rows and snapshots |
 | B6 | Career choice: the seeker picks one of the run's top 3 career paths (`PUT /v1/seekers/{seekerId}/career-choice`), checked against Part 2 and stored as `profile.careerChoice` | an occupation the run did not return is rejected; the choice is in the profile and the export |
+| B7 | Salary lookup in the interview: when the seeker asks about pay, one quick Exa search answers with an indicative range, every figure backed by a verbatim quote from a linked page (API.md "Salary lookup in the interview") | an invented or unquoted number never reaches the seeker; the pages are in the interview turn and the export |
+| B8 | Stage 3 validation in `src/gap/` (API.md "Part 3: Validation"): per-skill demand next to the seeker's evidence, company requirements, the typical job across markets, market facts instead of a chance number; mounted through `src/api/part3.ts`; included in Part 1's export and delete | a real run and profile give a validation where every fact has a source and nothing summarises the seeker in one number |
+| B9 | Stage 4 roadmap in `src/roadmap/` (API.md "Part 4: Roadmap"): modules in prerequisite order, chapters per skill with demand and the seeker's evidence copied from the validation, a target ladder step backed by market facts, learning resources found with Exa and labelled from the page (free first, top pick), the seeker's own done tick; mounted through `src/api/part4.ts`; included in Part 1's export and delete | a real validation gives a roadmap where every number and every resource has a source, and nothing summarises the seeker in one number |
+| B10 | Guided intake (API.md "Guided intake"), matching the UI prototype: warm-up questions, adaptive task cards from a prebuilt per-country deck of real ads (`scripts/build-task-deck.ts`, every card with a verbatim quote), practical bits (hours per week, course budget, education), an "Anything else?" chat with the interview agent for dream companies, languages, deal breakers and pay questions (free warm-up answers go through it too), top 3 paths by the seeker's own interest become `targetOccupations` | a seeker reaches a complete profile through the cards alone; every card has its ad as a source; no score anywhere |
 
 ### App UI (owner to be decided)
 | # | Issue | Done when |

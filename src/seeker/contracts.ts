@@ -2,6 +2,8 @@
 // Temporary home until @cufelix lands src/contracts.ts; then this file re-exports from there.
 // The field names are the contract: change API.md first, then this file.
 
+import type { Roadmap } from "../roadmap/contracts.ts";
+
 // ---------- shared ----------
 export type ISODate = string; // "2026-10-08T21:00:00Z"
 export type Country = string; // ISO 3166-1 alpha-2, "CZ"
@@ -49,15 +51,18 @@ export type CareerPreferences = {
   dealBreakers: string[];
   languages: { lang: string; level: "basic" | "working" | "fluent" | "native" }[];
   salaryExpectation?: { min: number; currency: string; period: "month" | "year" };
+  hoursPerWeek?: "under-5" | "5-10" | "10-20" | "full-time";
+  courseBudget?: "free-only" | "some" | "any";
+  education?: "none" | "secondary" | "vocational" | "bachelor" | "master-or-higher";
 };
 
 export type CareerPreferencesDraft = Partial<CareerPreferences>;
 
-export type InterviewTurn = { role: "agent" | "seeker"; text: string; at: ISODate };
+export type InterviewTurn = { role: "agent" | "seeker"; text: string; at: ISODate; sources?: Source[] };
 
 export type SeekerDocument = {
   id: string; // "doc_…"
-  kind: "cv";
+  kind: "cv" | "certificate" | "portfolio" | "image" | "other";
   fileName: string;
   uploadedAt: ISODate;
   statedSkills: Claim[]; // tier "stated", source tool "seeker-upload"
@@ -67,7 +72,7 @@ export type SeekerDocument = {
 
 export type SeekerLinkInput = {
   url: string;
-  kind: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other";
+  kind?: "portfolio" | "github" | "linkedin" | "social" | "certificate" | "publication" | "other";
 };
 export type SeekerLink = SeekerLinkInput & { id: string; addedAt: ISODate }; // "lnk_…"
 
@@ -90,8 +95,63 @@ export type CareerChoice = {
   chosenAt: ISODate;
 };
 
+export type TaskCard = {
+  cardId: string; // "crd_…", stable within a deck
+  text: string;
+  occupation: Occupation; // revealed after the rating
+  related: { occupation: Occupation; weight: number }[];
+  source: Source; // source.quote is verbatim text from the job ad
+};
+
+export type IntakeCurrentCard = {
+  cardId: string;
+  text: string;
+  source: Pick<Source, "id" | "fetchedAt" | "tool" | "quote" | "contentHash" | "snapshotKey">;
+};
+
+export type IntakePractical = {
+  locations: { country: Country; city?: string }[];
+  remote: "only" | "ok" | "no";
+  hoursPerWeek: CareerPreferences["hoursPerWeek"];
+  courseBudget: CareerPreferences["courseBudget"];
+  education: CareerPreferences["education"];
+  languages: CareerPreferences["languages"]; // at least one
+  dreamCompanies: CareerPreferences["dreamCompanies"]; // [] = "none yet"
+};
+
+export type Intake = {
+  seekerId: string;
+  phase: "warmup" | "cards" | "practical" | "chat" | "done";
+  warmup: {
+    questions: { key: string; text: string; options: string[] }[];
+    answers: { key: string; answer: string; mappedTo: string[]; reply?: string }[];
+    currentKey?: string;
+  };
+  cards: {
+    current?: IntakeCurrentCard;
+    rated: { card: TaskCard; rating: "like" | "maybe" | "no"; at: ISODate }[];
+    done: boolean;
+  };
+  paths: {
+    occupation: Occupation;
+    liked: number;
+    maybe: number;
+    notForMe: number;
+    top3: boolean;
+  }[];
+  practical?: IntakePractical;
+  deck: { country: Country; version: string };
+};
+
 // ResearchRun is Part 2's type; Part 1 only passes it through in the export.
-export type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; researchRuns: unknown[] };
+export type SeekerExport = {
+  profile: SeekerProfile;
+  interview: InterviewTurn[];
+  intake?: Intake;
+  researchRuns: unknown[];
+  validations: unknown[];
+  roadmaps: Roadmap[];
+};
 
 // ---------- Part 2: research ----------
 export type CareerPath = {
