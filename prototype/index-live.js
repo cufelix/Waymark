@@ -20,6 +20,12 @@ let recorder = null;
 let recordingStream = null;
 let audio = null;
 let chatOpened = false;
+let returningFromMore = false;
+let researchStarting = false;
+let orbLevel = 0;
+let meter = null;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const mapState = { nodes: [], links: [], byId: new Map(), width: 328, height: 300, drag: null, hover: null };
 
 function show(phase) {
   state.phase = phase;
@@ -113,7 +119,14 @@ async function rate(kind) {
     state.intake = next; renderSide();
     const advance = () => {
       $('task').classList.add('out-down'); $('taskWrap').classList.add('advance');
-      setTimeout(() => { state.busy = false; state.intake.cards.done ? show('practical') : showCard(); }, 420);
+      setTimeout(() => {
+        state.busy = false;
+        if (!state.intake.cards.done) return showCard();
+        if (returningFromMore && state.intake.practical) return startResearch();
+        if (state.intake.phase === 'chat') return show('finalChat');
+        if (state.intake.phase === 'done') return show('cv');
+        show('practical');
+      }, 420);
     };
     if (voice) say(reveal, advance); else setTimeout(advance, 650);
   } catch (error) {
@@ -240,10 +253,11 @@ function renderLinks() {
   $('links').querySelectorAll('[data-link-i]').forEach((button) => button.onclick = () => { state.links.splice(Number(button.dataset.linkI), 1); renderLinks(); renderSide(); });
 }
 
-async function finish() {
+async function startResearch() {
+  if (researchStarting) return;
+  researchStarting = true;
   setVoice(false);
   try {
-    await Live.api('PUT', '/v1/seekers/' + seekerId + '/links', { links: state.links.map((url) => ({ url, kind: linkKind(url) })) });
     const profile = await Live.api('GET', '/v1/seekers/' + seekerId + '/profile');
     if (profile.status !== 'complete') throw new Error('The guided intake is not complete yet');
     const run = await Live.api('POST', '/v1/research-runs', { profile, options: { nameSearch: profile.consent.nameSearch } });
@@ -252,7 +266,17 @@ async function finish() {
     Live.store.set('roadmapId', null);
     Live.store.set('chapterId', null);
     location.href = Live.href('research.html');
-  } catch (error) { Live.banner('Could not start the research: ' + error.message, 'error'); }
+  } catch (error) {
+    researchStarting = false;
+    Live.banner('Could not start the research: ' + error.message, 'error');
+  }
+}
+
+async function finish() {
+  try {
+    await Live.api('PUT', '/v1/seekers/' + seekerId + '/links', { links: state.links.map((url) => ({ url, kind: linkKind(url) })) });
+    await startResearch();
+  } catch (error) { Live.banner('Could not save your links: ' + error.message, 'error'); }
 }
 
 function renderFacts() {
@@ -278,20 +302,88 @@ function renderExpect() {
   }
 }
 
+function addMapNode(id, kind, label, x, y) {
+  const group = document.createElementNS(SVG_NS, 'g');
+  const circle = document.createElementNS(SVG_NS, 'circle'); circle.setAttribute('class', 'nd'); group.appendChild(circle);
+  if (label) { const text = document.createElementNS(SVG_NS, 'text'); text.setAttribute('text-anchor', 'middle'); text.textContent = label; group.appendChild(text); }
+  const node = { id, kind, label, x, y, vx: 0, vy: 0, r: 4, group, circle, text: group.querySelector('text') };
+  group.addEventListener('pointerdown', (event) => { mapState.drag = node; group.setPointerCapture(event.pointerId); });
+  group.addEventListener('pointerenter', () => { mapState.hover = node; paintMapHover(); });
+  group.addEventListener('pointerleave', () => { mapState.hover = null; paintMapHover(); });
+  $('map').appendChild(group); mapState.nodes.push(node); mapState.byId.set(id, node);
+  return node;
+}
+
+function addMapLink(a, b, kind) {
+  const existing = mapState.links.find((link) => link.a === a && link.b === b && link.kind === kind);
+  if (existing) return existing;
+  const element = document.createElementNS(SVG_NS, 'line'); element.setAttribute('class', 'lnk ' + kind);
+  $('map').insertBefore(element, $('map').firstChild);
+  const link = { a, b, kind, element, length: 100 }; mapState.links.push(link); return link;
+}
+
+function paintMapHover() {
+  $('mapBox').classList.toggle('hovering', Boolean(mapState.hover));
+  mapState.nodes.forEach((node) => node.group.classList.remove('hl'));
+  mapState.links.forEach((link) => link.element.classList.remove('hl'));
+  if (!mapState.hover) return;
+  mapState.hover.group.classList.add('hl');
+  mapState.links.forEach((link) => {
+    if (link.a === mapState.hover || link.b === mapState.hover) {
+      link.element.classList.add('hl'); link.a.group.classList.add('hl'); link.b.group.classList.add('hl');
+    }
+  });
+}
+
 function renderMap() {
   const paths = state.intake?.paths || [];
   const rated = state.intake?.cards.rated || [];
-  $('map').innerHTML = '';
-  const ns = 'http://www.w3.org/2000/svg';
-  const you = document.createElementNS(ns, 'g'); you.setAttribute('transform', 'translate(164,150)'); you.innerHTML = '<circle r="9" fill="#0D0F0C" stroke="#B8F25B" stroke-width="2.5"></circle><text text-anchor="middle" dy="24">You</text>'; $('map').appendChild(you);
+  const you = mapState.byId.get('you') || addMapNode('you', 'you', 'You', mapState.width / 2, mapState.height / 2);
+  you.r = 9; you.circle.setAttribute('r', '9'); you.circle.setAttribute('fill', '#0D0F0C'); you.circle.setAttribute('stroke', '#B8F25B'); you.circle.setAttribute('stroke-width', '2.5'); you.group.classList.add('top');
   paths.slice(0, 8).forEach((path, i) => {
     const angle = (i / Math.max(paths.length, 1)) * Math.PI * 2 - Math.PI / 2;
     const distance = path.top3 ? 78 + i * 9 : 128;
-    const x = 164 + Math.cos(angle) * distance, y = 150 + Math.sin(angle) * distance;
-    const line = document.createElementNS(ns, 'line'); line.setAttribute('x1', '164'); line.setAttribute('y1', '150'); line.setAttribute('x2', x); line.setAttribute('y2', y); line.setAttribute('class', 'lnk path'); $('map').insertBefore(line, you);
-    const g = document.createElementNS(ns, 'g'); g.setAttribute('transform', `translate(${x},${y})`); g.innerHTML = `<circle class="nd" r="${path.top3 ? 9 : 6}" fill="${path.top3 ? '#B8F25B' : '#5A6452'}"></circle><text text-anchor="middle" dy="22">${esc(path.occupation.label)}</text>`; $('map').appendChild(g);
-    rated.filter((item) => item.card.occupation.uri === path.occupation.uri).slice(0, 5).forEach((item, j) => { const dot = document.createElementNS(ns, 'circle'); dot.setAttribute('cx', x + 15 + j * 5); dot.setAttribute('cy', y - 12 + j * 3); dot.setAttribute('r', '3'); dot.setAttribute('fill', item.rating === 'like' ? '#D4FA92' : '#6F7869'); $('map').appendChild(dot); });
+    const id = 'path:' + path.occupation.uri;
+    const node = mapState.byId.get(id) || addMapNode(id, 'path', path.occupation.label, 164 + Math.cos(angle) * distance, 150 + Math.sin(angle) * distance);
+    node.r = path.top3 ? 9 : 6; node.top3 = path.top3;
+    node.circle.setAttribute('fill', path.top3 ? '#B8F25B' : '#5A6452'); node.circle.setAttribute('r', String(node.r));
+    node.group.classList.toggle('top', path.top3); if (node.text) node.text.setAttribute('dy', String(node.r + 13));
+    const link = addMapLink(you, node, 'path'); link.length = path.top3 ? 78 + Math.min(i, 2) * 9 : 128; link.element.setAttribute('stroke-width', path.top3 ? '2' : '.7'); link.element.style.stroke = path.top3 ? '#5C8F2A' : '#3A4134';
   });
+  rated.forEach((item, i) => {
+    const parent = mapState.byId.get('path:' + item.card.occupation.uri); if (!parent) return;
+    const id = 'task:' + item.card.cardId; let node = mapState.byId.get(id);
+    if (!node) {
+      node = addMapNode(id, 'task', '', parent.x + 12 + (i % 3) * 5, parent.y - 10 + (i % 4) * 4);
+      const title = document.createElementNS(SVG_NS, 'title'); title.textContent = item.card.text; node.group.appendChild(title);
+    }
+    node.r = 3; node.circle.setAttribute('r', '3'); node.circle.setAttribute('fill', item.rating === 'like' ? '#D4FA92' : item.rating === 'maybe' ? '#6F7869' : '#3A3F37');
+    addMapLink(parent, node, 'task').length = 26;
+  });
+}
+
+function stepMap() {
+  const nodes = mapState.nodes;
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const a = nodes[i], b = nodes[j]; let dx = b.x - a.x, dy = b.y - a.y; const squared = dx * dx + dy * dy || .01;
+    const force = (a.kind === 'task' || b.kind === 'task' ? 120 : 900) / squared; const distance = Math.sqrt(squared); dx /= distance; dy /= distance;
+    a.vx -= dx * force; a.vy -= dy * force; b.vx += dx * force; b.vy += dy * force;
+  }
+  mapState.links.forEach((link) => {
+    const dx = link.b.x - link.a.x, dy = link.b.y - link.a.y, distance = Math.sqrt(dx * dx + dy * dy) || .01;
+    const force = (distance - link.length) * .03, fx = dx / distance * force, fy = dy / distance * force;
+    link.a.vx += fx; link.a.vy += fy; link.b.vx -= fx; link.b.vy -= fy;
+  });
+  nodes.forEach((node) => {
+    if (node.kind === 'you' && node !== mapState.drag) { node.vx += (mapState.width / 2 - node.x) * .05; node.vy += (mapState.height / 2 - node.y) * .05; }
+    if (node === mapState.drag) return;
+    node.vx *= .82; node.vy *= .82; const marginX = node.kind === 'path' ? 52 : node.r + 4;
+    node.x = Math.max(marginX, Math.min(mapState.width - marginX, node.x + node.vx));
+    node.y = Math.max(node.r + 4, Math.min(mapState.height - node.r - 18, node.y + node.vy));
+  });
+  nodes.forEach((node) => node.group.setAttribute('transform', `translate(${node.x.toFixed(1)},${node.y.toFixed(1)})`));
+  mapState.links.forEach((link) => { link.element.setAttribute('x1', String(link.a.x)); link.element.setAttribute('y1', String(link.a.y)); link.element.setAttribute('x2', String(link.b.x)); link.element.setAttribute('y2', String(link.b.y)); });
+  requestAnimationFrame(stepMap);
 }
 
 function renderSide() { renderFacts(); renderExpect(); renderMap(); renderVoiceUI(); }
@@ -301,11 +393,13 @@ function setBar(mode, title, sub) {
   document.body.classList.remove('v-speaking', 'v-listening', 'v-idle'); document.body.classList.add('v-' + mode);
   if (mode === 'speaking') { $('vCaption').textContent = sub || ''; $('vTranscript').textContent = ''; }
   else $('vTranscript').textContent = sub || '';
+  if (mode !== 'listening') stopMeter();
 }
 
 function browserSpeech(text, then) {
   if (!('speechSynthesis' in window)) { then?.(); return; }
   speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.rate = 1.03;
+  utterance.onboundary = () => { orbLevel = .7 + Math.random() * .3; };
   utterance.onend = () => { if (voice) then ? then() : listen(); };
   utterance.onerror = () => { if (voice) then?.(); };
   speechSynthesis.speak(utterance);
@@ -336,6 +430,7 @@ function listen() {
     recognition.onerror = () => {};
     recognition.onend = () => { if (!handled && voice) setBar('idle', 'Didn’t catch that', 'Tap the mic to try again, or tap an answer'); };
     setBar('listening', 'Listening…', 'Say it in your own words');
+    startMeter();
     try { recognition.start(); } catch {}
     return;
   }
@@ -380,22 +475,58 @@ function handleVoice(text) {
 
 function setVoice(enabled) {
   voice = enabled;
-  if (!voice) { if (audio) audio.pause(); if ('speechSynthesis' in window) speechSynthesis.cancel(); stopListening(); document.body.classList.remove('v-speaking', 'v-listening', 'v-idle'); }
+  if (!voice) { if (audio) audio.pause(); if ('speechSynthesis' in window) speechSynthesis.cancel(); stopListening(); stopMeter(); document.body.classList.remove('v-speaking', 'v-listening', 'v-idle'); }
   renderVoiceUI();
 }
 
 function renderVoiceUI() {
   const inFlow = state.phase !== 'mode'; const enabled = voice && inFlow;
   $('vbar').hidden = !enabled; $('voiceOn').hidden = voice || !inFlow; document.body.classList.toggle('voice-mode', enabled);
-  if (!enabled) return;
+  if (!enabled) { $('vActions').innerHTML = ''; return; }
   $('vStep').textContent = $('expectNote').textContent; $('vFacts').innerHTML = $('facts').innerHTML;
+  $('vActions').innerHTML = state.phase === 'cv'
+    ? '<label class="alt" for="file" style="cursor:pointer">Upload CV</label><button class="alt" type="button" id="vSkip">Skip</button>'
+    : '';
+  if ($('vSkip')) $('vSkip').onclick = finish;
+}
+
+async function startMeter() {
+  if (meter || !navigator.mediaDevices) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = context.createAnalyser(); analyser.fftSize = 512; context.createMediaStreamSource(stream).connect(analyser);
+    meter = { stream, context, analyser, buffer: new Uint8Array(analyser.fftSize) };
+  } catch {}
+}
+
+function stopMeter() {
+  if (!meter) return;
+  meter.stream.getTracks().forEach((track) => track.stop()); meter.context.close(); meter = null;
+}
+
+function animateOrb(time) {
+  if (meter) {
+    meter.analyser.getByteTimeDomainData(meter.buffer);
+    let sum = 0; for (const value of meter.buffer) sum += ((value - 128) / 128) ** 2;
+    orbLevel = Math.max(orbLevel, Math.min(1, Math.sqrt(sum / meter.buffer.length) * 6));
+  }
+  orbLevel *= .9;
+  const breathe = Math.sin(time / 900) * .03;
+  $('orb').style.transform = `scale(${(1 + breathe + orbLevel * .22).toFixed(3)})`;
+  $('orbGlow').style.opacity = (.55 + orbLevel * .45).toFixed(2);
+  requestAnimationFrame(animateOrb);
 }
 
 async function loadIntake(more) {
   try {
     seekerId = await Live.seeker();
     state.intake = await Live.api('GET', '/v1/seekers/' + seekerId + '/intake');
-    if (more) state.intake = await Live.api('POST', '/v1/seekers/' + seekerId + '/intake/cards/more');
+    if (more) {
+      returningFromMore = true;
+      state.intake = await Live.api('POST', '/v1/seekers/' + seekerId + '/intake/cards/more');
+    }
+    if (returningFromMore && state.intake.cards.done && state.intake.practical) return startResearch();
     if (state.intake.phase === 'warmup') show('chat');
     else if (state.intake.phase === 'cards') show(more || state.intake.cards.rated.length ? 'cards' : 'bridge');
     else if (state.intake.phase === 'practical') show('practical');
@@ -430,9 +561,21 @@ document.addEventListener('keydown', (event) => { if (state.phase !== 'cards') r
 
 const minimap = $('minimap'); let mapPinned = false; let mapTimer;
 const setMapOpen = (open) => { minimap.classList.toggle('open', open); minimap.setAttribute('aria-expanded', String(open)); };
+$('map').addEventListener('pointermove', (event) => {
+  if (!mapState.drag) return;
+  const bounds = $('map').getBoundingClientRect();
+  mapState.drag.x = (event.clientX - bounds.left) * (mapState.width / bounds.width);
+  mapState.drag.y = (event.clientY - bounds.top) * (mapState.height / bounds.height);
+  mapState.drag.vx = 0; mapState.drag.vy = 0;
+});
+window.addEventListener('pointerup', () => { mapState.drag = null; });
 minimap.addEventListener('mouseenter', () => { clearTimeout(mapTimer); mapTimer = setTimeout(() => setMapOpen(true), 140); });
-minimap.addEventListener('mouseleave', () => { clearTimeout(mapTimer); if (!mapPinned) mapTimer = setTimeout(() => setMapOpen(false), 260); });
-minimap.addEventListener('click', () => { mapPinned = !mapPinned; setMapOpen(mapPinned); });
+minimap.addEventListener('mouseleave', () => { clearTimeout(mapTimer); if (!mapPinned && !mapState.drag) mapTimer = setTimeout(() => setMapOpen(false), 260); });
+minimap.addEventListener('click', (event) => { if (event.target.closest('.nd')) return; mapPinned = !mapPinned; setMapOpen(mapPinned); });
+minimap.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); mapPinned = !mapPinned; setMapOpen(mapPinned); } });
+document.addEventListener('click', (event) => { if (!minimap.contains(event.target) && !mapState.drag) { mapPinned = false; setMapOpen(false); } });
 
 show('mode');
 if (new URLSearchParams(location.search).has('more')) { setVoice(false); loadIntake(true); }
+requestAnimationFrame(stepMap);
+requestAnimationFrame(animateOrb);
