@@ -14,7 +14,10 @@ const Env = z.object({
   // Local UI bridge: requests must come from this machine.
   UI_LOCAL: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Public fake-data demo bridge: requests must match this exact origin.
-  UI_PUBLIC_ORIGIN: z.url().transform((value) => new URL(value).origin).optional(),
+  UI_PUBLIC_ORIGIN: z.url()
+    .refine((value) => ["http:", "https:"].includes(new URL(value).protocol), "must be an HTTP(S) origin")
+    .transform((value) => new URL(value).origin)
+    .optional(),
   // Trust Cloudflare's client IP header only when all public traffic actually comes through Cloudflare.
   TRUST_CLOUDFLARE: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Keys the seekers' ownership proof tokens. Set a long random value in production; changing it invalidates existing tokens.

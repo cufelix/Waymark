@@ -7,7 +7,7 @@ services:
     environment:
       ROLE: all
       PORT: 8787
-      DATABASE_URL: postgres://research:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/research
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL with host db}
       SNAPSHOT_DIR: /app/data/snapshots
       API_KEYS: ${API_KEYS:?set API_KEYS}
       PROOF_SECRET: ${PROOF_SECRET:?set PROOF_SECRET}
