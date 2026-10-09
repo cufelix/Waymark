@@ -151,3 +151,15 @@ describe("public UI bridge", () => {
     expect((await post()).status).toBe(429);
   });
 });
+
+describe("client address behind a proxy", () => {
+  it("uses the last X-Forwarded-For hop only when trusting the proxy", async () => {
+    const app = new Hono();
+    mountUi(app, { publicOrigin: PUBLIC_ORIGIN, trustProxy: true, publicRateLimitPerMinute: 1 });
+    app.post("/v1/seekers", (c) => c.json({ ok: true, data: { seekerId: MINE } }, 201));
+    // Without a socket the peer is unknown (not a private proxy), so the forged header is ignored and both share a bucket.
+    const req = (xff: string) => app.request(`${PUBLIC_ORIGIN}/ui/api/v1/seekers`, { method: "POST", headers: { ...goodHeaders(), "x-forwarded-for": xff, "content-type": "application/json" }, body: "{}" });
+    expect((await req("198.51.100.1")).status).toBe(201);
+    expect((await req("198.51.100.2")).status).toBe(429);
+  });
+});

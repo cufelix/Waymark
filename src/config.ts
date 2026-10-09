@@ -20,6 +20,8 @@ const Env = z.object({
     .optional(),
   // Trust Cloudflare's client IP header only when all public traffic actually comes through Cloudflare.
   TRUST_CLOUDFLARE: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
+  // Behind a local reverse proxy (Traefik in Coolify): take the client IP from the last X-Forwarded-For hop.
+  TRUST_PROXY: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Keys the seekers' ownership proof tokens. Set a long random value in production; changing it invalidates existing tokens.
   PROOF_SECRET: z.string().min(16).default("dev-only-proof-secret-change-me"),
   PERSONAL_DATA_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
