@@ -1,8 +1,10 @@
 import { ApiError } from "../core/errors.ts";
+import type { Intake } from "../contracts.ts";
 import type { SeekerRecord, SeekerStore } from "./store.ts";
 
 export class MemoryStore implements SeekerStore {
   records = new Map<string, SeekerRecord>();
+  intakes = new Map<string, Intake>();
   locks = new Map<string, Promise<unknown>>();
 
   async create(record: SeekerRecord): Promise<void> {
@@ -30,6 +32,17 @@ export class MemoryStore implements SeekerStore {
   }
 
   async delete(seekerId: string): Promise<boolean> {
+    this.intakes.delete(seekerId);
     return this.records.delete(seekerId);
+  }
+
+  async getIntake(seekerId: string): Promise<Intake | undefined> {
+    const intake = this.intakes.get(seekerId);
+    return intake ? structuredClone(intake) : undefined;
+  }
+
+  async putIntake(intake: Intake): Promise<void> {
+    if (!this.records.has(intake.seekerId)) throw new ApiError("not_found", `Seeker ${intake.seekerId} does not exist`);
+    this.intakes.set(intake.seekerId, structuredClone(intake));
   }
 }

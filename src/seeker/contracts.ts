@@ -51,6 +51,9 @@ export type CareerPreferences = {
   dealBreakers: string[];
   languages: { lang: string; level: "basic" | "working" | "fluent" | "native" }[];
   salaryExpectation?: { min: number; currency: string; period: "month" | "year" };
+  hoursPerWeek?: "under-5" | "5-10" | "10-20" | "full-time";
+  courseBudget?: "free-only" | "some" | "any";
+  education?: "none" | "secondary" | "vocational" | "bachelor" | "master-or-higher";
 };
 
 export type CareerPreferencesDraft = Partial<CareerPreferences>;
@@ -92,10 +95,51 @@ export type CareerChoice = {
   chosenAt: ISODate;
 };
 
+export type TaskCard = {
+  cardId: string; // "crd_…", stable within a deck
+  text: string;
+  occupation: Occupation; // revealed after the rating
+  related: { occupation: Occupation; weight: number }[];
+  source: Source; // source.quote is verbatim text from the job ad
+};
+
+export type IntakePractical = {
+  locations: { country: Country; city?: string }[];
+  remote: "only" | "ok" | "no";
+  hoursPerWeek: CareerPreferences["hoursPerWeek"];
+  courseBudget: CareerPreferences["courseBudget"];
+  education: CareerPreferences["education"];
+};
+
+export type Intake = {
+  seekerId: string;
+  phase: "warmup" | "cards" | "practical" | "done";
+  warmup: {
+    questions: { key: string; text: string; options: string[] }[];
+    answers: { key: string; answer: string; mappedTo: string[] }[];
+    currentKey?: string;
+  };
+  cards: {
+    current?: TaskCard;
+    rated: { card: TaskCard; rating: "like" | "maybe" | "no"; at: ISODate }[];
+    done: boolean;
+  };
+  paths: {
+    occupation: Occupation;
+    liked: number;
+    maybe: number;
+    notForMe: number;
+    top3: boolean;
+  }[];
+  practical?: IntakePractical;
+  deck: { country: Country; version: string };
+};
+
 // ResearchRun is Part 2's type; Part 1 only passes it through in the export.
 export type SeekerExport = {
   profile: SeekerProfile;
   interview: InterviewTurn[];
+  intake?: Intake;
   researchRuns: unknown[];
   validations: unknown[];
   roadmaps: Roadmap[];
