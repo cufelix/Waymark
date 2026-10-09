@@ -77,7 +77,7 @@ export function computeMarket(vacancies: MarketVacancy[], occupations: Occupatio
 type Row = { data: { query?: { occupationUri: string; country: string; city: string | null }; requirementsExtracted?: boolean; requirements?: MarketVacancy["requirements"]; salary?: MarketVacancy["salary"] } };
 
 export async function loadRunVacancies(runId: string): Promise<MarketVacancy[]> {
-  const rows = await query<Row>("SELECT v.data FROM vacancies v JOIN run_vacancies rv ON rv.vacancy_id = v.id WHERE rv.run_id = $1", [runId]);
+  const rows = await query<Row>("SELECT v.data FROM vacancies v JOIN run_vacancies rv ON rv.vacancy_id = v.id WHERE rv.run_id = $1 AND coalesce((v.data->>'irrelevant')::boolean, false) = false", [runId]);
   return rows
     .filter((r) => r.data.query)
     .map((r) => ({
