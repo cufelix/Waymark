@@ -33,7 +33,7 @@ type ModelTask = {
 
 type ModelRelated = { key?: unknown; weight?: unknown };
 
-const SEARCH_RESULTS = 5;
+const SEARCH_RESULTS = 10;
 const CARDS_PER_PATH = 3;
 
 const COUNTRY_QUERY: Record<string, (label: string) => string> = {
@@ -187,13 +187,18 @@ export function exactQuoteSubstring(pageText: string, quote: string): string | u
   return match?.[0];
 }
 
+// A whole sentence, or a whole line such as a bullet point: job ads list duties as bullets without full stops.
 function isUsefulWholeSentence(pageText: string, quote: string): boolean {
   const words = quote.trim().split(/\s+/u).filter(Boolean);
-  if (words.length < 5 || quote.trim().length < 25 || !/[.!?]["')\]]?$/u.test(quote.trim())) return false;
+  if (words.length < 4 || quote.trim().length < 20) return false;
   const index = pageText.indexOf(quote);
   if (index < 0) return false;
   const before = pageText.slice(0, index);
-  return index === 0 || /(?:[.!?]\s*|\n\s*(?:[-*•]\s*)?)$/u.test(before);
+  const after = pageText.slice(index + quote.length);
+  const startsClean = index === 0 || /(?:[.!?:]\s*|\n\s*(?:[-*•–·]|\d+[.)])?\s*)$/u.test(before);
+  const endsSentence = /[.!?]["')\]]?$/u.test(quote.trim());
+  const endsLine = after === "" || /^\s*(?:\n|$)/u.test(after) || /^[;,]?\s*\n/u.test(after);
+  return startsClean && (endsSentence || endsLine);
 }
 
 async function localizedLabel(path: DeckPath, input: DeckOccupationInput, language: string): Promise<string> {
@@ -229,7 +234,7 @@ function taskPrompt(path: DeckOccupationInput, country: string, ads: ExaResult[]
     `Pick 3 or 4 concrete daily tasks for an entry-level ${path.label} in ${country} from the job ads below.`,
     "Rewrite each task in plain words a 20-year-old would understand, using at most 140 characters.",
     "Do not add jargon or any number that is absent from the selected ad.",
-    "For quote, copy the full supporting sentence verbatim from that ad. adIndex is the zero-based AD number.",
+    "For quote, copy the full supporting sentence or the whole bullet line verbatim from that ad. adIndex is the zero-based AD number.",
     `related may contain only other occupation keys from this list: ${allowedKeys.join(", ")}. Use a weight from 0 to 1.`,
     "Return only JSON with this shape:",
     '{"tasks":[{"text":"...","quote":"...","adIndex":0,"related":[{"key":"...","weight":0.5}]}]}',
