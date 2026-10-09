@@ -5,7 +5,7 @@ import { MemoryStore } from "../store/memory.ts";
 import { FakeResearchClient } from "../research-client.ts";
 import { FakeRoadmapClient } from "../roadmap-client.ts";
 import { createSeeker, getProfile } from "./seekers.ts";
-import { deleteSeeker, exportSeeker, retryDeletionJobs } from "./gdpr.ts";
+import { deleteSeeker, exportSeeker, retryDeletionJobs, startDeletionRetryWorker } from "./gdpr.ts";
 import type { Consent } from "../contracts.ts";
 import { FakeValidationClient } from "../validation-client.ts";
 import type { Roadmap } from "../../roadmap/contracts.ts";
@@ -136,4 +136,21 @@ test("failed cascade deletion is persisted and completed by the retry worker", a
   assert.deepEqual(await retryDeletionJobs(deps), { completed: 1, failed: 0 });
   assert.equal(deps.deletions.pending.has(seekerId), false);
   assert.equal(await deps.store.get(seekerId), null);
+});
+
+test("the deletion retry worker processes pending jobs immediately on startup", async () => {
+  const deps = { ...setup(), deletions: new FakeDeletionQueue() };
+  const seekerId = (await createSeeker(deps, consent)).seekerId;
+  await deps.deletions.request(seekerId);
+
+  const stop = startDeletionRetryWorker(deps, 3_600);
+  try {
+    for (let attempt = 0; attempt < 10 && await deps.store.get(seekerId); attempt++) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    assert.equal(await deps.store.get(seekerId), null);
+    assert.equal(deps.deletions.pending.has(seekerId), false);
+  } finally {
+    stop();
+  }
 });
