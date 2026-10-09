@@ -109,14 +109,16 @@ export type IntakePractical = {
   hoursPerWeek: CareerPreferences["hoursPerWeek"];
   courseBudget: CareerPreferences["courseBudget"];
   education: CareerPreferences["education"];
+  languages: CareerPreferences["languages"]; // at least one
+  dreamCompanies: CareerPreferences["dreamCompanies"]; // [] = "none yet"
 };
 
 export type Intake = {
   seekerId: string;
-  phase: "warmup" | "cards" | "practical" | "done";
+  phase: "warmup" | "cards" | "practical" | "chat" | "done";
   warmup: {
     questions: { key: string; text: string; options: string[] }[];
-    answers: { key: string; answer: string; mappedTo: string[] }[];
+    answers: { key: string; answer: string; mappedTo: string[]; reply?: string }[];
     currentKey?: string;
   };
   cards: {
