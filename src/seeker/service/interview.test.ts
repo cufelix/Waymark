@@ -191,6 +191,20 @@ test("intake chat replaces assessment wording and questions about already known 
   assert.doesNotMatch(result.reply, /\b(?:score|fit|match|percent|probability|location|language|dream compan)\w*\b/iu);
 });
 
+test("intake chat rejects redundant requests without a question mark", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Please list your dream companies." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+  assert.doesNotMatch(result.reply, /dream compan/iu);
+});
+
 test("intake chat accepts a newly volunteered dream company and finishes when the seeker is done", async () => {
   const { deps, store } = await setup([
     answer({
@@ -257,6 +271,39 @@ test("intake chat keeps the sourced salary lookup for pay questions", async () =
   assert.equal(result.sources?.[0].url, page.url);
   assert.equal((await store.get("skr_test"))?.interview.at(-1)?.sources?.[0].url, page.url);
   assert.match(JSON.stringify(llm.calls[2].messages), /Guided intake context/);
+});
+
+test("server-forced completion preserves a valid sourced salary reply", async () => {
+  const page = {
+    title: "Backend pay",
+    url: "https://salary.example/backend-final",
+    text: "Backend developer pay ranges from 60000 to 80000 CZK per month.",
+  };
+  const exa = new FakeExa([page]);
+  const { deps, store } = await setup([
+    answer({
+      reply: "I'll check that quickly.",
+      draftPatch: { salaryExpectation: { min: 60000, currency: "CZK", period: "month" } },
+      salaryLookup: { lookup: "backend developer", country: "CZ", city: "Prague" },
+    }),
+    JSON.stringify({
+      figures: [{ amountMin: 60000, amountMax: 80000, currency: "CZK", period: "month", url: page.url, quote: page.text }],
+    }),
+    JSON.stringify({
+      reply: "A quick web lookup shows [60000 to 80000 CZK per month](https://salary.example/backend-final).",
+    }),
+  ], { exa });
+  await enterIntakeChat(store);
+  await store.update("skr_test", (record) => ({ ...record, draft: { ...record.draft, dealBreakers: [] } }));
+
+  const result = await interviewTurn(deps, "skr_test", "I need at least 60000 CZK monthly. What does backend pay?");
+
+  assert.equal(result.done, true);
+  assert.match(result.reply, /60000 to 80000/);
+  assert.equal(result.sources?.[0]?.url, page.url);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, result.reply);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.sources?.[0]?.url, page.url);
+  assert.equal((await store.getIntake("skr_test"))?.phase, "done");
 });
 
 test("normal turn maps occupations, validates fields, and appends both turns", async () => {

@@ -59,6 +59,7 @@ const LANGUAGE_LEVELS = new Set(["basic", "working", "fluent", "native"]);
 const FORBIDDEN_REPLY_SUMMARY = /%|\b(?:scores?|fit|fits|fitting|matches?|matching|percent(?:age)?s?|probabilit(?:y|ies))\b/iu;
 const INTAKE_REASKED_FIELD = /\b(?:goal|what matters most|location|where (?:do|would) you (?:want to )?work|remote|languages?|dream compan(?:y|ies))\b|\b(?:cíl|co je (?:pro tebe )?nejdůležitější|lokalit|kde chceš pracovat|práce na dálku|jazyk|vysněn\w* firm)\b/iu;
 const INTAKE_ALLOWED_QUESTION = /\b(?:deal[ -]?breakers?|refuse|avoid|won't|would not|salary|pay|earn|minimum|currency|monthly|yearly)\b|\b(?:nepřijateln|odmít|nechceš|vadilo|plat|mzda|výdělek|minimum|měsíčně|ročně|měna)\b/iu;
+const INTAKE_REQUEST_WORDING = /\b(?:please|tell|list|share|state|give|provide|confirm|remind|what|which|where|can you|could you|would you)\b|\b(?:prosím|řekni|uveď|vyjmenuj|sdílej|potvrď|připomeň|jaký|který|kde|můžeš)\b/iu;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -86,9 +87,11 @@ function sanitizeWarmupReply(reply: string, seekerText: string): string {
 }
 
 function reasksKnownIntakeField(reply: string): boolean {
-  return sentences(reply).some((sentence) =>
-    sentence.includes("?") && (INTAKE_REASKED_FIELD.test(sentence) || !INTAKE_ALLOWED_QUESTION.test(sentence))
-  );
+  return sentences(reply).some((sentence) => {
+    const question = sentence.includes("?");
+    const redundantRequest = INTAKE_REASKED_FIELD.test(sentence) && (question || INTAKE_REQUEST_WORDING.test(sentence));
+    return redundantRequest || (question && !INTAKE_ALLOWED_QUESTION.test(sentence));
+  });
 }
 
 function parseModelResult(raw: string): ModelResult {
@@ -671,7 +674,7 @@ export async function interviewTurn(
       const serverForcedDone = allCollected || atQuestionLimit;
       done = done || serverForcedDone;
       const invalidReply = FORBIDDEN_REPLY_SUMMARY.test(reply) || reasksKnownIntakeField(reply);
-      if (serverForcedDone || (done && (invalidReply || sentences(reply).some((sentence) => sentence.includes("?"))))) {
+      if (done && (invalidReply || sentences(reply).some((sentence) => sentence.includes("?")))) {
         reply = closingReply(text);
       } else if (invalidReply) {
         reply = !dealBreakersCollected

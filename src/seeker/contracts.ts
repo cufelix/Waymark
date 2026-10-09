@@ -103,6 +103,12 @@ export type TaskCard = {
   source: Source; // source.quote is verbatim text from the job ad
 };
 
+export type IntakeCurrentCard = {
+  cardId: string;
+  text: string;
+  source: Pick<Source, "id" | "fetchedAt" | "tool" | "quote" | "contentHash" | "snapshotKey">;
+};
+
 export type IntakePractical = {
   locations: { country: Country; city?: string }[];
   remote: "only" | "ok" | "no";
@@ -122,7 +128,7 @@ export type Intake = {
     currentKey?: string;
   };
   cards: {
-    current?: TaskCard;
+    current?: IntakeCurrentCard;
     rated: { card: TaskCard; rating: "like" | "maybe" | "no"; at: ISODate }[];
     done: boolean;
   };

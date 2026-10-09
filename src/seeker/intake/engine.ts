@@ -1,9 +1,14 @@
-import type { CareerPreferences, Intake, TaskCard } from "../contracts.ts";
+import type { CareerPreferences, Intake, IntakeCurrentCard, TaskCard } from "../contracts.ts";
 import { ApiError } from "../core/errors.ts";
 import type { Deck } from "./deck.ts";
 import { GOAL_BY_OPTION, PRIORS, WARMUP_QUESTIONS } from "./warmup.ts";
 
-export type IntakeState = Intake & {
+export type IntakeState = Omit<Intake, "cards"> & {
+  cards: {
+    current?: TaskCard;
+    rated: Intake["cards"]["rated"];
+    done: boolean;
+  };
   scores: Record<string, number>;
   shownCounts: Record<string, number>;
   extraUntil: number;
@@ -35,7 +40,7 @@ function publicCard(card: TaskCard): TaskCard {
   };
 }
 
-function currentCard(card: TaskCard): TaskCard {
+function currentCard(card: TaskCard): IntakeCurrentCard {
   return {
     cardId: card.cardId,
     text: card.text,
@@ -47,7 +52,7 @@ function currentCard(card: TaskCard): TaskCard {
       contentHash: card.source.contentHash,
       ...(card.source.snapshotKey === undefined ? {} : { snapshotKey: card.source.snapshotKey }),
     },
-  } as TaskCard;
+  };
 }
 
 function finishedPhase(state: IntakeState): Intake["phase"] {

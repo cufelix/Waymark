@@ -16,6 +16,11 @@ export interface SeekerStore {
   get(seekerId: string): Promise<SeekerRecord | null>;
   // Read-modify-write under a per-seeker lock; return the updated record.
   update(seekerId: string, fn: (r: SeekerRecord) => SeekerRecord): Promise<SeekerRecord>;
+  // Update the profile record and guided intake under the same per-seeker lock.
+  updateRecordAndIntake(
+    seekerId: string,
+    fn: (record: SeekerRecord, intake: Intake) => { record: SeekerRecord; intake: Intake },
+  ): Promise<{ record: SeekerRecord; intake: Intake }>;
   getIntake(seekerId: string): Promise<Intake | undefined>;
   putIntake(intake: Intake): Promise<void>;
   delete(seekerId: string): Promise<boolean>;

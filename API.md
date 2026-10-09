@@ -347,6 +347,13 @@ type TaskCard = {
   source: Source;                 // the ad: URL, tool "exa", quote = the verbatim sentence the card rewrites
 };
 
+type IntakeCurrentCard = {
+  cardId: string;
+  text: string;
+  source: Pick<Source, "id" | "fetchedAt" | "tool" | "quote" | "contentHash" | "snapshotKey">;
+                                  // title and URL stay hidden until the card is rated
+};
+
 type IntakePractical = {
   locations: { country: Country; city?: string }[];
   remote: "only" | "ok" | "no";
@@ -367,7 +374,7 @@ type Intake = {
     currentKey?: string;
   };
   cards: {
-    current?: TaskCard;           // without `occupation`, which stays hidden until the rating
+    current?: IntakeCurrentCard;  // occupation, related paths and identifying source fields stay hidden until the rating
     rated: { card: TaskCard; rating: "like" | "maybe" | "no"; at: ISODate }[];
     done: boolean;
   };

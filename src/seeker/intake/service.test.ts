@@ -90,7 +90,7 @@ function fakeEngine(): IntakeEngine {
         : path);
       return {
         ...state,
-        phase: "practical",
+        phase: state.practical ? "chat" : "practical",
         cards: { rated: [...state.cards.rated, { card, rating, at }], done: true },
         paths,
       };
@@ -203,4 +203,27 @@ test("practical validation is strict and targets only appear after cards finish;
   assert.equal((await skipChat(done.deps, done.seekerId)).phase, "done");
   await assert.rejects(moreCards(done.deps, done.seekerId), rejectsCode("conflict"));
   await assert.rejects(skipChat(done.deps, done.seekerId), rejectsCode("conflict"));
+});
+
+test("finishing cards after early practical data atomically completes the profile and enters chat", async () => {
+  const { deps, store, seekerId } = await setup();
+  await getIntake(deps, seekerId);
+  const early = await setPractical(deps, seekerId, practical);
+  assert.equal(early.phase, "warmup");
+  assert.equal((await store.get(seekerId))!.profile.status, "incomplete");
+
+  await answerWarmup(deps, seekerId, { questionKey: "drawn", answer: "Organising chaos" });
+  await answerWarmup(deps, seekerId, { questionKey: "with", answer: "Building things" });
+  const cards = await answerWarmup(deps, seekerId, { questionKey: "goal", answer: "A stable job and salary" });
+  const completed = await rateCard(deps, seekerId, cards.cards.current!.cardId, { rating: "like" });
+  const record = (await store.get(seekerId))!;
+  const stored = await store.getIntake(seekerId);
+
+  assert.equal(completed.phase, "chat");
+  assert.equal(stored?.phase, "chat");
+  assert.equal(record.profile.status, "complete");
+  assert.deepEqual(
+    record.profile.preferences.targetOccupations,
+    completed.paths.filter(({ top3 }) => top3).slice(0, 3).map(({ occupation }) => occupation),
+  );
 });

@@ -31,6 +31,25 @@ export class MemoryStore implements SeekerStore {
     return run;
   }
 
+  async updateRecordAndIntake(
+    seekerId: string,
+    fn: (record: SeekerRecord, intake: Intake) => { record: SeekerRecord; intake: Intake },
+  ): Promise<{ record: SeekerRecord; intake: Intake }> {
+    const prev = this.locks.get(seekerId) ?? Promise.resolve();
+    const run = prev.then(() => {
+      const record = this.records.get(seekerId);
+      const intake = this.intakes.get(seekerId);
+      if (!record) throw new ApiError("not_found", `Seeker ${seekerId} does not exist`);
+      if (!intake) throw new ApiError("not_found", `Intake for seeker ${seekerId} does not exist`);
+      const next = fn(structuredClone(record), structuredClone(intake));
+      this.records.set(seekerId, structuredClone(next.record));
+      this.intakes.set(seekerId, structuredClone(next.intake));
+      return structuredClone(next);
+    });
+    this.locks.set(seekerId, run.catch(() => undefined));
+    return run;
+  }
+
   async delete(seekerId: string): Promise<boolean> {
     this.intakes.delete(seekerId);
     return this.records.delete(seekerId);

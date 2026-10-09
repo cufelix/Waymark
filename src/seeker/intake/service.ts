@@ -5,7 +5,7 @@ import { touch } from "../core/profile.ts";
 import { validatePreferences } from "../core/validate.ts";
 import type { LlmClient } from "../llm/llm.ts";
 import { loadSeeker, updateSeeker } from "../service/seekers.ts";
-import type { SeekerStore } from "../store/store.ts";
+import type { SeekerRecord, SeekerStore } from "../store/store.ts";
 import { warmupFreeText as runWarmupFreeText, type WarmupReply } from "./chat.ts";
 import type { Deck } from "./deck.ts";
 import * as defaultEngine from "./engine.ts";
@@ -107,6 +107,14 @@ function deckFor(deps: IntakeViewDeps, country: string): Deck {
   }
 }
 
+function withPreferencePatch(record: SeekerRecord, patch: Partial<CareerPreferences>): SeekerRecord {
+  const preferences = { ...record.profile.preferences, ...patch };
+  const draft = { ...record.draft, ...patch };
+  return isDeepStrictEqual(record.profile.preferences, preferences)
+    ? { ...record, draft }
+    : { ...record, draft, profile: touch({ ...record.profile, preferences }) };
+}
+
 async function ensureState(deps: IntakeDeps, seekerId: string): Promise<{ state: IntakeState; deck: Deck }> {
   const seeker = await loadSeeker(deps, seekerId);
   const stored = await deps.store.getIntake(seekerId);
@@ -188,9 +196,21 @@ export async function rateCard(deps: IntakeDeps, seekerId: string, cardId: strin
     throw new ApiError("conflict", `Task card ${cardId} is not current`);
   }
   const at = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-  const next = engineFor(deps).applyRating(state, deck, cardId, rating, at);
-  await deps.store.putIntake(next);
-  return engineFor(deps).toPublic(next, deck);
+  const updated = await deps.store.updateRecordAndIntake(seekerId, (record, stored) => {
+    const current = stored as IntakeState;
+    if (current.phase !== "cards" || current.cards.current?.cardId !== cardId) {
+      throw new ApiError("conflict", `Task card ${cardId} is not current`);
+    }
+    const next = engineFor(deps).applyRating(current, deck, cardId, rating, at);
+    const targets = next.cards.done && next.practical
+      ? next.paths.filter(({ top3 }) => top3).slice(0, 3).map(({ occupation }) => occupation)
+      : undefined;
+    return {
+      record: targets ? withPreferencePatch(record, { targetOccupations: targets }) : record,
+      intake: next,
+    };
+  });
+  return engineFor(deps).toPublic(updated.intake as IntakeState, deck);
 }
 
 /** Requests four additional cards away from the current top three paths. */
@@ -228,11 +248,7 @@ export async function setPractical(deps: IntakeDeps, seekerId: string, value: un
       dreamCompanies: practical.dreamCompanies,
       ...(targets ? { targetOccupations: targets } : {}),
     };
-    const preferences = { ...record.profile.preferences, ...patch };
-    const draft = { ...record.draft, ...patch };
-    return isDeepStrictEqual(record.profile.preferences, preferences)
-      ? { ...record, draft }
-      : { ...record, draft, profile: touch({ ...record.profile, preferences }) };
+    return withPreferencePatch(record, patch);
   });
   await deps.store.putIntake(next);
   return engineFor(deps).toPublic(next, deck);

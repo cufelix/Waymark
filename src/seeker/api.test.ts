@@ -70,7 +70,11 @@ const intakeEngine: IntakeEngine = {
   },
   applyRating(state, deck, cardId, rating, at): IntakeState {
     const card = deck.cards.find((candidate) => candidate.cardId === cardId)!;
-    return { ...state, phase: "practical", cards: { rated: [...state.cards.rated, { card, rating, at }], done: true } };
+    return {
+      ...state,
+      phase: state.practical ? "chat" : "practical",
+      cards: { rated: [...state.cards.rated, { card, rating, at }], done: true },
+    };
   },
   addMoreCards(state, deck): IntakeState {
     return { ...state, phase: "cards", cards: { ...state.cards, done: false, current: deck.cards[1] }, extraUntil: state.cards.rated.length + 4 };
@@ -226,6 +230,37 @@ test("guided intake routes cover warm-up, ratings, more cards, practical data, s
 
   assert.equal((await call("DELETE", `/v1/seekers/${id}`)).status, 200);
   assert.equal(await deps.store.getIntake(id), undefined);
+});
+
+test("early practical data completes the profile when the final card is rated", async () => {
+  const { call, create } = setup();
+  const id = await create();
+  await call("GET", `/v1/seekers/${id}/intake`);
+  const early = await call("PUT", `/v1/seekers/${id}/intake/practical`, practical);
+  assert.equal(early.status, 200);
+  assert.equal((early.body.data as Intake).phase, "warmup");
+
+  await call("POST", `/v1/seekers/${id}/intake/warmup`, { questionKey: "drawn", answer: "Organising chaos" });
+  await call("POST", `/v1/seekers/${id}/intake/warmup`, { questionKey: "with", answer: "Building things" });
+  const cards = await call("POST", `/v1/seekers/${id}/intake/warmup`, {
+    questionKey: "goal",
+    answer: "A stable job and salary",
+  });
+  const completed = await call(
+    "POST",
+    `/v1/seekers/${id}/intake/cards/${(cards.body.data as Intake).cards.current!.cardId}/rating`,
+    { rating: "like" },
+  );
+  const intake = completed.body.data as Intake;
+  const profile = (await call("GET", `/v1/seekers/${id}/profile`)).body.data as any;
+
+  assert.equal(completed.status, 200);
+  assert.equal(intake.phase, "chat");
+  assert.equal(profile.status, "complete");
+  assert.deepEqual(
+    profile.preferences.targetOccupations,
+    intake.paths.filter(({ top3 }) => top3).slice(0, 3).map(({ occupation }) => occupation),
+  );
 });
 
 test("a done interview response ends an intake in the chat phase", async () => {
