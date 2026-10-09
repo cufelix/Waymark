@@ -22,6 +22,7 @@ function publicApp(rateLimitPerMinute = 120): Hono {
   app.post("/v1/seekers", (c) => c.json({ ok: true, data: { seekerId: MINE } }, 201));
   app.get("/v1/seekers/:id/profile", (c) => c.json({ ok: true, data: { seekerId: c.req.param("id"), stored: true } }));
   app.post("/v1/research-runs", async (c) => c.json({ ok: true, data: { received: await c.req.json() } }, 202));
+  app.post("/v1/validations", (c) => c.json({ ok: true, data: {} }, 201));
   return app;
 }
 
@@ -122,11 +123,13 @@ describe("public UI bridge", () => {
     const cookie = await session(app);
     const post = () => app.request(`${PUBLIC_ORIGIN}/ui/api/v1/research-runs`, {
       method: "POST", headers: { ...goodHeaders({ cookie }), "content-type": "application/json" },
-      body: JSON.stringify({ profile: { seekerId: MINE, status: "complete", forged: true } }),
+      body: JSON.stringify({ profile: { seekerId: MINE, status: "complete", forged: true }, options: { maxVacancies: 5000, sources: ["apify"] } }),
     });
     const first = await post();
     expect(first.status).toBe(202);
-    expect((await first.json()).data.received.profile).toEqual({ seekerId: MINE, stored: true });
+    const received = (await first.json()).data.received;
+    expect(received.profile).toEqual({ seekerId: MINE, stored: true });
+    expect(received.options).toBeUndefined(); // browser-sent options are dropped
     expect((await post()).status).toBe(202);
     expect((await post()).status).toBe(429);
   });
@@ -136,5 +139,15 @@ describe("public UI bridge", () => {
     for (let i = 0; i < 5; i++) expect(await session(app)).toMatch(/^wm_seeker=/);
     const sixth = await app.request(`${PUBLIC_ORIGIN}/ui/api/v1/seekers`, { method: "POST", headers: { ...goodHeaders(), "content-type": "application/json" }, body: "{}" });
     expect(sixth.status).toBe(429);
+  });
+
+  it("limits validations per profile per day", async () => {
+    const app = publicApp(100);
+    const cookie = await session(app);
+    const post = () => app.request(`${PUBLIC_ORIGIN}/ui/api/v1/validations`, {
+      method: "POST", headers: { ...goodHeaders({ cookie }), "content-type": "application/json" }, body: JSON.stringify({ profile: { seekerId: MINE } }),
+    });
+    for (let i = 0; i < 5; i++) expect((await post()).status).toBe(201);
+    expect((await post()).status).toBe(429);
   });
 });

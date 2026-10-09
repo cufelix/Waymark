@@ -128,6 +128,7 @@ export function mountUi(app: Hono<any>, {
   const SEEKERS_PER_IP_PER_DAY = 5;
   const RUNS_PER_SEEKER_PER_DAY = 2;
   const MODEL_CALLS_PER_SEEKER_PER_DAY = 150;
+  const GENERATIONS_PER_SEEKER_PER_DAY = 5;   // validations and roadmaps each
   // Routes that call a paid model or provider on the seeker's behalf.
   const MODEL_ROUTE = /^\/v1\/seekers\/skr_[0-9A-Za-z]+\/(interview|intake|documents|voice)/;
 
@@ -198,15 +199,17 @@ export function mountUi(app: Hono<any>, {
     const body = multipart || method === "GET" || method === "HEAD" ? undefined : await c.req.text();
     if (!(await authorize(c, path, method, body, own))) return deny(404, "Not found");
     if (method !== "GET" && MODEL_ROUTE.test(path) && !take(`model:${own}`, MODEL_CALLS_PER_SEEKER_PER_DAY)) return limited("Daily limit for this profile reached");
+    if (method === "POST" && /^\/v1\/(validations|roadmaps)$/.test(path) && !take(`gen:${own}:${path}`, GENERATIONS_PER_SEEKER_PER_DAY)) {
+      return limited(`At most ${GENERATIONS_PER_SEEKER_PER_DAY} a day per profile`);
+    }
     if (method === "POST" && path === "/v1/research-runs") {
       if (!take(`run:${own}`, RUNS_PER_SEEKER_PER_DAY)) return limited(`At most ${RUNS_PER_SEEKER_PER_DAY} research runs a day per profile`);
       // Research runs on the profile stored for this seeker, never on one the browser sends.
       const stored = await forward(c, `/v1/seekers/${own}/profile`, "GET");
       const storedJson = (await stored.json().catch(() => null)) as { data?: unknown } | null;
       if (!stored.ok || !storedJson?.data) return deny(404, "Not found");
-      let options: unknown;
-      try { options = (JSON.parse(body ?? "{}") as { options?: unknown }).options; } catch { options = undefined; }
-      return forward(c, path, method, JSON.stringify({ profile: storedJson.data, ...(options !== undefined ? { options } : {}) }), "application/json");
+      // Options (sources, sizes) come from the server's defaults in public use, never from the browser.
+      return forward(c, path, method, JSON.stringify({ profile: storedJson.data }), "application/json");
     }
     if (multipart) {
       // CV uploads go to the seeker's own documents route, already checked above.
