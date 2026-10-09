@@ -1,11 +1,19 @@
 import type { SeekerExport } from "../contracts.ts";
 import { ApiError } from "../core/errors.ts";
+import { loadDeck } from "../intake/deck.ts";
+import { publicIntake, type IntakeViewDeps } from "../intake/service.ts";
 import type { ResearchClient } from "../research-client.ts";
 import { roadmapClientFromEnv, type RoadmapClient } from "../roadmap-client.ts";
 import type { SeekerStore } from "../store/store.ts";
 import { validationClientFromEnv, type ValidationClient } from "../validation-client.ts";
 
-export type GdprDeps = { store: SeekerStore; research: ResearchClient; validations?: ValidationClient; roadmaps?: RoadmapClient };
+export type GdprDeps = {
+  store: SeekerStore;
+  research: ResearchClient;
+  validations?: ValidationClient;
+  roadmaps?: RoadmapClient;
+  intake?: Partial<IntakeViewDeps>;
+};
 
 const notFound = (seekerId: string): ApiError => new ApiError("not_found", `Seeker ${seekerId} does not exist`);
 
@@ -18,7 +26,24 @@ export async function exportSeeker(deps: GdprDeps, seekerId: string): Promise<Se
   const researchRuns = await deps.research.listRuns(seekerId);
   const validations = await (deps.validations ?? validationClientFromEnv())?.list(seekerId) ?? [];
   const roadmaps = await (deps.roadmaps ?? roadmapClientFromEnv())?.list(seekerId) ?? [];
-  return { profile: r.profile, interview: r.interview, researchRuns, validations, roadmaps };
+  const storedIntake = await deps.store.getIntake(seekerId);
+  const intake = storedIntake
+    ? publicIntake(
+        {
+          loadDeck: deps.intake?.loadDeck ?? loadDeck,
+          ...(deps.intake?.engine ? { engine: deps.intake.engine } : {}),
+        },
+        storedIntake,
+      )
+    : undefined;
+  return {
+    profile: r.profile,
+    interview: r.interview,
+    ...(intake ? { intake } : {}),
+    researchRuns,
+    validations,
+    roadmaps,
+  };
 }
 
 // DELETE /v1/seekers/{id}: hard delete in every part, Part 4 then Part 3 then Part 2 then Part 1.

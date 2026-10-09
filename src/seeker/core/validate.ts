@@ -192,7 +192,7 @@ export function validatePreferences(v: unknown, path = ""): CareerPreferences {
     v,
     path,
     ["targetOccupations", "locations", "remote", "goal", "dreamCompanies", "dealBreakers", "languages"],
-    ["salaryExpectation"],
+    ["salaryExpectation", "hoursPerWeek", "courseBudget", "education"],
   );
   const prefs: CareerPreferences = {
     targetOccupations: array(o.targetOccupations, at(path, "targetOccupations"), taxonomyEntry, { min: 1, max: 10 }),
@@ -234,7 +234,18 @@ export function validatePreferences(v: unknown, path = ""): CareerPreferences {
     if (typeof s.min !== "number" || !Number.isFinite(s.min) || s.min < 0) bad(at(p, "min"), "must be a number >= 0");
     return { min: s.min, currency: currency(s.currency, at(p, "currency")), period: oneOf(s.period, at(p, "period"), ["month", "year"] as const) };
   });
-  return salary ? { ...prefs, salaryExpectation: salary } : prefs;
+  const hoursPerWeek = optional(o, "hoursPerWeek", path, (x, p) => oneOf(x, p, ["under-5", "5-10", "10-20", "full-time"] as const));
+  const courseBudget = optional(o, "courseBudget", path, (x, p) => oneOf(x, p, ["free-only", "some", "any"] as const));
+  const education = optional(o, "education", path, (x, p) =>
+    oneOf(x, p, ["none", "secondary", "vocational", "bachelor", "master-or-higher"] as const),
+  );
+  return {
+    ...prefs,
+    ...(salary !== undefined ? { salaryExpectation: salary } : {}),
+    ...(hoursPerWeek !== undefined ? { hoursPerWeek } : {}),
+    ...(courseBudget !== undefined ? { courseBudget } : {}),
+    ...(education !== undefined ? { education } : {}),
+  };
 }
 
 const LINK_KINDS = ["portfolio", "github", "linkedin", "social", "certificate", "publication", "other"] as const;

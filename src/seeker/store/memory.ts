@@ -1,8 +1,10 @@
 import { ApiError } from "../core/errors.ts";
+import type { Intake } from "../contracts.ts";
 import type { SeekerRecord, SeekerStore } from "./store.ts";
 
 export class MemoryStore implements SeekerStore {
   records = new Map<string, SeekerRecord>();
+  intakes = new Map<string, Intake>();
   locks = new Map<string, Promise<unknown>>();
 
   async create(record: SeekerRecord): Promise<void> {
@@ -29,7 +31,37 @@ export class MemoryStore implements SeekerStore {
     return run;
   }
 
+  async updateRecordAndIntake(
+    seekerId: string,
+    fn: (record: SeekerRecord, intake: Intake) => { record: SeekerRecord; intake: Intake },
+  ): Promise<{ record: SeekerRecord; intake: Intake }> {
+    const prev = this.locks.get(seekerId) ?? Promise.resolve();
+    const run = prev.then(() => {
+      const record = this.records.get(seekerId);
+      const intake = this.intakes.get(seekerId);
+      if (!record) throw new ApiError("not_found", `Seeker ${seekerId} does not exist`);
+      if (!intake) throw new ApiError("not_found", `Intake for seeker ${seekerId} does not exist`);
+      const next = fn(structuredClone(record), structuredClone(intake));
+      this.records.set(seekerId, structuredClone(next.record));
+      this.intakes.set(seekerId, structuredClone(next.intake));
+      return structuredClone(next);
+    });
+    this.locks.set(seekerId, run.catch(() => undefined));
+    return run;
+  }
+
   async delete(seekerId: string): Promise<boolean> {
+    this.intakes.delete(seekerId);
     return this.records.delete(seekerId);
+  }
+
+  async getIntake(seekerId: string): Promise<Intake | undefined> {
+    const intake = this.intakes.get(seekerId);
+    return intake ? structuredClone(intake) : undefined;
+  }
+
+  async putIntake(intake: Intake): Promise<void> {
+    if (!this.records.has(intake.seekerId)) throw new ApiError("not_found", `Seeker ${intake.seekerId} does not exist`);
+    this.intakes.set(intake.seekerId, structuredClone(intake));
   }
 }

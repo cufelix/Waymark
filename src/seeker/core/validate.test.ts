@@ -88,6 +88,19 @@ test("preferences: enums, country, currency, language, salary", () => {
   rejects(() => validatePreferences({ ...validPreferences(), dreamCompanies: [{ name: "X", url: "ftp://x.example.com" }] }), "unprocessable", /dreamCompanies\[0\]\.url/);
 });
 
+test("preferences: guided intake fields accept only their contract enums", () => {
+  const guided = {
+    ...validPreferences(),
+    hoursPerWeek: "10-20",
+    courseBudget: "some",
+    education: "vocational",
+  };
+  assert.deepEqual(validatePreferences(guided), guided);
+  rejects(() => validatePreferences({ ...guided, hoursPerWeek: "weekends" }), "unprocessable", /^hoursPerWeek: must be one of/);
+  rejects(() => validatePreferences({ ...guided, courseBudget: "expensive" }), "unprocessable", /^courseBudget: must be one of/);
+  rejects(() => validatePreferences({ ...guided, education: "doctorate" }), "unprocessable", /^education: must be one of/);
+});
+
 test("standards", () => {
   assert.equal(country("CZ", "c"), "CZ");
   for (const bad of ["UK", "EU", "XX", "cz", "CZE", 1]) rejects(() => country(bad, "c"), "unprocessable");
@@ -188,4 +201,22 @@ test("profile validator accepts every document kind and links without a kind", (
   const invalid = structuredClone(raw);
   invalid.documents[0].kind = "transcript";
   rejects(() => validateSeekerProfile(invalid), "unprocessable", /documents\[0\]\.kind/);
+});
+
+test("profile validator accepts and rejects guided intake preference enums", () => {
+  const raw = JSON.parse(readFileSync(join(FIXTURES, "junior-backend-prague.json"), "utf8"));
+  raw.preferences.hoursPerWeek = "5-10";
+  raw.preferences.courseBudget = "free-only";
+  raw.preferences.education = "bachelor";
+  assert.deepEqual(validateSeekerProfile(raw).preferences, raw.preferences);
+
+  for (const [field, value] of [
+    ["hoursPerWeek", "sometimes"],
+    ["courseBudget", "lots"],
+    ["education", "phd"],
+  ]) {
+    const invalid = structuredClone(raw);
+    invalid.preferences[field] = value;
+    rejects(() => validateSeekerProfile(invalid), "unprocessable", new RegExp(`preferences\\.${field}`));
+  }
 });

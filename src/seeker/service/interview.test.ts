@@ -1,14 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { SeekerProfile } from "../contracts.ts";
+import type { Intake, SeekerProfile } from "../contracts.ts";
 import { now } from "../core/claims.ts";
 import { ApiError } from "../core/errors.ts";
 import { emptyPreferences } from "../core/profile.ts";
 import { FakeLlm, MODELS } from "../llm/llm.ts";
 import { FakeExa, type ExaClient } from "../salary/exa.ts";
 import { MemoryStore } from "../store/memory.ts";
-import { getInterview, interviewTurn, type Deps } from "./interview.ts";
-import { FIRST_INTERVIEW_QUESTION, INTERVIEW_SYSTEM_PROMPT } from "./interview.prompts.ts";
+import { getInterview, interviewTurn, warmupInterviewTurn, type Deps } from "./interview.ts";
+import { FIRST_INTERVIEW_QUESTION, INTAKE_CHAT_FIRST_QUESTION, INTERVIEW_SYSTEM_PROMPT } from "./interview.prompts.ts";
+import { WARMUP_QUESTIONS } from "../intake/warmup.ts";
 
 function profile(seekerId = "skr_test"): SeekerProfile {
   return {
@@ -42,6 +43,59 @@ function answer(value: Record<string, unknown>): string {
   return JSON.stringify({ reply: "Next question?", done: false, mode: "direct", draftPatch: {}, statedSkills: [], ...value });
 }
 
+function chatIntake(): Intake {
+  const backend = { uri: "urn:stub:occupation:backend", label: "Backend developer", lang: "en" };
+  const frontend = { uri: "urn:stub:occupation:frontend", label: "Frontend developer", lang: "en" };
+  const data = { uri: "urn:stub:occupation:data", label: "Data analyst", lang: "en" };
+  return {
+    seekerId: "skr_test",
+    phase: "chat",
+    warmup: { questions: [], answers: [] },
+    cards: { rated: [], done: true },
+    paths: [
+      { occupation: backend, liked: 3, maybe: 1, notForMe: 0, top3: true },
+      { occupation: frontend, liked: 2, maybe: 1, notForMe: 1, top3: true },
+      { occupation: data, liked: 2, maybe: 0, notForMe: 1, top3: true },
+    ],
+    practical: {
+      locations: [{ country: "CZ", city: "Prague" }],
+      remote: "ok",
+      hoursPerWeek: "10-20",
+      courseBudget: "some",
+      education: "bachelor",
+      languages: [{ lang: "en", level: "fluent" }],
+      dreamCompanies: [{ name: "Example Labs" }],
+    },
+    deck: { country: "CZ", version: "fake-0" },
+  };
+}
+
+async function enterIntakeChat(store: MemoryStore): Promise<void> {
+  await store.update("skr_test", (record) => ({
+    ...record,
+    profile: {
+      ...record.profile,
+      preferences: {
+        ...record.profile.preferences,
+        targetOccupations: chatIntake().paths.map((path) => path.occupation),
+        locations: [{ country: "CZ", city: "Prague" }],
+        remote: "ok",
+        goal: "stability",
+        dreamCompanies: [{ name: "Example Labs" }],
+        languages: [{ lang: "en", level: "fluent" }],
+        hoursPerWeek: "10-20",
+        courseBudget: "some",
+        education: "bachelor",
+      },
+    },
+    interview: [
+      { role: "seeker", text: "I enjoy building APIs.", at: now() },
+      { role: "agent", text: "That points us back to the task cards.", at: now() },
+    ],
+  }));
+  await store.putIntake(chatIntake());
+}
+
 test("empty first turn asks and stores the fixed first question without an LLM call", async () => {
   const { deps, llm } = await setup();
   const result = await interviewTurn(deps, "skr_test", "");
@@ -61,6 +115,271 @@ test("empty text after the interview starts repeats the last agent turn", async 
   assert.equal(repeated.reply, FIRST_INTERVIEW_QUESTION);
   assert.equal(llm.calls.length, 0);
   assert.equal((await getInterview(deps, "skr_test")).length, 1);
+});
+
+test("warm-up replies reject assessment wording and are limited to two sentences", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Your fit score is high. What comes next?", mappedTo: ["Figuring out why something broke"] }),
+    answer({ reply: "First reflection. Second reflection. Third reflection.", mappedTo: ["Building things"] }),
+  ]);
+
+  const guarded = await warmupInterviewTurn(deps, "skr_test", WARMUP_QUESTIONS[0], "Rád opravuji chyby.");
+  const shortened = await warmupInterviewTurn(deps, "skr_test", WARMUP_QUESTIONS[1], "I build things.");
+
+  assert.equal(guarded.reply, "Díky, beru to na vědomí.");
+  assert.equal(shortened.reply, "First reflection. Second reflection.");
+  const replies = (await store.get("skr_test"))!.interview.filter((turn) => turn.role === "agent").map((turn) => turn.text);
+  assert.deepEqual(replies, [guarded.reply, shortened.reply]);
+  assert.doesNotMatch(JSON.stringify(replies), /\b(?:score|fit|match|percent|probability)\b/iu);
+});
+
+test("intake chat uses known context, asks only missing fields, and completes after both", async () => {
+  const { deps, store, llm } = await setup([
+    answer({
+      reply: "No on-call work — noted. What minimum salary would you need?",
+      draftPatch: {
+        dealBreakers: ["No on-call work"],
+        locations: [{ country: "US" }],
+        languages: [{ lang: "de", level: "native" }],
+      },
+    }),
+    answer({
+      reply: "What languages do you use?",
+      draftPatch: { salaryExpectation: { min: 60000, currency: "CZK", period: "month" } },
+    }),
+  ]);
+  await enterIntakeChat(store);
+
+  const opening = await interviewTurn(deps, "skr_test", "");
+  assert.match(opening.reply, /refuse in a job/i);
+  assert.equal(llm.calls.length, 0);
+
+  const dealBreakers = await interviewTurn(deps, "skr_test", "I won't do on-call work.");
+  assert.equal(dealBreakers.done, false);
+  const salary = await interviewTurn(deps, "skr_test", "At least 60,000 CZK per month.");
+  assert.equal(salary.done, true);
+  assert.doesNotMatch(salary.reply, /\?/u);
+  assert.doesNotMatch((await store.get("skr_test"))!.interview.at(-1)!.text, /\?/u);
+
+  const record = await store.get("skr_test");
+  assert.deepEqual(record?.profile.preferences.dealBreakers, ["No on-call work"]);
+  assert.deepEqual(record?.profile.preferences.salaryExpectation, { min: 60000, currency: "CZK", period: "month" });
+  assert.deepEqual(record?.profile.preferences.locations, [{ country: "CZ", city: "Prague" }]);
+  assert.deepEqual(record?.profile.preferences.languages, [{ lang: "en", level: "fluent" }]);
+  assert.equal((await store.getIntake("skr_test"))?.phase, "done");
+
+  const firstPrompt = JSON.stringify(llm.calls[0].messages);
+  assert.match(firstPrompt, /Backend developer/);
+  assert.match(firstPrompt, /Prague/);
+  assert.match(firstPrompt, /10-20/);
+  assert.match(firstPrompt, /never re-ask/);
+  assert.match(firstPrompt, /never ask about dream companies or languages/i);
+  assert.doesNotMatch(llm.calls[0].messages.at(-1)?.content as string, /goal|location|language/i);
+});
+
+test("intake chat replaces assessment wording and questions about already known fields", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Your fit score is 90 percent. Where do you want to work?" }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+  assert.doesNotMatch(result.reply, /\b(?:score|fit|match|percent|probability|location|language|dream compan)\w*\b/iu);
+});
+
+test("intake chat rejects redundant requests without a question mark", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Please list your dream companies." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+  assert.doesNotMatch(result.reply, /dream compan/iu);
+});
+
+test("intake chat rejects a redundant English imperative for dream companies", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Name your dream companies." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+});
+
+test("intake chat rejects a redundant Czech imperative for dream companies", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Napiš své vysněné firmy." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím nic dalšího.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+});
+
+test("intake chat rejects a redundant Czech imperative for the known goal", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Napiš, co je pro tebe nejdůležitější." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím nic dalšího.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+});
+
+test("intake chat rejects a redundant Czech imperative for known languages", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Napiš své jazyky." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím nic dalšího.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+});
+
+test("intake chat does not treat a Czech adjective as a known language field", async () => {
+  const reply = "Napiš svůj jazykový certifikát.";
+  const { deps, store } = await setup([answer({ reply })]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím nic dalšího.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, reply);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, reply);
+});
+
+test("intake chat preserves an acknowledgement containing dream company list", async () => {
+  const reply = "Your dream company list is saved.";
+  const { deps, store } = await setup([answer({ reply })]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, reply);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, reply);
+});
+
+test("intake chat accepts a newly volunteered dream company and finishes when the seeker is done", async () => {
+  const { deps, store } = await setup([
+    answer({
+      reply: "I've added Acme. We'll leave the rest there.",
+      done: true,
+      draftPatch: { dreamCompanies: [{ name: "Acme" }] },
+    }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Also Acme, but otherwise I'm done.");
+
+  assert.equal(result.done, true);
+  assert.deepEqual((await store.get("skr_test"))?.profile.preferences.dreamCompanies, [
+    { name: "Example Labs" },
+    { name: "Acme" },
+  ]);
+  assert.equal((await store.getIntake("skr_test"))?.phase, "done");
+});
+
+test("intake chat ends on its fourth agent turn", async () => {
+  const { deps, store, llm } = await setup([
+    answer({ reply: "Anything you would refuse?" }),
+    answer({ reply: "You can name a deal breaker or skip." }),
+    answer({ reply: "Thanks, we'll stop here." }),
+  ]);
+  await enterIntakeChat(store);
+  await interviewTurn(deps, "skr_test", "");
+
+  assert.equal((await interviewTurn(deps, "skr_test", "I'm not sure.")).done, false);
+  assert.equal((await interviewTurn(deps, "skr_test", "Still thinking.")).done, false);
+  const final = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+  assert.equal(final.done, true);
+  assert.doesNotMatch(final.reply, /\?/u);
+  assert.doesNotMatch((await store.get("skr_test"))!.interview.at(-1)!.text, /\?/u);
+  assert.equal((await store.getIntake("skr_test"))?.phase, "done");
+  assert.match(JSON.stringify(llm.calls[2].messages), /agent turn 4 of at most 4/);
+});
+
+test("intake chat keeps the sourced salary lookup for pay questions", async () => {
+  const page = {
+    title: "Backend pay",
+    url: "https://salary.example/backend",
+    text: "Backend developer pay ranges from 60000 to 80000 CZK per month.",
+  };
+  const exa = new FakeExa([page]);
+  const { deps, store, llm } = await setup([
+    answer({
+      reply: "I'll check that quickly.",
+      salaryLookup: { lookup: "backend developer", country: "CZ", city: "Prague" },
+    }),
+    JSON.stringify({
+      figures: [{ amountMin: 60000, amountMax: 80000, currency: "CZK", period: "month", url: page.url, quote: page.text }],
+    }),
+    JSON.stringify({
+      reply: "A quick web lookup shows [60000 to 80000 CZK per month](https://salary.example/backend).",
+    }),
+  ], { exa });
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "What does a backend developer pay in Prague?");
+
+  assert.match(result.reply, /60000 to 80000/);
+  assert.equal(result.sources?.[0].url, page.url);
+  assert.equal((await store.get("skr_test"))?.interview.at(-1)?.sources?.[0].url, page.url);
+  assert.match(JSON.stringify(llm.calls[2].messages), /Guided intake context/);
+});
+
+test("server-forced completion preserves a valid sourced salary reply", async () => {
+  const page = {
+    title: "Backend pay",
+    url: "https://salary.example/backend?city=prague",
+    text: "Backend developer pay ranges from 60000 to 80000 CZK per month.",
+  };
+  const exa = new FakeExa([page]);
+  const { deps, store } = await setup([
+    answer({
+      reply: "I'll check that quickly.",
+      draftPatch: { salaryExpectation: { min: 60000, currency: "CZK", period: "month" } },
+      salaryLookup: { lookup: "backend developer", country: "CZ", city: "Prague" },
+    }),
+    JSON.stringify({
+      figures: [{ amountMin: 60000, amountMax: 80000, currency: "CZK", period: "month", url: page.url, quote: page.text }],
+    }),
+    JSON.stringify({
+      reply: `A quick web lookup shows [60000 to 80000 CZK per month](${page.url}). Source: ${page.url}`,
+    }),
+  ], { exa });
+  await enterIntakeChat(store);
+  await store.update("skr_test", (record) => ({ ...record, draft: { ...record.draft, dealBreakers: [] } }));
+
+  const result = await interviewTurn(deps, "skr_test", "I need at least 60000 CZK monthly. What does backend pay?");
+
+  assert.equal(result.done, true);
+  assert.match(result.reply, /60000 to 80000/);
+  assert.equal(result.sources?.[0]?.url, page.url);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, result.reply);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.sources?.[0]?.url, page.url);
+  assert.equal((await store.getIntake("skr_test"))?.phase, "done");
 });
 
 test("normal turn maps occupations, validates fields, and appends both turns", async () => {

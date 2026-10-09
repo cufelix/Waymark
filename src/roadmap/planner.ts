@@ -9,7 +9,7 @@ export type PlannerDeps = { llm: LlmClient };
 const CATEGORIES = new Set<RoadmapChapter["category"]>(["code", "data", "theory", "tools", "project", "soft"]);
 const EVIDENCE_RANK: Record<Evidence, number> = { none: 0, stated: 1, proven: 2 };
 const NUMBER = /\d+/gu;
-const FORBIDDEN_SEEKER_SUMMARY = /%|\bxp\b|\blevel\s+\d+\b|\b\d+\s+of\s+\d+\s+(?:chapters?|modules?)\b/iu;
+const FORBIDDEN_SEEKER_SUMMARY = /%|\bxp\b|\blevel\s+\d+\b|\b\d+\s+of\s+\d+\s+(?:chapters?|modules?)\b|\b(?:scores?|percent(?:age)?s?|probabilit(?:y|ies))\b|\bfit\s+scores?\b|\bskills?\s+match(?:es|ing)?\b|\bmatch\s+(?:scores?|percent(?:age)?s?|probabilit(?:y|ies))\b/iu;
 // "Chance" or "likely" is fine in prose ("a chance to practise"); only next to getting hired is it a forbidden prediction.
 const ODDS_WORD = /\b(?:probability|probable|chances?|likely|likelihood|odds)\b|šanc|pravděpodob/iu;
 const HIRING_WORD = /\b(?:hire[ds]?|hiring|job|position|role|offer|employ\w*|land(?:ing)?)\b|přijet|přijm|pozic|zaměstn/iu;
@@ -274,7 +274,7 @@ function prompts(validation: Validation, profile: SeekerProfile) {
     {
       role: "system" as const,
       content:
-        'Plan a learning roadmap in prerequisite order. Return only strict JSON: {"modules":[{"title":"string","subtitle":"string","why":"string","chapters":[{"title":"string","category":"code|data|theory|tools|project|soft","skillUris":["exact supplied URI"],"outcome":"string","estimatedHours":number?}]}]}. Use no other keys. Unknown skill URIs are forbidden. A foundation chapter may use an empty skillUris array. Do not write scores, percentages, progress, XP, numeric levels, rankings, or hiring probabilities. Do not put a digit in title, subtitle, why, or outcome unless it exactly copies a supplied vacanciesRequiring or vacanciesTotal fact. For learn-fast, use fewer shorter chapters and place projects early. For stability, put the most-demanded skills first within prerequisite constraints. For mission, keep the natural prerequisite order.',
+        'Plan a learning roadmap in prerequisite order. Return only strict JSON: {"modules":[{"title":"string","subtitle":"string","why":"string","chapters":[{"title":"string","category":"code|data|theory|tools|project|soft","skillUris":["exact supplied URI"],"outcome":"string","estimatedHours":number?}]}]}. Use no other keys. Unknown skill URIs are forbidden. A foundation chapter may use an empty skillUris array. Do not write scores, fit scores, skill matches, percents, probabilities, progress, XP, numeric levels, rankings, or hiring predictions about the seeker. You may copy the supplied employer-demand vacancy counts as facts. Do not put a digit in title, subtitle, why, or outcome unless it exactly copies a supplied vacanciesRequiring or vacanciesTotal fact. Use hoursPerWeek only to shape scope: under-5 means fewer, smaller chapters. Use education only to set the starting depth: education none means start from basics, never lower expectations about ability. estimatedHours is the only numeric time output; do not write schedules or time-to-completion numbers in prose. For learn-fast, use fewer shorter chapters and place projects early. For stability, put the most-demanded skills first within prerequisite constraints. For mission, keep the natural prerequisite order.',
     },
     {
       role: "user" as const,
@@ -283,6 +283,8 @@ function prompts(validation: Validation, profile: SeekerProfile) {
         skills,
         goal: profile.preferences.goal,
         languages: profile.preferences.languages,
+        hoursPerWeek: profile.preferences.hoursPerWeek,
+        education: profile.preferences.education,
       }),
     },
   ];
@@ -346,7 +348,7 @@ export async function planModules(
     messages,
     {
       previous: firstRaw,
-      instruction: "Your previous reply introduced a digit that was not copied from demand facts or a forbidden seeker summary such as a percentage, probability, numeric level, progress count, or XP. Retry once. Remove it and return only the exact JSON schema.",
+      instruction: "Your previous reply introduced a digit that was not copied from demand facts or a forbidden seeker summary such as a score, fit score, skill match, percent, probability, numeric level, progress count, or XP. Retry once. Remove it and return only the exact JSON schema.",
     },
   );
   const secondModules = materializePlan(parsePlan(secondRaw), catalog);
