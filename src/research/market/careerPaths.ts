@@ -26,9 +26,9 @@ export function rankCareerPaths(occupations: Occupation[], vacancies: PathVacanc
     return { occupation, vs, tieBreak };
   });
   scored.sort((a, b) => b.vs.length - a.vs.length || b.tieBreak - a.tieBreak);
-  // A path with no current vacancies isn't a path into work right now; it only stays if nothing has any.
-  const open = scored.filter((s) => s.vs.length > 0);
-  return (open.length ? open : scored).slice(0, 3).map(({ occupation, vs }) => ({
+  // Paths with current vacancies come first; the seeker's other picks stay after them with an honest count of 0,
+  // so a thin market in one country doesn't silently drop occupations the seeker chose.
+  return scored.slice(0, 3).map(({ occupation, vs }) => ({
     occupation,
     vacancyCount: vs.length,
     why: vs.length ? [demandClaim(occupation, vs, now)] : [],
