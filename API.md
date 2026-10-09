@@ -234,6 +234,7 @@ What the whiteboard's two steps become:
   - Resources are cached per skill and language across seekers, because they hold nothing personal. Cached evidence expires after `RESOURCE_CACHE_TTL_HOURS` (seven days by default).
   - Repeated URLs are removed across chapters when another verified resource is available. When resource discovery is configured, an unfinished chapter without a verified resource is omitted rather than exposed as actionable; `free-only` likewise omits chapters without a verified free option. The build fails if no actionable unfinished chapter remains.
   - A provider failure marks the background build `failed`; it is not disguised as a ready roadmap with empty resources.
+  - On server startup, a `building` roadmap left untouched for more than five minutes is marked `failed` with error code `build_interrupted`. The client can retry by creating a new roadmap.
 
 **Guardrail:** the same as in Part 3. The roadmap has no progress percentage, no XP and no level. The API returns no "3 of 16 chapters" count, and nothing compares the seeker with other people.
 

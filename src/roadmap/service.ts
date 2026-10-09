@@ -28,7 +28,25 @@ export type RoadmapBuilders = {
 
 export const defaultBuilders: RoadmapBuilders = { pickTarget, planModules, findResources };
 
+export const ROADMAP_BUILD_STALE_MINUTES = 5;
+
 export type BuildingRoadmap = Roadmap & { readonly buildPromise: Promise<void> };
+
+/** Makes interrupted builds terminal after restart so clients never poll a stale building row forever. */
+export async function recoverStaleRoadmaps(
+  deps: Pick<RoadmapDeps, "store" | "now">,
+  staleMinutes = ROADMAP_BUILD_STALE_MINUTES,
+): Promise<number> {
+  const failedAt = timestamp(deps);
+  const cutoff = new Date(new Date(failedAt).getTime() - staleMinutes * 60_000).toISOString();
+  return deps.store.failBuildingOlderThan(cutoff, {
+    error: {
+      code: "build_interrupted",
+      message: "Roadmap build was interrupted; create a new roadmap to retry",
+    },
+    updatedAt: failedAt,
+  });
+}
 
 function invalid(message: string): never {
   throw new ApiError("unprocessable", message);

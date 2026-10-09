@@ -4,6 +4,7 @@ import { PostgresGapStore } from "../../src/gap/postgres-store";
 import { purgeExpiredPersonalData } from "../../src/privacy/retention";
 import type { Roadmap } from "../../src/roadmap/contracts";
 import { PostgresRoadmapStore } from "../../src/roadmap/postgres-store";
+import { recoverStaleRoadmaps } from "../../src/roadmap/service";
 import { OCCUPATION, PROFILE, VALIDATION } from "../../src/roadmap/testdata/validation";
 import type { Intake } from "../../src/seeker/contracts";
 import { PostgresSeekerStore } from "../../src/seeker/store/postgres";
@@ -81,6 +82,26 @@ describe("PostgreSQL personal-data stores", () => {
     expect((await new PostgresRoadmapStore(pool, 90).get(roadmapId))?.status).toBe("failed");
     await roadmaps.deleteBySeeker(seekerId);
     expect(await roadmaps.replaceIfExists(roadmap)).toBe(false);
+  });
+
+  it("marks only stale building roadmaps as interrupted", async () => {
+    const roadmaps = new PostgresRoadmapStore(pool, 90);
+    const staleId = `rmp_stale_${suffix}`;
+    const freshId = `rmp_fresh_${suffix}`;
+    try {
+      await roadmaps.put({ ...roadmap, roadmapId: staleId, status: "building" });
+      await roadmaps.put({ ...roadmap, roadmapId: freshId, status: "building" });
+      await pool.query("UPDATE roadmaps SET updated_at = now() - interval '10 minutes' WHERE roadmap_id = $1", [staleId]);
+
+      expect(await recoverStaleRoadmaps({ store: roadmaps })).toBe(1);
+      expect(await roadmaps.get(staleId)).toMatchObject({
+        status: "failed",
+        error: { code: "build_interrupted" },
+      });
+      expect((await roadmaps.get(freshId))?.status).toBe("building");
+    } finally {
+      await pool.query("DELETE FROM roadmaps WHERE roadmap_id = ANY($1::text[])", [[staleId, freshId]]);
+    }
   });
 
   it("hides and purges expired records", async () => {

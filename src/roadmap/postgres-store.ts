@@ -29,6 +29,26 @@ export class PostgresRoadmapStore implements RoadmapStore {
     return (result.rowCount ?? 0) > 0;
   }
 
+  async failBuildingOlderThan(
+    cutoff: string,
+    failure: { error: NonNullable<Roadmap["error"]>; updatedAt: string },
+  ): Promise<number> {
+    const result = await this.db.query(
+      `UPDATE roadmaps
+          SET data = data || jsonb_build_object(
+                'status', 'failed',
+                'error', $2::jsonb,
+                'updatedAt', $3::text
+              ),
+              updated_at = $3::timestamptz
+        WHERE data->>'status' = 'building'
+          AND updated_at <= $1::timestamptz
+          AND expires_at > now()`,
+      [cutoff, JSON.stringify(failure.error), failure.updatedAt],
+    );
+    return result.rowCount ?? 0;
+  }
+
   async get(roadmapId: string): Promise<Roadmap | undefined> {
     const { rows } = await this.db.query<Row>(
       "SELECT data FROM roadmaps WHERE roadmap_id = $1 AND expires_at > now()",

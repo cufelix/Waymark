@@ -9,6 +9,7 @@ import {
   deleteRoadmaps,
   getRoadmap,
   listRoadmaps,
+  recoverStaleRoadmaps,
   setProgress,
   type RoadmapBuilders,
   type RoadmapDeps,
@@ -124,6 +125,37 @@ test("a background failure stores a failed roadmap without exposing its message"
   assert.equal(failed.error?.code, "upstream_failed");
   assert.equal(failed.error?.message.includes(secret), false);
   assert.deepEqual(failed.modules, []);
+});
+
+test("startup recovery fails stale building roadmaps but leaves fresh builds alone", async () => {
+  const store = new MemoryRoadmapStore();
+  const stale = {
+    roadmapId: "rmp_00000000000000000000000008",
+    seekerId: PROFILE.seekerId,
+    validationId: VALIDATION.validationId,
+    runId: VALIDATION.runId,
+    occupation: VALIDATION.occupation,
+    goal: PROFILE.preferences.goal,
+    status: "building" as const,
+    modules: [],
+    createdAt: "2026-10-09T09:00:00.000Z",
+    updatedAt: "2026-10-09T09:54:59.000Z",
+  };
+  const fresh = { ...stale, roadmapId: "rmp_00000000000000000000000009", updatedAt: "2026-10-09T09:58:00.000Z" };
+  await store.put(stale);
+  await store.put(fresh);
+
+  assert.equal(await recoverStaleRoadmaps({ store, now: () => new Date(NOW) }), 1);
+  assert.deepEqual(await store.get(stale.roadmapId), {
+    ...stale,
+    status: "failed",
+    error: {
+      code: "build_interrupted",
+      message: "Roadmap build was interrupted; create a new roadmap to retry",
+    },
+    updatedAt: NOW.toISOString(),
+  });
+  assert.equal((await store.get(fresh.roadmapId))?.status, "building");
 });
 
 test("unknown and foreign validations are unprocessable and request fields are exact", async () => {
