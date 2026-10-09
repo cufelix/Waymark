@@ -1,5 +1,6 @@
 import type { WarmupQuestion } from "./warmup.ts";
 import type { IntakeDeps } from "./service.ts";
+import { warmupInterviewTurn } from "../service/interview.ts";
 
 export type WarmupReply = { reply: string; mappedTo: string[] };
 
@@ -10,10 +11,10 @@ export type WarmupReply = { reply: string; mappedTo: string[] };
  * the answer matches (unknown options dropped).
  */
 export async function warmupFreeText(
-  _deps: IntakeDeps,
-  _seekerId: string,
-  _question: WarmupQuestion,
-  _answer: string,
+  deps: IntakeDeps,
+  seekerId: string,
+  question: WarmupQuestion,
+  answer: string,
 ): Promise<WarmupReply> {
-  throw new Error("not implemented");
+  return warmupInterviewTurn(deps, seekerId, question, answer);
 }

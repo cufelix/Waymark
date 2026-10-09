@@ -1,5 +1,6 @@
-import type { CareerPreferencesDraft, InterviewTurn } from "../contracts.ts";
+import type { CareerPreferences, CareerPreferencesDraft, Intake, InterviewTurn } from "../contracts.ts";
 import type { ChatMessage } from "../llm/llm.ts";
+import type { WarmupQuestion } from "../intake/warmup.ts";
 
 // Language-neutral on purpose: the seeker's language is unknown before the first answer.
 export const FIRST_INTERVIEW_QUESTION =
@@ -8,6 +9,13 @@ export const FIRST_INTERVIEW_QUESTION =
 // Hard caps are also enforced in interview.ts.
 export const DIRECT_MAX_AGENT_QUESTIONS = 8;
 export const EXPLORE_MAX_AGENT_QUESTIONS = 15;
+export const INTAKE_CHAT_MAX_AGENT_TURNS = 4;
+
+export const INTAKE_CHAT_FIRST_QUESTION =
+  "Before we wrap up, is there anything you would refuse in a job? You can say none.";
+
+export const INTAKE_CHAT_SALARY_QUESTION =
+  "What minimum salary would you need? A monthly or yearly amount is enough, and you can skip this.";
 
 // Style borrowed from motivational interviewing and NCDA helping skills (OARS: open questions,
 // affirmations, reflections, summaries): ncda.org "Using Motivational Interviewing in Career Counseling".
@@ -92,6 +100,96 @@ export function interviewMessages(
   return messages;
 }
 
+const INTAKE_CHAT_SYSTEM_PROMPT = `You are a warm career advisor in the final, optional “Anything else?” step of a guided intake.
+
+Return only strict JSON with exactly this shape:
+{"reply":"string","done":false,"mode":"direct","draftPatch":{},"statedSkills":[{"label":"string","quote":"exact excerpt from the latest seeker message"}]}
+For an explicit pay question about a specific occupation, you may also include:
+{"salaryLookup":{"lookup":"short English occupation title","country":"CZ","city":"Prague"}}
+
+Rules:
+- Reply in the language of the latest seeker message. Keep it warm and under about 45 words. Reflect briefly, then ask at most ONE question.
+- The guided intake already collected the goal, locations, remote preference, available hours, course budget, education, languages, dream companies, and top career paths. Never ask for or re-check any of them.
+- Ask ONLY for a missing deal breaker or a missing salary expectation. Deal breakers may be an explicit empty list. Salary is optional and may be skipped.
+- A seeker may volunteer one more dream company. Record it, but never ask about dream companies or languages.
+- Set done:true as soon as both dealBreakers and salaryExpectation are present in the current draft, or the seeker says they are finished, want to skip, or have nothing else to add. A done reply contains no question.
+- Keep mode:"direct". draftPatch may contain ONLY dealBreakers, salaryExpectation, or dreamCompanies, using the normal interview value shapes. Include only information supported by the latest message.
+- Extract every concrete tool, technology, or ability the seeker explicitly claims into statedSkills. Each quote must be an exact verbatim substring of the latest message. Do not treat a language, education, personality trait, wish, or job title as a skill.
+- Never assess, score, rank, or estimate the seeker's fit or hiring chances. Never introduce an unsupported salary number.
+- salaryLookup is only for the seeker's explicit question about what a named occupation pays. Use the already known location from the intake context when possible.`;
+
+export function intakeChatMessages(
+  transcript: InterviewTurn[],
+  draft: CareerPreferencesDraft,
+  latestText: string,
+  intake: Intake,
+  preferences: CareerPreferences,
+): ChatMessage[] {
+  const openingIndex = transcript.findLastIndex(
+    (turn) => turn.role === "agent" &&
+      (turn.text === INTAKE_CHAT_FIRST_QUESTION || turn.text === INTAKE_CHAT_SALARY_QUESTION),
+  );
+  const priorChatTurns = openingIndex < 0
+    ? 0
+    : transcript.slice(openingIndex).filter((turn) => turn.role === "agent").length;
+  const context = {
+    goal: preferences.goal,
+    locations: intake.practical?.locations ?? preferences.locations,
+    remote: intake.practical?.remote ?? preferences.remote,
+    hoursPerWeek: intake.practical?.hoursPerWeek ?? preferences.hoursPerWeek,
+    courseBudget: intake.practical?.courseBudget ?? preferences.courseBudget,
+    education: intake.practical?.education ?? preferences.education,
+    languages: intake.practical?.languages ?? preferences.languages,
+    dreamCompanies: intake.practical?.dreamCompanies ?? preferences.dreamCompanies,
+    topPaths: intake.paths.filter((path) => path.top3).slice(0, 3).map((path) => path.occupation),
+  };
+  const messages: ChatMessage[] = [
+    { role: "system", content: INTAKE_CHAT_SYSTEM_PROMPT },
+    { role: "system", content: `Guided intake context (JSON; already known, never re-ask): ${JSON.stringify(context)}` },
+    { role: "system", content: `Current validated optional-chat draft (JSON): ${JSON.stringify(draft)}` },
+    {
+      role: "system",
+      content: `This is optional-chat agent turn ${priorChatTurns + 1} of at most ${INTAKE_CHAT_MAX_AGENT_TURNS}. On the final turn, set done:true and ask no question.`,
+    },
+  ];
+  for (const turn of transcript) {
+    messages.push({ role: turn.role === "agent" ? "assistant" : "user", content: turn.text });
+  }
+  messages.push({ role: "user", content: latestText });
+  return messages;
+}
+
+const WARMUP_SYSTEM_PROMPT = `You are a warm career advisor handling one free-text answer inside a guided-intake warm-up.
+
+Return only strict JSON with exactly this shape:
+{"reply":"string","done":false,"mode":"direct","draftPatch":{},"statedSkills":[{"label":"string","quote":"exact excerpt from the latest seeker message"}],"mappedTo":["exact option label"]}
+
+Rules:
+- Reply in the language of the latest answer. Use only 1–2 short sentences.
+- Briefly acknowledge what the seeker said and lead them back to the guided flow. Do NOT ask the next warm-up question; the UI owns that question.
+- mappedTo is a subset of the supplied option labels. Use exact labels, include every close match, and use [] when none match. Never invent an option.
+- Extract only preferences supported by the answer into draftPatch, using the normal interview value shapes.
+- Extract every concrete tool, technology, or ability the seeker explicitly claims into statedSkills. Each quote must be an exact verbatim substring of the answer.
+- Never assess, score, rank, or estimate the seeker's fit or hiring chances.`;
+
+export function warmupMessages(
+  transcript: InterviewTurn[],
+  draft: CareerPreferencesDraft,
+  question: WarmupQuestion,
+  answer: string,
+): ChatMessage[] {
+  const messages: ChatMessage[] = [
+    { role: "system", content: WARMUP_SYSTEM_PROMPT },
+    { role: "system", content: `Warm-up question and allowed options (JSON): ${JSON.stringify(question)}` },
+    { role: "system", content: `Current validated draft (JSON): ${JSON.stringify(draft)}` },
+  ];
+  for (const turn of transcript) {
+    messages.push({ role: turn.role === "agent" ? "assistant" : "user", content: turn.text });
+  }
+  messages.push({ role: "user", content: answer });
+  return messages;
+}
+
 export function salaryReplyMessages(
   transcript: InterviewTurn[],
   draft: CareerPreferencesDraft,
@@ -106,4 +204,15 @@ export function salaryReplyMessages(
       JSON.stringify(figures),
   });
   return messages;
+}
+
+export function salaryReplyFromMessages(messages: ChatMessage[], figures: unknown): ChatMessage[] {
+  const withFigures = [...messages];
+  withFigures.splice(3, 0, {
+    role: "system",
+    content:
+      "A quick web lookup has now returned the verified salary figures and source URLs below. Answer the pay question with an indicative range supported solely by these figures. Explicitly call it a quick web lookup and link the supporting pages with Markdown links. Do not calculate, convert, or introduce any number absent from the numeric amount fields, including dates, percentages, counts, or rounded abbreviations. Never relate the figures to the seeker's worth, fit, or chances. Continue only within the rules of the active interview mode. Return only strict JSON with exactly this shape: {\"reply\":\"string\"}. Verified figures and URLs: " +
+      JSON.stringify(figures),
+  });
+  return withFigures;
 }
