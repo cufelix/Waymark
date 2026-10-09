@@ -18,9 +18,10 @@ Waymark reads the real job market for you, shows where your interests and eviden
 [![Claude via OpenRouter](https://img.shields.io/badge/LLM-Claude%20via%20OpenRouter-D97757?logo=anthropic&logoColor=white)](https://openrouter.ai/)
 [![ElevenLabs voice](https://img.shields.io/badge/Voice-ElevenLabs-000000?logo=elevenlabs&logoColor=white)](https://elevenlabs.io/)
 [![Tests](https://img.shields.io/badge/tests-462%20passing-B8F25B)](#tests)
+[![Live demo](https://img.shields.io/badge/live%20demo-online-B8F25B?logo=googlechrome&logoColor=white)](https://waymark.golobokov.dev/demo)
 [![Built at a hackathon](https://img.shields.io/badge/built%20at-Ethera%20hackathon%202026-B8F25B)](#team)
 
-[**Landing page**](https://cufelix.github.io/Waymark/) · [**Try it locally in 2 minutes**](#try-it-locally) · [API contract](API.md) · [Architecture plan](PLAN.md)
+[**▶ Live demo**](https://waymark.golobokov.dev/demo) · [**Website**](https://waymark.golobokov.dev) · [**Try it locally in 2 minutes**](#try-it-locally) · [API contract](API.md) · [Architecture plan](PLAN.md)
 
 <img src="docs/media/hero.jpg" alt="Waymark landing page: Your future isn't a guessing game" width="900">
 
@@ -40,6 +41,10 @@ Waymark starts from the person, not a quiz score. It asks what they enjoy with *
 <img src="docs/media/demo.gif" alt="Waymark walkthrough: intake, task cards, research, career paths, roadmap and module" width="860">
 <br>
 <sub>Full flow in the built-in offline demo (<code>?sample=1</code>). All people, companies and URLs are fictional.</sub>
+<br><br>
+<a href="https://waymark.golobokov.dev/demo"><b>▶ Try it yourself at waymark.golobokov.dev/demo</b></a>
+<br>
+<sub>The hosted demo runs on sample data only (<code>UI_DEMO_ONLY=1</code>), so anyone can click through it without an account.</sub>
 </div>
 
 ## How it works for the seeker
