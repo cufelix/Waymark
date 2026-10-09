@@ -2,6 +2,7 @@
 import type { CareerPath, JobMarket, Occupation, OccupationTrends, ResearchOptions, RoleModelInsights, RunStep, SeekerProfile } from "../../contracts";
 import { mapLimit } from "./github";
 import { roleModels } from "./rolemodels";
+import { enrichWithGlassdoor } from "./glassdoor";
 import { searchOccupations } from "../../shared/taxonomy";
 import { query } from "../../db/pool";
 import { errorMessage, log } from "../../log";
@@ -86,6 +87,16 @@ export async function researchMarket(
     "SELECT company_id FROM run_companies WHERE run_id = $1 ORDER BY is_dream DESC LIMIT $2",
     [runId, options.maxCompanies],
   );
+  // Glassdoor reviews for the dream companies and the 3 companies hiring most (each is a small paid actor run).
+  if (options.sources.includes("apify") && options.sources.includes("exa")) {
+    const top = await query<{ company_id: string }>(
+      `SELECT rc.company_id FROM run_companies rc LEFT JOIN vacancies v ON v.company_id = rc.company_id
+       LEFT JOIN run_vacancies rv ON rv.vacancy_id = v.id AND rv.run_id = rc.run_id AND NOT rv.irrelevant
+       WHERE rc.run_id = $1 GROUP BY rc.company_id, rc.is_dream ORDER BY rc.is_dream DESC, count(rv.vacancy_id) DESC LIMIT $2`,
+      [runId, dreamCompanies.length + 3],
+    );
+    await mapLimit(top, 3, ({ company_id }) => enrichWithGlassdoor(company_id, runId));
+  }
   let companiesDone = 0;
   await mapLimit(companies, 5, async ({ company_id }) => {
     try {
