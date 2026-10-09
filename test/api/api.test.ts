@@ -32,6 +32,7 @@ const profile = (over: Record<string, unknown> = {}) => ({ ...structuredClone(fi
 
 const MARKET = {
   trends: [],
+  roleModels: [],
   careerPaths: [],
   companyIds: ["cmp_1", "cmp_2"],
   vacancyIds: ["vac_1"],

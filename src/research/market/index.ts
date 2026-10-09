@@ -1,5 +1,7 @@
 // Market research for one seeker: vacancies → requirements → companies → market → career paths.
-import type { CareerPath, JobMarket, Occupation, OccupationTrends, ResearchOptions, RunStep, SeekerProfile } from "../../contracts";
+import type { CareerPath, JobMarket, Occupation, OccupationTrends, ResearchOptions, RoleModelInsights, RunStep, SeekerProfile } from "../../contracts";
+import { mapLimit } from "./github";
+import { roleModels } from "./rolemodels";
 import { searchOccupations } from "../../shared/taxonomy";
 import { query } from "../../db/pool";
 import { errorMessage, log } from "../../log";
@@ -43,35 +45,29 @@ export async function researchMarket(
   runId: string,
   onProgress: Progress = () => undefined,
   onCareerPaths: (paths: CareerPath[]) => Promise<void> = async () => undefined,
-): Promise<{ careerPaths: CareerPath[]; trends: OccupationTrends[]; companyIds: string[]; vacancyIds: string[]; market: JobMarket[] }> {
+): Promise<{ careerPaths: CareerPath[]; trends: OccupationTrends[]; roleModels: RoleModelInsights[]; companyIds: string[]; vacancyIds: string[]; market: JobMarket[] }> {
   const { targetOccupations, locations, remote, dreamCompanies, goal } = profile.preferences;
   // Top 3 career paths: the seeker's targets, plus related occupations when there are fewer than 3 (API.md).
   const occupations = await withRelated(targetOccupations, runId);
   const pairs = occupations.flatMap((occupation) => locations.map((location) => ({ occupation, location })));
   const perPair = Math.max(1, Math.floor(options.maxVacancies / Math.max(1, pairs.length)));
 
-  // 1. Vacancies, one occupation × location at a time; one failing pair doesn't stop the others.
+  // 1. Vacancies for every occupation × location in parallel (3 at a time); one failing pair doesn't stop the others.
+  // Each pair also looks once more for the upper steps of its ladder: ads for a junior seeker are mostly entry-level.
   const vacancyIds = new Set<string>();
-  for (const [i, { occupation, location }] of pairs.entries()) {
-    onProgress("vacancies", i, pairs.length);
+  let pairsDone = 0;
+  onProgress("vacancies", 0, pairs.length);
+  await mapLimit(pairs, 3, async ({ occupation, location }) => {
     try {
       for (const id of await findVacancies(occupation, location, remote, perPair, runId, options.sources)) vacancyIds.add(id);
-    } catch (err) {
-      log.warn("vacancy search failed", { runId, occupation: occupation.uri, country: location.country, error: errorMessage(err) });
-    }
-  }
-  onProgress("vacancies", pairs.length, pairs.length);
-
-  // Ads found for a junior seeker are mostly entry-level; look once more for the upper steps of each ladder.
-  for (const { occupation, location } of pairs) {
-    try {
       const term = (await searchTerms(occupation, location.country, runId))[0] ?? occupation.label;
       const upper = [`Senior ${term}`, `Lead ${term}`];
       for (const id of await findVacancies(occupation, location, remote, Math.max(5, Math.floor(perPair / 3)), runId, options.sources, upper)) vacancyIds.add(id);
     } catch (err) {
-      log.warn("upper-level vacancy search failed", { runId, occupation: occupation.uri, error: errorMessage(err) });
+      log.warn("vacancy search failed", { runId, occupation: occupation.uri, country: location.country, error: errorMessage(err) });
     }
-  }
+    onProgress("vacancies", ++pairsDone, pairs.length);
+  });
 
   // 2. Top career paths with their ladders, published straight away so the seeker can choose while the rest runs.
   const ladderByOccupation = await ladders(runId, occupations);
@@ -90,16 +86,16 @@ export async function researchMarket(
     "SELECT company_id FROM run_companies WHERE run_id = $1 ORDER BY is_dream DESC LIMIT $2",
     [runId, options.maxCompanies],
   );
-  for (const [i, { company_id }] of companies.entries()) {
-    onProgress("companies", i, companies.length);
+  let companiesDone = 0;
+  await mapLimit(companies, 5, async ({ company_id }) => {
     try {
       await enrichCompany(company_id, options, runId);
       await refreshGhostSignals(company_id);
     } catch (err) {
       log.warn("company enrichment failed", { runId, companyId: company_id, error: errorMessage(err) });
     }
-  }
-  onProgress("companies", companies.length, companies.length);
+    onProgress("companies", ++companiesDone, companies.length);
+  });
 
   // 5. Market numbers and career paths, both from what is stored for this run.
   const market = await buildMarket(runId, occupations, locations);
@@ -107,16 +103,24 @@ export async function researchMarket(
   // Recomputed at the end: the order can shift once requirements are known (learn-fast counts distinct skills).
   const paths = withLadders(await careerPaths(runId, occupations, goal));
 
-  // 6. Then vs now, so older career paths are checked against today's market (needs Exa's date filters).
+  // 6. In parallel: then-vs-now skill trends (needs Exa's date filters), and role models — what people already
+  // at the target companies build now, so the seeker gets today's projects, not the ones that worked ten years ago.
   const homeLocation = locations[0]?.country ?? "US";
-  const trends = options.sources.includes("exa")
-    ? await skillTrends(
-        await Promise.all(occupations.map(async (o) => ({ occupation: o, term: (await searchTerms(o, homeLocation, runId))[0] ?? o.label }))),
-        market,
-        runId,
-      )
-    : [];
+  const [trends, roleModelList] = await Promise.all([
+    options.sources.includes("exa")
+      ? skillTrends(
+          await Promise.all(occupations.map(async (o) => ({ occupation: o, term: (await searchTerms(o, homeLocation, runId))[0] ?? o.label }))),
+          market,
+          runId,
+        )
+      : Promise.resolve([]),
+    mapLimit(paths.map((p) => p.occupation), 3, (o) => roleModels(runId, o, dreamCompanies.map((d) => d.name)).catch((err) => {
+      log.warn("role models failed", { runId, occupation: o.uri, error: errorMessage(err) });
+      return null;
+    })),
+  ]);
+  const roleModelInsights = roleModelList.filter((r): r is RoleModelInsights => !!r);
 
   const allCompanies = await query<{ company_id: string }>("SELECT company_id FROM run_companies WHERE run_id = $1", [runId]);
-  return { careerPaths: paths, trends, companyIds: allCompanies.map((c) => c.company_id), vacancyIds: [...vacancyIds], market };
+  return { careerPaths: paths, trends, roleModels: roleModelInsights, companyIds: allCompanies.map((c) => c.company_id), vacancyIds: [...vacancyIds], market };
 }
