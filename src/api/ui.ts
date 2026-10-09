@@ -40,6 +40,7 @@ const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
 type UiOptions = {
   local?: boolean;
+  demoOnly?: boolean;
   publicOrigin?: string;
   trustCloudflare?: boolean;
   trustProxy?: boolean;
@@ -50,6 +51,7 @@ type UiOptions = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mountUi(app: Hono<any>, {
   local = config.UI_LOCAL,
+  demoOnly = config.UI_DEMO_ONLY,
   publicOrigin = config.UI_PUBLIC_ORIGIN,
   trustCloudflare = config.TRUST_CLOUDFLARE,
   trustProxy = config.TRUST_PROXY,
@@ -87,8 +89,22 @@ export function mountUi(app: Hono<any>, {
     return bucket.count <= publicRateLimitPerMinute;
   };
 
+  if (demoOnly) {
+    // Nothing from the browser reaches the API, so no visitor can trigger a paid model or provider call.
+    app.all("/ui/api/*", (c) =>
+      c.json({ ok: false, data: null, error: { code: "unauthorized", message: "This is a demo with sample data only" }, meta: {} }, 401));
+    // Every page runs on the built-in fictional data (prototype/sample.js) instead of the live API.
+    app.get("/", (c) => c.redirect("/index.html?sample=1"));
+    app.get("/*", async (c, next) => {
+      const url = new URL(c.req.url);
+      if (!url.pathname.endsWith(".html") || url.searchParams.get("sample") === "1") return next();
+      url.searchParams.set("sample", "1");
+      return c.redirect(url.pathname + url.search);
+    });
+  }
+
   app.all("/ui/api/*", async (c) => {
-    const deny = (message: string) => c.json({ ok: false, data: null, error: { code: "unauthorized", message }, meta: {} }, 401);
+    const deny =(message: string) => c.json({ ok: false, data: null, error: { code: "unauthorized", message }, meta: {} }, 401);
     const host = c.req.header("host") ?? "";
     const site = c.req.header("sec-fetch-site");
     const isPublicHost = publicUrl?.host.toLowerCase() === host.trim().toLowerCase();

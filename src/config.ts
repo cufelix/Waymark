@@ -18,6 +18,8 @@ const Env = z.object({
     .refine((value) => ["http:", "https:"].includes(new URL(value).protocol), "must be an HTTP(S) origin")
     .transform((value) => new URL(value).origin)
     .optional(),
+  // Public demo without spend: the UI bridge is closed and every page runs on the built-in sample data.
+  UI_DEMO_ONLY: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Trust Cloudflare's client IP header only when all public traffic actually comes through Cloudflare.
   TRUST_CLOUDFLARE: z.enum(["0", "1"]).default("0").transform((v) => v === "1"),
   // Behind a local reverse proxy (Traefik in Coolify): take the client IP from the last X-Forwarded-For hop.
