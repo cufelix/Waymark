@@ -96,6 +96,18 @@ External services are optional by feature:
 
 Paid tools have monthly caps through `CAP_*_USD`. Keep the defaults low until a real workload has been measured.
 
+## Deploy on Coolify
+
+1. In Coolify, create a resource from the GitHub repository, choose the Docker Compose build pack, and set the compose file to `docker-compose.coolify.yml`.
+2. Set the domain on the `app` service to your public URL (for example `https://waymark.example.com`) and its port to `8787`.
+3. Set the environment variables required by the compose file. At minimum, provide strong unique values for `POSTGRES_PASSWORD`, `API_KEYS`, and `PROOF_SECRET`; set `DATABASE_URL=postgres://research:<URL-encoded POSTGRES_PASSWORD>@db:5432/research` and `UI_PUBLIC_ORIGIN` to that same URL; then set provider keys as needed. Leave `TRUST_CLOUDFLARE=1` only while requests reach the service through Cloudflare.
+4. Set Cloudflare SSL/TLS encryption mode to **Full (strict)**.
+5. Recommended for this demo: put Cloudflare Access in front of the domain.
+
+The app starts with `ROLE=all`, waits for PostgreSQL to become healthy, and runs migrations before starting the API and worker. PostgreSQL data and source snapshots use named volumes.
+
+This public setup is a demo, not a multi-user production deployment. The UI bridge uses one shared server API key and there is no per-user login or ownership authorization. A seeker's unguessable ID is the only practical access boundary: the `PROOF_SECRET`-derived proof token confirms ownership of selected external profiles, but does not authenticate UI/API access. Use only obviously fake data (for example, “Jane Example” and `example.com`) and do not submit real personal data. See the [readiness audit](docs/readiness-audit.md).
+
 ## Tests
 
 The framework-free seeker, validation and roadmap suite runs directly on Node:

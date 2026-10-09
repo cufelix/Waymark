@@ -1,0 +1,51 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "8787"
+    environment:
+      ROLE: all
+      PORT: 8787
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL with host db}
+      SNAPSHOT_DIR: /app/data/snapshots
+      API_KEYS: ${API_KEYS:?set API_KEYS}
+      PROOF_SECRET: ${PROOF_SECRET:?set PROOF_SECRET}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      APIFY_TOKEN: ${APIFY_TOKEN:-}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      CAP_LLM_USD: ${CAP_LLM_USD:-50}
+      CAP_APIFY_USD: ${CAP_APIFY_USD:-50}
+      CAP_EXA_USD: ${CAP_EXA_USD:-50}
+      CAP_FIRECRAWL_USD: ${CAP_FIRECRAWL_USD:-50}
+      UI_PUBLIC_ORIGIN: ${UI_PUBLIC_ORIGIN:?set UI_PUBLIC_ORIGIN}
+      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-1}
+    volumes:
+      - snapshots:/app/data/snapshots
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: research
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: research
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U research -d research"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  snapshots:

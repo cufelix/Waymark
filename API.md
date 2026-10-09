@@ -41,6 +41,7 @@ sequenceDiagram
 
 - **Base path** `/v1`. A breaking change goes to `/v2`.
 - **Auth:** `Authorization: Bearer <API key>` on every call. Keys come from environment variables, never from the repo. User login arrives with the UI.
+- **UI bridge:** `/ui/api/*` adds the server's API key for the browser. Local mode remains loopback-only. When `UI_PUBLIC_ORIGIN` is set, public bridge requests must use that origin's host, send `X-Ethera-UI: 1`, report `Sec-Fetch-Site: same-origin` or `none`, and have a matching `Origin` when that header is present. Public requests are limited to 120 per client IP per minute; `CF-Connecting-IP` is trusted only with `TRUST_CLOUDFLARE=1`, otherwise the socket address is used.
 - **JSON everywhere**, except the CV upload (`multipart/form-data`).
 - **Response envelope**, the same on every endpoint:
 
