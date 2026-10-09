@@ -23,7 +23,8 @@ services:
       CAP_EXA_USD: ${CAP_EXA_USD:-50}
       CAP_FIRECRAWL_USD: ${CAP_FIRECRAWL_USD:-50}
       UI_PUBLIC_ORIGIN: ${UI_PUBLIC_ORIGIN:?set UI_PUBLIC_ORIGIN}
-      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-1}
+      # Only set to 1 when the origin accepts traffic from Cloudflare IP ranges only; otherwise CF-Connecting-IP is spoofable.
+      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-0}
     volumes:
       - snapshots:/app/data/snapshots
     depends_on:
