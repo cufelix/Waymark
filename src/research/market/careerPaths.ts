@@ -57,7 +57,7 @@ export async function careerPaths(runId: string, occupations: Occupation[], goal
     `SELECT v.company_id, COALESCE(rc.is_dream, false) AS is_dream, v.data
      FROM run_vacancies rv JOIN vacancies v ON v.id = rv.vacancy_id
      LEFT JOIN run_companies rc ON rc.run_id = rv.run_id AND rc.company_id = v.company_id
-     WHERE rv.run_id = $1`,
+     WHERE rv.run_id = $1 AND coalesce((v.data->>'irrelevant')::boolean, false) = false`,
     [runId],
   );
   const vacancies: PathVacancy[] = rows
