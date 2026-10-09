@@ -205,6 +205,18 @@ test("intake chat rejects redundant requests without a question mark", async () 
   assert.doesNotMatch(result.reply, /dream compan/iu);
 });
 
+test("intake chat preserves an acknowledgement containing dream company list", async () => {
+  const reply = "Your dream company list is saved.";
+  const { deps, store } = await setup([answer({ reply })]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, reply);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, reply);
+});
+
 test("intake chat accepts a newly volunteered dream company and finishes when the seeker is done", async () => {
   const { deps, store } = await setup([
     answer({
@@ -276,7 +288,7 @@ test("intake chat keeps the sourced salary lookup for pay questions", async () =
 test("server-forced completion preserves a valid sourced salary reply", async () => {
   const page = {
     title: "Backend pay",
-    url: "https://salary.example/backend-final",
+    url: "https://salary.example/backend?city=prague",
     text: "Backend developer pay ranges from 60000 to 80000 CZK per month.",
   };
   const exa = new FakeExa([page]);
@@ -290,7 +302,7 @@ test("server-forced completion preserves a valid sourced salary reply", async ()
       figures: [{ amountMin: 60000, amountMax: 80000, currency: "CZK", period: "month", url: page.url, quote: page.text }],
     }),
     JSON.stringify({
-      reply: "A quick web lookup shows [60000 to 80000 CZK per month](https://salary.example/backend-final).",
+      reply: `A quick web lookup shows [60000 to 80000 CZK per month](${page.url}). Source: ${page.url}`,
     }),
   ], { exa });
   await enterIntakeChat(store);
