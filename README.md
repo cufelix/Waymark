@@ -19,7 +19,7 @@ Waymark reads the real job market for you, shows where your interests and eviden
 [![ElevenLabs voice](https://img.shields.io/badge/Voice-ElevenLabs-000000?logo=elevenlabs&logoColor=white)](https://elevenlabs.io/)
 [![Tests](https://img.shields.io/badge/tests-462%20passing-B8F25B)](#tests)
 [![Live demo](https://img.shields.io/badge/live%20demo-online-B8F25B?logo=googlechrome&logoColor=white)](https://waymark.golobokov.dev/demo)
-[![Built at a hackathon](https://img.shields.io/badge/built%20at-Ethera%20hackathon%202026-B8F25B)](#team)
+[![Built at a hackathon](https://img.shields.io/badge/built%20at-From%20Dusk%20Till%20Dawn%202026-B8F25B)](#team)
 
 [**▶ Live demo**](https://waymark.golobokov.dev/demo) · [**Website**](https://waymark.golobokov.dev) · [**Try it locally in 2 minutes**](#try-it-locally) · [API contract](API.md) · [Architecture plan](PLAN.md)
 
@@ -251,7 +251,7 @@ More: [Privacy and data handling](docs/privacy-and-data.md) · [Privacy operatio
 
 ## Team
 
-Built by three people at the **Ethera hackathon** in October 2026, then hardened for deployment.
+Built by three people at the **From Dusk Till Dawn #01** hackathon (Agents 0.0.7 community, at Etnetera in Prague) in October 2026, in the Social Media Deep Research track, then hardened for deployment.
 
 | | Role | Built |
 |---|---|---|
