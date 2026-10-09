@@ -257,7 +257,8 @@ test("a configured resource service omits an unavailable chapter and keeps an ac
   const ready = await getRoadmap(service, created.roadmapId);
   assert.equal(ready.status, "ready");
   assert.deepEqual(ready.modules[0]!.chapters.map(({ chapterId }) => chapterId), [actionable.chapterId]);
-  assert.equal(ready.modules[0]!.subtitle, actionable.title);
+  assert.equal(ready.modules[0]!.title, actionable.title);
+  assert.equal(ready.modules[0]!.subtitle, "Actionable chapter");
   assert.equal(ready.modules[0]!.why, "Each chapter in this module has a verified learning resource and a practical outcome.");
 });
 
@@ -270,6 +271,18 @@ test("a configured resource service fails when no actionable unfinished chapter 
   const service = deps();
   service.exa = { async search() { return []; } };
   const created = await createRoadmap(service, request(), builders);
+
+  await created.buildPromise;
+
+  const failed = await getRoadmap(service, created.roadmapId);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.error?.code, "upstream_failed");
+});
+
+test("a configured resource service fails when every planned chapter is already done", async () => {
+  const service = deps();
+  service.exa = { async search() { return []; } };
+  const created = await createRoadmap(service, request(), fakeBuilders());
 
   await created.buildPromise;
 

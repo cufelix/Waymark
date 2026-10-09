@@ -118,19 +118,19 @@ async function addResources(
 
   const freeOnly = request.profile.preferences.courseBudget === "free-only";
   if (deps.exa !== null) {
-    const hadUnfinished = chapters.some(({ done }) => !done);
     for (const module of modules) {
       const plannedCount = module.chapters.length;
       module.chapters = module.chapters.filter((chapter) => chapter.done || (
         chapter.resources.length > 0 && (!freeOnly || chapter.resources.some(({ cost }) => cost === "free"))
       ));
       if (module.chapters.length > 0 && module.chapters.length < plannedCount) {
-        module.subtitle = module.chapters.length === 1 ? module.chapters[0]!.title : "Verified learning path";
+        module.title = module.chapters.length === 1 ? module.chapters[0]!.title : "Verified learning module";
+        module.subtitle = module.chapters.length === 1 ? "Actionable chapter" : "Actionable chapters";
         module.why = "Each chapter in this module has a verified learning resource and a practical outcome.";
       }
     }
     modules.splice(0, modules.length, ...modules.filter(({ chapters: kept }) => kept.length > 0));
-    if (hadUnfinished && !modules.some(({ chapters: kept }) => kept.some(({ done }) => !done))) {
+    if (!modules.some(({ chapters: kept }) => kept.some(({ done }) => !done))) {
       throw new ApiError("upstream_failed", "No unfinished chapter has a verified learning resource");
     }
   }

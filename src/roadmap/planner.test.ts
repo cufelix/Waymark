@@ -134,6 +134,28 @@ test("caps learn-fast plans even when the model returns too many chapters", asyn
   assert.match(llm.calls[0]!.messages[1]!.content as string, /"chapterLimit":8/);
 });
 
+test("keeps a most-demanded skill when it appears after the learn-fast cap", async () => {
+  const chapters = [
+    ...Array.from({ length: 8 }, () => chapter("Foundation", "theory", [], "Understand a useful foundation.")),
+    chapter("Python practice", "code", [PYTHON.uri], "Use Python in a practical task."),
+  ];
+
+  const planned = allChapters(await planModules(VALIDATION, PROFILE, { llm: new FakeLlm([answer(chapters)]) }));
+
+  assert.equal(planned.length, 8);
+  assert.ok(bySkill(planned, PYTHON.uri));
+});
+
+test("reserves a capped slot for an omitted most-demanded fallback", async () => {
+  const chapters = Array.from({ length: 8 }, () =>
+    chapter("Foundation", "theory", [], "Understand a useful foundation."));
+
+  const planned = allChapters(await planModules(VALIDATION, PROFILE, { llm: new FakeLlm([answer(chapters)]) }));
+
+  assert.equal(planned.length, 8);
+  assert.ok(bySkill(planned, PYTHON.uri));
+});
+
 test("retries unsupported free-text numbers, then removes offending sentences", async () => {
   const first = answer([
     chapter("Python practice", "code", [PYTHON.uri], "Build a Python task."),

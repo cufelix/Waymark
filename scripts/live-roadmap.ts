@@ -162,7 +162,9 @@ try {
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, JSON.stringify({
     generatedAt: new Date().toISOString(),
-    input: { fixture: profilePath, maxVacancies },
+    input: existingValidationId
+      ? { fixture: profilePath, reusedValidationId: existingValidationId }
+      : { fixture: profilePath, maxVacancies },
     research: run,
     validation,
     roadmap,

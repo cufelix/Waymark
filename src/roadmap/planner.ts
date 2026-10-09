@@ -193,16 +193,6 @@ function fallbackChapter(skill: CatalogSkill): RoadmapChapter {
   };
 }
 
-function limitChapters(modules: RoadmapModule[], limit: number): RoadmapModule[] {
-  let remaining = limit;
-  return modules.flatMap((module) => {
-    if (remaining === 0) return [];
-    const chapters = module.chapters.slice(0, remaining);
-    remaining -= chapters.length;
-    return chapters.length === 0 ? [] : [{ ...module, chapters }];
-  });
-}
-
 function materializePlan(plan: ModelModule[], catalog: Map<string, CatalogSkill>, limit: number): RoadmapModule[] {
   const modules = plan.map((module) => ({
     moduleId: newId("mod"),
@@ -211,12 +201,35 @@ function materializePlan(plan: ModelModule[], catalog: Map<string, CatalogSkill>
     why: module.why,
     chapters: module.chapters.map((chapter) => materializeChapter(chapter, catalog)),
   }));
-  const placedUris = new Set(modules.flatMap((module) => module.chapters.flatMap((chapter) => chapter.skills.map(({ uri }) => uri))));
-  const missing = [...catalog.values()].filter(({ skill, band }) =>
-    band === "most" && !placedUris.has(skill.uri)
-  );
-  modules.at(-1)!.chapters.push(...missing.map(fallbackChapter));
-  return limitChapters(modules, limit);
+  const mostUris = new Set([...catalog.values()].filter(({ band }) => band === "most").map(({ skill }) => skill.uri));
+  const positions = modules.flatMap((module, moduleIndex) => module.chapters.map((chapter, chapterIndex) => ({
+    moduleIndex,
+    chapterIndex,
+    chapter,
+  })));
+  const essential = positions.filter(({ chapter }) => chapter.skills.some(({ uri }) => mostUris.has(uri)));
+  const plannedMostUris = new Set(essential.flatMap(({ chapter }) => chapter.skills.map(({ uri }) => uri)));
+  const missing = [...catalog.values()].filter(({ skill, band }) => band === "most" && !plannedMostUris.has(skill.uri));
+  const plannedLimit = Math.max(0, limit - Math.min(limit, missing.length));
+  const selected = new Set(essential.slice(0, plannedLimit));
+  for (const position of positions) {
+    if (selected.size >= plannedLimit) break;
+    selected.add(position);
+  }
+  const kept = modules.flatMap((module, moduleIndex) => {
+    const chapters = positions
+      .filter((position) => position.moduleIndex === moduleIndex && selected.has(position))
+      .sort((left, right) => left.chapterIndex - right.chapterIndex)
+      .map(({ chapter }) => chapter);
+    return chapters.length === 0 ? [] : [{ ...module, chapters }];
+  });
+  const fallbackSlots = limit - selected.size;
+  if (fallbackSlots > 0 && missing.length > 0) {
+    const destination = kept.at(-1) ?? { ...modules[0]!, chapters: [] };
+    if (kept.length === 0) kept.push(destination);
+    destination.chapters.push(...missing.slice(0, fallbackSlots).map(fallbackChapter));
+  }
+  return kept;
 }
 
 function allowedNumbers(chapters: RoadmapChapter[]): Set<string> {
