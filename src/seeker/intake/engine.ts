@@ -39,12 +39,19 @@ function currentCard(card: TaskCard): TaskCard {
   return {
     cardId: card.cardId,
     text: card.text,
-    source: { ...card.source },
+    source: {
+      id: card.source.id,
+      fetchedAt: card.source.fetchedAt,
+      tool: card.source.tool,
+      ...(card.source.quote === undefined ? {} : { quote: card.source.quote }),
+      contentHash: card.source.contentHash,
+      ...(card.source.snapshotKey === undefined ? {} : { snapshotKey: card.source.snapshotKey }),
+    },
   } as TaskCard;
 }
 
 function finishedPhase(state: IntakeState): Intake["phase"] {
-  return state.practical ? "done" : "practical";
+  return state.practical ? "chat" : "practical";
 }
 
 /** Creates the private state for a seeker's guided intake. Pure; performs no I/O. */
@@ -170,6 +177,9 @@ export function applyRating(state: IntakeState, deck: Deck, cardId: string, rati
 /** Extends card collection by four cards outside the current top three. Pure; performs no I/O. */
 export function addMoreCards(state: IntakeState, deck: Deck): IntakeState {
   const topThree = new Set(rankedPathKeys(state, deck).slice(0, 3));
+  const extraPathKeys = deck.paths.map((path) => path.key).filter((key) => !topThree.has(key));
+  const seen = new Set(state.cards.rated.map((item) => item.card.cardId));
+  const available = deck.cards.filter((card) => !seen.has(card.cardId) && extraPathKeys.includes(card.pathKey)).length;
   const next: IntakeState = {
     ...state,
     phase: "cards",
@@ -177,10 +187,10 @@ export function addMoreCards(state: IntakeState, deck: Deck): IntakeState {
       rated: state.cards.rated.map((item) => ({ card: publicCard(item.card), rating: item.rating, at: item.at })),
       done: false,
     },
-    extraUntil: state.cards.rated.length + 4,
-    extraPathKeys: deck.paths.map((path) => path.key).filter((key) => !topThree.has(key)),
+    extraUntil: state.cards.rated.length + Math.min(4, available),
+    extraPathKeys,
   };
-  const current = pickNextCard(next, deck);
+  const current = available > 0 ? pickNextCard(next, deck) : undefined;
   if (current) next.cards.current = current;
   else {
     next.cards.done = true;
@@ -197,9 +207,12 @@ export function pickNextCard(state: IntakeState, deck: Deck): TaskCard | undefin
   if (unseen.length === 0) return undefined;
 
   const ranked = rankedPathKeys(state, deck);
-  const preferred = state.extraUntil > state.cards.rated.length && state.extraPathKeys?.length
+  const isExtraRound = state.extraUntil > state.cards.rated.length && state.extraPathKeys !== undefined;
+  const preferred = isExtraRound
     ? ranked.filter((key) => state.extraPathKeys?.includes(key))
     : ranked.slice(0, state.cards.rated.length < 3 ? 6 : 4);
+  const candidates = isExtraRound ? unseen.filter((card) => preferred.includes(card.pathKey)) : unseen;
+  if (candidates.length === 0) return undefined;
   const order = pathOrder(deck);
   const target = [...preferred].sort((a, b) =>
     (state.shownCounts[a] ?? 0) - (state.shownCounts[b] ?? 0) ||
@@ -207,9 +220,9 @@ export function pickNextCard(state: IntakeState, deck: Deck): TaskCard | undefin
     (order.get(a) ?? 0) - (order.get(b) ?? 0)
   )[0];
 
-  const selected = unseen.find((card) => card.pathKey === target) ??
-    unseen.find((card) => preferred.includes(card.pathKey)) ??
-    unseen[0];
+  const selected = candidates.find((card) => card.pathKey === target) ??
+    candidates.find((card) => preferred.includes(card.pathKey)) ??
+    candidates[0];
   return selected ? publicCard(selected) : undefined;
 }
 

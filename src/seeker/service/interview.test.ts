@@ -7,8 +7,9 @@ import { emptyPreferences } from "../core/profile.ts";
 import { FakeLlm, MODELS } from "../llm/llm.ts";
 import { FakeExa, type ExaClient } from "../salary/exa.ts";
 import { MemoryStore } from "../store/memory.ts";
-import { getInterview, interviewTurn, type Deps } from "./interview.ts";
-import { FIRST_INTERVIEW_QUESTION, INTERVIEW_SYSTEM_PROMPT } from "./interview.prompts.ts";
+import { getInterview, interviewTurn, warmupInterviewTurn, type Deps } from "./interview.ts";
+import { FIRST_INTERVIEW_QUESTION, INTAKE_CHAT_FIRST_QUESTION, INTERVIEW_SYSTEM_PROMPT } from "./interview.prompts.ts";
+import { WARMUP_QUESTIONS } from "../intake/warmup.ts";
 
 function profile(seekerId = "skr_test"): SeekerProfile {
   return {
@@ -116,6 +117,22 @@ test("empty text after the interview starts repeats the last agent turn", async 
   assert.equal((await getInterview(deps, "skr_test")).length, 1);
 });
 
+test("warm-up replies reject assessment wording and are limited to two sentences", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Your fit score is high. What comes next?", mappedTo: ["Figuring out why something broke"] }),
+    answer({ reply: "First reflection. Second reflection. Third reflection.", mappedTo: ["Building things"] }),
+  ]);
+
+  const guarded = await warmupInterviewTurn(deps, "skr_test", WARMUP_QUESTIONS[0], "Rád opravuji chyby.");
+  const shortened = await warmupInterviewTurn(deps, "skr_test", WARMUP_QUESTIONS[1], "I build things.");
+
+  assert.equal(guarded.reply, "Díky, beru to na vědomí.");
+  assert.equal(shortened.reply, "First reflection. Second reflection.");
+  const replies = (await store.get("skr_test"))!.interview.filter((turn) => turn.role === "agent").map((turn) => turn.text);
+  assert.deepEqual(replies, [guarded.reply, shortened.reply]);
+  assert.doesNotMatch(JSON.stringify(replies), /\b(?:score|fit|match|percent|probability)\b/iu);
+});
+
 test("intake chat uses known context, asks only missing fields, and completes after both", async () => {
   const { deps, store, llm } = await setup([
     answer({
@@ -127,7 +144,7 @@ test("intake chat uses known context, asks only missing fields, and completes af
       },
     }),
     answer({
-      reply: "Thanks, that covers the last detail.",
+      reply: "What languages do you use?",
       draftPatch: { salaryExpectation: { min: 60000, currency: "CZK", period: "month" } },
     }),
   ]);
@@ -141,6 +158,8 @@ test("intake chat uses known context, asks only missing fields, and completes af
   assert.equal(dealBreakers.done, false);
   const salary = await interviewTurn(deps, "skr_test", "At least 60,000 CZK per month.");
   assert.equal(salary.done, true);
+  assert.doesNotMatch(salary.reply, /\?/u);
+  assert.doesNotMatch((await store.get("skr_test"))!.interview.at(-1)!.text, /\?/u);
 
   const record = await store.get("skr_test");
   assert.deepEqual(record?.profile.preferences.dealBreakers, ["No on-call work"]);
@@ -156,6 +175,20 @@ test("intake chat uses known context, asks only missing fields, and completes af
   assert.match(firstPrompt, /never re-ask/);
   assert.match(firstPrompt, /never ask about dream companies or languages/i);
   assert.doesNotMatch(llm.calls[0].messages.at(-1)?.content as string, /goal|location|language/i);
+});
+
+test("intake chat replaces assessment wording and questions about already known fields", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Your fit score is 90 percent. Where do you want to work?" }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+  assert.doesNotMatch(result.reply, /\b(?:score|fit|match|percent|probability|location|language|dream compan)\w*\b/iu);
 });
 
 test("intake chat accepts a newly volunteered dream company and finishes when the seeker is done", async () => {
@@ -189,7 +222,10 @@ test("intake chat ends on its fourth agent turn", async () => {
 
   assert.equal((await interviewTurn(deps, "skr_test", "I'm not sure.")).done, false);
   assert.equal((await interviewTurn(deps, "skr_test", "Still thinking.")).done, false);
-  assert.equal((await interviewTurn(deps, "skr_test", "Nothing else yet.")).done, true);
+  const final = await interviewTurn(deps, "skr_test", "Nothing else yet.");
+  assert.equal(final.done, true);
+  assert.doesNotMatch(final.reply, /\?/u);
+  assert.doesNotMatch((await store.get("skr_test"))!.interview.at(-1)!.text, /\?/u);
   assert.equal((await store.getIntake("skr_test"))?.phase, "done");
   assert.match(JSON.stringify(llm.calls[2].messages), /agent turn 4 of at most 4/);
 });

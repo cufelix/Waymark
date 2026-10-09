@@ -56,9 +56,39 @@ const SUPPORTED_CURRENCIES = new Set(Intl.supportedValuesOf("currency"));
 const REMOTE_VALUES = new Set(["only", "ok", "no"]);
 const GOAL_VALUES = new Set(["learn-fast", "stability", "mission"]);
 const LANGUAGE_LEVELS = new Set(["basic", "working", "fluent", "native"]);
+const FORBIDDEN_REPLY_SUMMARY = /%|\b(?:scores?|fit|fits|fitting|matches?|matching|percent(?:age)?s?|probabilit(?:y|ies))\b/iu;
+const INTAKE_REASKED_FIELD = /\b(?:goal|what matters most|location|where (?:do|would) you (?:want to )?work|remote|languages?|dream compan(?:y|ies))\b|\b(?:cíl|co je (?:pro tebe )?nejdůležitější|lokalit|kde chceš pracovat|práce na dálku|jazyk|vysněn\w* firm)\b/iu;
+const INTAKE_ALLOWED_QUESTION = /\b(?:deal[ -]?breakers?|refuse|avoid|won't|would not|salary|pay|earn|minimum|currency|monthly|yearly)\b|\b(?:nepřijateln|odmít|nechceš|vadilo|plat|mzda|výdělek|minimum|měsíčně|ročně|měna)\b/iu;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCzech(text: string): boolean {
+  return /[áčďéěíňóřšťúůýž]|\b(?:ano|ne|práce|chci|můžu|jsem|mám)\b/iu.test(text);
+}
+
+function acknowledgement(text: string): string {
+  return isCzech(text) ? "Díky, beru to na vědomí." : "Thanks, I’ve noted that.";
+}
+
+function closingReply(text: string): string {
+  return isCzech(text) ? "Díky — to je prozatím vše." : "Thanks — that covers everything for now.";
+}
+
+function sentences(text: string): string[] {
+  return (text.match(/[^.!?\n]+[.!?]?/gu) ?? []).map((sentence) => sentence.trim()).filter(Boolean);
+}
+
+function sanitizeWarmupReply(reply: string, seekerText: string): string {
+  if (FORBIDDEN_REPLY_SUMMARY.test(reply)) return acknowledgement(seekerText);
+  return sentences(reply).slice(0, 2).join(" ") || acknowledgement(seekerText);
+}
+
+function reasksKnownIntakeField(reply: string): boolean {
+  return sentences(reply).some((sentence) =>
+    sentence.includes("?") && (INTAKE_REASKED_FIELD.test(sentence) || !INTAKE_ALLOWED_QUESTION.test(sentence))
+  );
 }
 
 function parseModelResult(raw: string): ModelResult {
@@ -485,6 +515,7 @@ export async function warmupInterviewTurn(
   ]);
   const allowed = new Set(question.options);
   const mappedTo = [...new Set(modelResult.mappedTo.filter((option) => allowed.has(option)))];
+  const reply = sanitizeWarmupReply(modelResult.reply, text);
 
   await deps.store.update(seekerId, (current) => {
     assertVisible(current, seekerId);
@@ -512,12 +543,12 @@ export async function warmupInterviewTurn(
       interview: [
         ...current.interview,
         { role: "seeker", text, at: now() },
-        { role: "agent", text: modelResult.reply, at: now() },
+        { role: "agent", text: reply, at: now() },
       ],
     };
   });
 
-  return { reply: modelResult.reply, mappedTo };
+  return { reply, mappedTo };
 }
 
 export async function interviewTurn(
@@ -637,7 +668,16 @@ export async function interviewTurn(
       const salaryCollected = hasOwn(nextDraft, "salaryExpectation") || current.profile.preferences.salaryExpectation !== undefined;
       const allCollected = dealBreakersCollected && salaryCollected;
       const atQuestionLimit = intakeChatAgentTurns(current.interview) + 1 >= INTAKE_CHAT_MAX_AGENT_TURNS;
-      done = done || allCollected || atQuestionLimit;
+      const serverForcedDone = allCollected || atQuestionLimit;
+      done = done || serverForcedDone;
+      const invalidReply = FORBIDDEN_REPLY_SUMMARY.test(reply) || reasksKnownIntakeField(reply);
+      if (serverForcedDone || (done && (invalidReply || sentences(reply).some((sentence) => sentence.includes("?"))))) {
+        reply = closingReply(text);
+      } else if (invalidReply) {
+        reply = !dealBreakersCollected
+          ? INTAKE_CHAT_FIRST_QUESTION
+          : !salaryCollected ? INTAKE_CHAT_SALARY_QUESTION : closingReply(text);
+      }
     } else {
       const maxAgentQuestions = modelResult.mode === "explore" ? EXPLORE_MAX_AGENT_QUESTIONS : DIRECT_MAX_AGENT_QUESTIONS;
       const atQuestionLimit = current.interview.filter((turn) => turn.role === "agent").length + 1 >= maxAgentQuestions;

@@ -204,6 +204,7 @@ test("guided intake routes cover warm-up, ratings, more cards, practical data, s
   const saved = await call("PUT", `/v1/seekers/${id}/intake/practical`, practical);
   assert.equal(saved.status, 200);
   assert.equal((saved.body.data as any).phase, "chat");
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/more`)).status, 409);
 
   const profile = (await call("GET", `/v1/seekers/${id}/profile`)).body.data as any;
   assert.equal(profile.status, "complete");
@@ -221,6 +222,7 @@ test("guided intake routes cover warm-up, ratings, more cards, practical data, s
   const skipped = await call("POST", `/v1/seekers/${id}/intake/chat/skip`);
   assert.equal(skipped.status, 200);
   assert.equal((skipped.body.data as any).phase, "done");
+  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/more`)).status, 409);
 
   assert.equal((await call("DELETE", `/v1/seekers/${id}`)).status, 200);
   assert.equal(await deps.store.getIntake(id), undefined);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ApiError } from "../core/errors.ts";
+import type { Deck } from "./deck.ts";
 import {
   addMoreCards,
   applyRating,
@@ -98,7 +99,7 @@ test("a rating applies the card's weight to primary and related paths", () => {
   assert.ok("occupation" in toPublic(next, FAKE_DECK).cards.rated[0].card);
 });
 
-test("finishing cards moves directly to done when practical details already exist", () => {
+test("finishing cards enters chat when practical details already exist", () => {
   let state = finishWarmup();
   let beforeDone = state;
   while (!state.cards.done) {
@@ -116,7 +117,7 @@ test("finishing cards moves directly to done when practical details already exis
   };
   const final = rateCurrent({ ...beforeDone, practical }, "like");
   assert.equal(final.cards.done, true);
-  assert.equal(final.phase, "done");
+  assert.equal(final.phase, "chat");
 });
 
 test("more cards rates exactly four cards from outside the prior top three", () => {
@@ -134,13 +135,45 @@ test("more cards rates exactly four cards from outside the prior top three", () 
   assert.ok(extra.every((item) => !topUris.has(item.card.occupation.uri)));
 });
 
+test("more cards finishes early when fewer than four unseen cards remain outside the prior top three", () => {
+  let state = finishWarmup();
+  while (!state.cards.done) state = rateCurrent(state, "like");
+  const topUris = new Set(state.paths.filter((path) => path.top3).map((path) => path.occupation.uri));
+  const seenIds = new Set(state.cards.rated.map((item) => item.card.cardId));
+  const ratedCards = state.cards.rated.map((item) => FAKE_DECK.cards.find((card) => card.cardId === item.card.cardId)!);
+  const eligible = FAKE_DECK.cards.filter((card) => !seenIds.has(card.cardId) && !topUris.has(card.occupation.uri)).slice(0, 2);
+  assert.equal(eligible.length, 2);
+  const shortDeck: Deck = { ...FAKE_DECK, cards: [...ratedCards, ...eligible] };
+  const before = state.cards.rated.length;
+
+  state = addMoreCards(state, shortDeck);
+  while (!state.cards.done) {
+    assert.ok(state.cards.current);
+    assert.equal(topUris.has(shortDeck.cards.find((card) => card.cardId === state.cards.current!.cardId)!.occupation.uri), false);
+    state = applyRating(state, shortDeck, state.cards.current.cardId, "maybe", "2026-10-09T12:00:00Z");
+  }
+
+  assert.equal(state.cards.rated.length - before, 2);
+
+  const noExtraDeck: Deck = { ...FAKE_DECK, cards: ratedCards };
+  const noExtra = addMoreCards({ ...state, cards: { ...state.cards, rated: state.cards.rated.slice(0, before), done: true } }, noExtraDeck);
+  assert.equal(noExtra.cards.done, true);
+  assert.equal(noExtra.cards.current, undefined);
+  assert.equal(noExtra.cards.rated.length, before);
+});
+
 test("public intake hides the current occupation and every private or assessment-like field", () => {
   const state = finishWarmup();
   const intake = toPublic(state, FAKE_DECK);
   assert.ok(intake.cards.current);
   assert.equal("occupation" in intake.cards.current, false);
   assert.equal("related" in intake.cards.current, false);
+  assert.equal("title" in intake.cards.current.source, false);
+  assert.equal("url" in intake.cards.current.source, false);
   assert.equal(intake.cards.current.source.quote, intake.cards.current.text);
+  const rated = applyRating(state, FAKE_DECK, state.cards.current.cardId, "like", "2026-10-09T12:00:00Z");
+  assert.equal(rated.cards.rated[0].card.source.title, FAKE_DECK.cards[0].source.title);
+  assert.equal(rated.cards.rated[0].card.source.url, FAKE_DECK.cards[0].source.url);
 
   const forbidden = /score|fit|match|percent|probability/i;
   const scan = (value: unknown): void => {

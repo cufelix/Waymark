@@ -196,7 +196,9 @@ export async function rateCard(deps: IntakeDeps, seekerId: string, cardId: strin
 /** Requests four additional cards away from the current top three paths. */
 export async function moreCards(deps: IntakeDeps, seekerId: string): Promise<Intake> {
   const { state, deck } = await ensureState(deps, seekerId);
-  if (!state.cards.done) throw new ApiError("conflict", "Task cards are not finished");
+  if (!state.cards.done || state.phase !== "practical" || state.practical !== undefined) {
+    throw new ApiError("conflict", "More task cards are not available at this stage");
+  }
   const next = engineFor(deps).addMoreCards(state, deck);
   await deps.store.putIntake(next);
   return engineFor(deps).toPublic(next, deck);

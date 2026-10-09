@@ -5,6 +5,7 @@ import { newId } from "../core/ids.ts";
 import type { LlmClient } from "../llm/llm.ts";
 import { MODELS, unfence } from "../llm/llm.ts";
 import type { ExaClient, ExaResult } from "../salary/exa.ts";
+import { occupationLabels } from "../../shared/taxonomy/index.ts";
 import type { Deck, DeckCard, DeckPath } from "./deck.ts";
 import { validateDeck } from "./deck.ts";
 
@@ -46,6 +47,107 @@ const COUNTRY_QUERY: Record<string, (label: string) => string> = {
   IT: (label) => `junior ${label} offerta di lavoro Italia`,
 };
 
+const DEFAULT_LOCAL_LABELS: Record<string, Record<string, string>> = {
+  cs: {
+    backend: "backendový vývojář",
+    frontend: "frontendový vývojář",
+    data: "datový analytik",
+    qa: "tester softwaru",
+    ux: "UX designér",
+    sales: "obchodní zástupce",
+    marketing: "marketingový asistent",
+    "project-coordination": "projektový koordinátor",
+    "customer-support": "specialista zákaznické podpory",
+    "it-support": "technik IT podpory",
+    "graphic-design": "grafický designér",
+    accounting: "účetní asistent",
+  },
+  de: {
+    backend: "Backend-Entwickler",
+    frontend: "Frontend-Entwickler",
+    data: "Datenanalyst",
+    qa: "Softwaretester",
+    ux: "UX-Designer",
+    sales: "Vertriebsmitarbeiter",
+    marketing: "Marketingassistent",
+    "project-coordination": "Projektkoordinator",
+    "customer-support": "Kundenbetreuer",
+    "it-support": "IT-Support-Techniker",
+    "graphic-design": "Grafikdesigner",
+    accounting: "Buchhaltungsassistent",
+  },
+  sk: {
+    backend: "backendový vývojár",
+    frontend: "frontendový vývojár",
+    data: "dátový analytik",
+    qa: "tester softvéru",
+    ux: "UX dizajnér",
+    sales: "obchodný zástupca",
+    marketing: "marketingový asistent",
+    "project-coordination": "projektový koordinátor",
+    "customer-support": "špecialista zákazníckej podpory",
+    "it-support": "technik IT podpory",
+    "graphic-design": "grafický dizajnér",
+    accounting: "účtovný asistent",
+  },
+  pl: {
+    backend: "programista backend",
+    frontend: "programista frontend",
+    data: "analityk danych",
+    qa: "tester oprogramowania",
+    ux: "projektant UX",
+    sales: "przedstawiciel handlowy",
+    marketing: "asystent marketingu",
+    "project-coordination": "koordynator projektu",
+    "customer-support": "specjalista obsługi klienta",
+    "it-support": "technik wsparcia IT",
+    "graphic-design": "grafik",
+    accounting: "asystent księgowości",
+  },
+  fr: {
+    backend: "développeur backend",
+    frontend: "développeur frontend",
+    data: "analyste de données",
+    qa: "testeur logiciel",
+    ux: "designer UX",
+    sales: "commercial",
+    marketing: "assistant marketing",
+    "project-coordination": "coordinateur de projet",
+    "customer-support": "spécialiste du support client",
+    "it-support": "technicien support informatique",
+    "graphic-design": "graphiste",
+    accounting: "assistant comptable",
+  },
+  es: {
+    backend: "desarrollador backend",
+    frontend: "desarrollador frontend",
+    data: "analista de datos",
+    qa: "probador de software",
+    ux: "diseñador UX",
+    sales: "representante comercial",
+    marketing: "asistente de marketing",
+    "project-coordination": "coordinador de proyectos",
+    "customer-support": "especialista de atención al cliente",
+    "it-support": "técnico de soporte informático",
+    "graphic-design": "diseñador gráfico",
+    accounting: "asistente contable",
+  },
+  it: {
+    backend: "sviluppatore backend",
+    frontend: "sviluppatore frontend",
+    data: "analista dati",
+    qa: "collaudatore software",
+    ux: "designer UX",
+    sales: "rappresentante commerciale",
+    marketing: "assistente marketing",
+    "project-coordination": "coordinatore di progetto",
+    "customer-support": "specialista assistenza clienti",
+    "it-support": "tecnico supporto informatico",
+    "graphic-design": "grafico",
+    accounting: "assistente contabile",
+  },
+};
+
 function countryLanguage(country: string): string {
   try {
     return new Intl.Locale(`und-${country}`).maximize().language;
@@ -83,6 +185,20 @@ export function exactQuoteSubstring(pageText: string, quote: string): string | u
   if (words.length === 0) return undefined;
   const match = new RegExp(words.map(escapeRegExp).join("\\s+"), "u").exec(pageText);
   return match?.[0];
+}
+
+function isUsefulWholeSentence(pageText: string, quote: string): boolean {
+  const words = quote.trim().split(/\s+/u).filter(Boolean);
+  if (words.length < 5 || quote.trim().length < 25 || !/[.!?]["')\]]?$/u.test(quote.trim())) return false;
+  const index = pageText.indexOf(quote);
+  if (index < 0) return false;
+  const before = pageText.slice(0, index);
+  return index === 0 || /(?:[.!?]\s*|\n\s*(?:[-*•]\s*)?)$/u.test(before);
+}
+
+async function localizedLabel(path: DeckPath, input: DeckOccupationInput, language: string): Promise<string> {
+  const labels = await occupationLabels(path.occupation.uri, language);
+  return labels[0] ?? DEFAULT_LOCAL_LABELS[language]?.[input.key] ?? path.occupation.label;
 }
 
 function hasOnlyAdNumbers(text: string, adText: string): boolean {
@@ -162,7 +278,7 @@ function candidateCard(
   const ad = ads[adIndex];
   if (!isUsableAd(ad) || !hasOnlyAdNumbers(text, ad.text)) return undefined;
   const quote = exactQuoteSubstring(ad.text, task.quote);
-  if (!quote) return undefined;
+  if (!quote || !isUsefulWholeSentence(ad.text, quote)) return undefined;
 
   return {
     cardId: newId("crd"),
@@ -207,7 +323,8 @@ export async function buildDeck(options: BuildDeckOptions): Promise<Deck> {
     const input = options.occupations[index];
     const path = paths[index];
     if (!input || !path) continue;
-    const ads = await options.exa.search(searchQuery(country, input.label), SEARCH_RESULTS);
+    const queryLabel = await localizedLabel(path, input, language);
+    const ads = await options.exa.search(searchQuery(country, queryLabel), SEARCH_RESULTS);
     const fetchedAt = options.now();
     const raw = await options.llm.chat({
       model: MODELS.fast,

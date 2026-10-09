@@ -150,6 +150,28 @@ test("retries and strips forbidden seeker summaries even when their numbers are 
   assert.doesNotMatch(JSON.stringify(modules), /%|probability|chance|likely|šance|pravděpodobnost|\blevel\s+\d|\bXP\b|\d+ of \d+ modules/iu);
 });
 
+test("strips score, fit, skill-match, percent and probability summaries without removing demand facts or ordinary match prose", async () => {
+  const unsafe = answer([
+    chapter(
+      "Python practice",
+      "code",
+      [PYTHON.uri],
+      "Your skill match probability is high. Match the design to the requirements.",
+    ),
+    chapter("SQL practice", "data", [SQL.uri], "Use SQL in a task."),
+  ], {
+    why: "Your fit score and percent are strong. Employer demand includes 72 of 120 vacancies.",
+  });
+  const llm = new FakeLlm([unsafe, unsafe]);
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+
+  assert.equal(llm.calls.length, 2);
+  assert.equal(modules[0]!.why, "Employer demand includes 72 of 120 vacancies.");
+  assert.equal(bySkill(allChapters(modules), PYTHON.uri).outcome, "Match the design to the requirements.");
+  assert.doesNotMatch(JSON.stringify(modules), /\b(?:score|fit score|skill match|percent|probability)\b/iu);
+});
+
 test("retries the first planner request once after a transport failure", async () => {
   const calls: unknown[] = [];
   const llm = {

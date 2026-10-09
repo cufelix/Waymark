@@ -77,7 +77,7 @@ test("buildDeck keeps grounded exact quotes and ignores model URLs and unknown r
   assert.equal(deck.cards.length, 6);
   assert.equal(dropped, 2);
   assert.equal(exa.calls.length, 2);
-  assert.equal(exa.calls[0]?.query, "junior Backend developer nabídka práce Praha");
+  assert.equal(exa.calls[0]?.query, "junior backendový vývojář nabídka práce Praha");
   assert.ok(llm.calls.every((call) => call.model.length > 0 && call.json === true));
 
   const first = deck.cards[0];
@@ -88,6 +88,47 @@ test("buildDeck keeps grounded exact quotes and ignores model URLs and unknown r
   assert.equal(first.source.contentHash, sha256(PAGE));
   assert.deepEqual(first.related, [{ occupation: deck.paths[1]?.occupation, weight: 0.4 }]);
   assert.ok(deck.cards.every((card) => !card.source.quote.includes("fabricated")));
+});
+
+test("buildDeck rejects short or partial quotes and keeps only a useful whole sentence", async () => {
+  const exa = new FakeExa([{ url: "https://example.com/jobs/fake-quote", title: "[FAKE] Quote role", text: PAGE }]);
+  const llm = new FakeLlm([JSON.stringify({ tasks: [
+    {
+      text: "Test fixes.",
+      quote: "test fixes",
+      adIndex: 0,
+      related: [],
+    },
+    {
+      text: "Document recurring problems.",
+      quote: "answer customer questions and document recurring problems.",
+      adIndex: 0,
+      related: [],
+    },
+    {
+      text: "Answer questions and document recurring problems.",
+      quote: "You will answer customer questions and document recurring problems.",
+      adIndex: 0,
+      related: [],
+    },
+  ] })]);
+  let dropped = 0;
+
+  const deck = await buildDeck({
+    country: "CZ",
+    occupations: [{ key: "support", label: "Customer support specialist", kind: "helping people" }],
+    exa,
+    llm,
+    resolveOccupation: async (label, lang) => ({ uri: "urn:stub:occupation:support", label, lang }),
+    now: () => "2026-10-09T12:00:00Z",
+    onDrop: () => dropped++,
+    warn: () => {},
+  });
+
+  assert.equal(dropped, 2);
+  assert.deepEqual(deck.cards.map((card) => card.source.quote), [
+    "You will answer customer questions and document recurring problems.",
+  ]);
 });
 
 test("buildDeck warns but keeps a path with fewer than two grounded cards", async () => {
