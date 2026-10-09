@@ -57,5 +57,11 @@ const Env = z.object({
 export type Config = z.infer<typeof Env>;
 export const config: Config = Env.parse(process.env);
 
+// A public UI signs seeker sessions with PROOF_SECRET and forwards with the API keys, so neither may be a default.
+if (config.UI_PUBLIC_ORIGIN && !process.env.VITEST) {
+  if (config.PROOF_SECRET.startsWith("dev-only")) throw new Error("UI_PUBLIC_ORIGIN is set but PROOF_SECRET is the development default");
+  if (config.API_KEYS.split(",").some((k) => k.trim() === "dev-key-change-me")) throw new Error("UI_PUBLIC_ORIGIN is set but API_KEYS contains the example key");
+}
+
 export const apiKeys = (): string[] =>
   config.API_KEYS.split(",").map((k) => k.trim()).filter(Boolean);

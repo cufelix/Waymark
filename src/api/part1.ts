@@ -24,7 +24,7 @@ function load(): Promise<{ part1: Part1; deps: unknown }> {
       import(at("store/deletion-jobs.ts")) as Promise<{
         PostgresDeletionQueue: new (db: typeof pool) => unknown;
       }>,
-      import(at("llm/llm.ts")) as Promise<{ OpenRouterClient: new (key?: string) => unknown }>,
+      import(at("llm/llm.ts")) as Promise<{ OpenRouterClient: new (key?: string) => { chat: (req: unknown) => Promise<string> } }>,
       import(at("research-client.ts")) as Promise<{ HttpResearchClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
       import(at("validation-client.ts")) as Promise<{ HttpValidationClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
       import(at("roadmap-client.ts")) as Promise<{ HttpRoadmapClient: new (o: { baseUrl: string; apiKey: string }) => unknown }>,
@@ -34,7 +34,11 @@ function load(): Promise<{ part1: Part1; deps: unknown }> {
     const deps = {
       store: new store.PostgresSeekerStore(pool, config.PERSONAL_DATA_RETENTION_DAYS),
       deletions: new deletionJobs.PostgresDeletionQueue(pool),
-      llm: new llm.OpenRouterClient(config.OPENROUTER_API_KEY),
+      // Created on first use: routes that never call a model (create, profile, GDPR) work without a model key.
+      llm: (() => {
+        let client: { chat: (req: unknown) => Promise<string> } | undefined;
+        return { chat: (req: unknown) => (client ??= new llm.OpenRouterClient(config.OPENROUTER_API_KEY)).chat(req) };
+      })(),
       // Part 1 checks career choices and cascades GDPR deletes against Part 2 over HTTP; here that's this server.
       research: new research.HttpResearchClient({ baseUrl, apiKey }),
       validations: new validation.HttpValidationClient({ baseUrl, apiKey }),
