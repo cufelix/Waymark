@@ -205,9 +205,25 @@ export type OccupationTrends = {
   skills: SkillTrend[];
 };
 
+/** A kind of project people at the target companies build now; examples are links to public repos. */
+export type ProjectTheme = { theme: string; description: string; skills: string[]; roleModels: number; examples: Source[] };
+
+export type TechTrend = { name: string; kind: "language" | "topic"; nowShare: number; thenShare: number; trend: "rising" | "stable" | "fading" };
+
+/** Aggregates only: counts of role models and links to public repos, never a list of people. */
+export type RoleModelInsights = {
+  occupation: Occupation;
+  companies: { name: string; githubOrg: string; roleModels: number }[];
+  roleModelsRead: number;
+  window: { nowSince: string; thenBefore: string };
+  themesNow: ProjectTheme[];
+  techTrends: TechTrend[];
+};
+
 export type ResearchResult = {
   careerPaths: CareerPath[];
   trends: OccupationTrends[];
+  roleModels?: RoleModelInsights[];
   companyIds: string[];
   vacancyIds: string[];
   market: JobMarket[];
