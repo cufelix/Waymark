@@ -1,6 +1,7 @@
 import type {
   CareerPreferences,
   CareerPreferencesDraft,
+  Intake,
   InterviewTurn,
   Occupation,
   Source,
@@ -19,9 +20,16 @@ import {
   DIRECT_MAX_AGENT_QUESTIONS,
   EXPLORE_MAX_AGENT_QUESTIONS,
   FIRST_INTERVIEW_QUESTION,
+  INTAKE_CHAT_FIRST_QUESTION,
+  INTAKE_CHAT_MAX_AGENT_TURNS,
+  INTAKE_CHAT_SALARY_QUESTION,
   interviewMessages,
+  intakeChatMessages,
+  salaryReplyFromMessages,
   salaryReplyMessages,
+  warmupMessages,
 } from "./interview.prompts.ts";
+import type { WarmupQuestion } from "../intake/warmup.ts";
 
 export type Deps = { store: SeekerStore; llm: LlmClient; exa?: ExaClient | null };
 
@@ -34,6 +42,7 @@ type ModelResult = {
   draftPatch: Record<string, unknown>;
   statedSkills: { label: string; quote: string }[];
   salaryLookup?: SalaryLookup;
+  mappedTo: string[];
 };
 
 type ValidatedSkill = { skill: Skill; quote: string };
@@ -74,6 +83,9 @@ function parseModelResult(raw: string): ModelResult {
         .map((item) => ({ label: (item.label as string).trim(), quote: (item.quote as string).trim() }))
         .filter((item) => item.label !== "" && item.quote !== "")
     : [];
+  const mappedTo = Array.isArray(value.mappedTo)
+    ? value.mappedTo.filter((item): item is string => typeof item === "string")
+    : [];
   let salaryLookup: SalaryLookup | undefined;
   if (
     isObject(value.salaryLookup) && typeof value.salaryLookup.lookup === "string" &&
@@ -85,11 +97,10 @@ function parseModelResult(raw: string): ModelResult {
       salaryLookup = { lookup: value.salaryLookup.lookup.trim(), country, ...(city ? { city } : {}) };
     }
   }
-  return { reply: value.reply.trim(), done: value.done, mode: value.mode, draftPatch, statedSkills, ...(salaryLookup ? { salaryLookup } : {}) };
+  return { reply: value.reply.trim(), done: value.done, mode: value.mode, draftPatch, statedSkills, mappedTo, ...(salaryLookup ? { salaryLookup } : {}) };
 }
 
-async function askLlm(deps: Deps, transcript: InterviewTurn[], draft: CareerPreferencesDraft, text: string): Promise<ModelResult> {
-  const baseMessages = interviewMessages(transcript, draft, text);
+async function askLlm(deps: Deps, baseMessages: ReturnType<typeof interviewMessages>): Promise<ModelResult> {
   let invalidAnswer = "";
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -359,12 +370,16 @@ async function verifiedSalaryReply(
   draft: CareerPreferencesDraft,
   text: string,
   figures: SalaryFigure[],
+  activeMessages?: ReturnType<typeof interviewMessages>,
 ): Promise<string | null> {
   // A URL is part of the final reply when linked. Do not offer the reply model a page whose
   // URL itself contains an unrelated 3+ digit number, because the same number guard applies
   // to link destinations as to visible prose.
   const linkSafeFigures = figures.filter((figure) => replyHasOnlyFigureNumbers(figure.url, figures));
-  const baseMessages = salaryReplyMessages(transcript, draft, text, linkSafeFigures.length > 0 ? linkSafeFigures : figures);
+  const offeredFigures = linkSafeFigures.length > 0 ? linkSafeFigures : figures;
+  const baseMessages = activeMessages
+    ? salaryReplyFromMessages(activeMessages, offeredFigures)
+    : salaryReplyMessages(transcript, draft, text, offeredFigures);
   let previous = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     const messages = attempt === 0
@@ -401,79 +416,80 @@ function salaryFallback(lang: string): string {
     : "I couldn't find a reliable figure quickly, the overview will have one.";
 }
 
-export async function interviewTurn(
+function hasOwn(value: object, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function chatHasDealBreakers(record: { draft: CareerPreferencesDraft; profile: { preferences: CareerPreferences } }): boolean {
+  return hasOwn(record.draft, "dealBreakers") || record.profile.preferences.dealBreakers.length > 0;
+}
+
+function chatHasSalary(record: { draft: CareerPreferencesDraft; profile: { preferences: CareerPreferences } }): boolean {
+  return hasOwn(record.draft, "salaryExpectation") || record.profile.preferences.salaryExpectation !== undefined;
+}
+
+function intakeChatOpening(record: { draft: CareerPreferencesDraft; profile: { preferences: CareerPreferences } }): string | null {
+  if (!chatHasDealBreakers(record)) return INTAKE_CHAT_FIRST_QUESTION;
+  if (!chatHasSalary(record)) return INTAKE_CHAT_SALARY_QUESTION;
+  return null;
+}
+
+function intakeChatAgentTurns(transcript: InterviewTurn[]): number {
+  const start = transcript.findLastIndex(
+    (turn) => turn.role === "agent" &&
+      (turn.text === INTAKE_CHAT_FIRST_QUESTION || turn.text === INTAKE_CHAT_SALARY_QUESTION),
+  );
+  if (start < 0) return 0;
+  return transcript.slice(start).filter((turn) => turn.role === "agent").length;
+}
+
+function addDreamCompanies(
+  existing: CareerPreferences["dreamCompanies"],
+  incoming: CareerPreferences["dreamCompanies"] | undefined,
+): CareerPreferences["dreamCompanies"] {
+  if (!incoming) return existing;
+  const merged = existing.map((company) => ({ ...company }));
+  for (const company of incoming) {
+    const duplicate = merged.find((item) => item.name.toLocaleLowerCase() === company.name.toLocaleLowerCase());
+    if (!duplicate) merged.push(company);
+    else if (!duplicate.url && company.url) duplicate.url = company.url;
+  }
+  return merged;
+}
+
+function intakeChatPatch(patch: CareerPreferencesDraft): CareerPreferencesDraft {
+  return {
+    ...(patch.dealBreakers !== undefined ? { dealBreakers: patch.dealBreakers } : {}),
+    ...(patch.salaryExpectation !== undefined ? { salaryExpectation: patch.salaryExpectation } : {}),
+    ...(patch.dreamCompanies !== undefined ? { dreamCompanies: patch.dreamCompanies } : {}),
+  };
+}
+
+async function finishIntakeChat(deps: Deps, intake: Intake): Promise<void> {
+  if (intake.phase === "chat") await deps.store.putIntake({ ...intake, phase: "done" });
+}
+
+export async function warmupInterviewTurn(
   deps: Deps,
   seekerId: string,
+  question: WarmupQuestion,
   text: string,
-): Promise<{ reply: string; done: boolean; preferences: CareerPreferencesDraft; sources?: Source[] }> {
+): Promise<{ reply: string; mappedTo: string[] }> {
   const record = await deps.store.get(seekerId);
   assertVisible(record, seekerId);
 
-  if (text === "") {
-    if (record.interview.length > 0) {
-      const lastAgentTurn = record.interview.findLast((turn) => turn.role === "agent");
-      return {
-        reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION,
-        done: false,
-        preferences: record.draft,
-        ...(lastAgentTurn?.sources?.length ? { sources: lastAgentTurn.sources } : {}),
-      };
-    }
-    const updated = await deps.store.update(seekerId, (current) => {
-      assertVisible(current, seekerId);
-      if (current.interview.length > 0) return current;
-      return {
-        ...current,
-        interview: [...current.interview, { role: "agent", text: FIRST_INTERVIEW_QUESTION, at: now() }],
-      };
-    });
-    const lastAgentTurn = updated.interview.findLast((turn) => turn.role === "agent");
-    return { reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION, done: false, preferences: updated.draft };
-  }
-
-  const modelResult = await askLlm(deps, record.interview, record.draft, text);
+  const modelResult = await askLlm(deps, warmupMessages(record.interview, record.draft, question, text));
   const [draftPatch, statedSkills] = await Promise.all([
     validateDraftPatch(modelResult.draftPatch),
     validateStatedSkills(deps, modelResult.statedSkills, text),
   ]);
-  let reply = modelResult.reply;
-  let sources: Source[] = [];
-  const lookupCount = record.interview.filter(
-    (turn) => turn.role === "agent" && turn.sources?.some((source) => source.tool === "exa"),
-  ).length;
-  if (modelResult.salaryLookup && deps.exa && lookupCount < 2) {
-    const lang = salaryLanguage(record, draftPatch, text);
-    try {
-      const salary = await lookupSalary(
-        { llm: deps.llm, exa: deps.exa },
-        { occupation: modelResult.salaryLookup.lookup, country: modelResult.salaryLookup.country, city: modelResult.salaryLookup.city, lang },
-      );
-      if (salary.figures.length > 0) {
-        const salaryReply = await verifiedSalaryReply(deps, record.interview, record.draft, text, salary.figures);
-        if (salaryReply) {
-          reply = salaryReply;
-          sources = salary.sources;
-        } else {
-          reply = salaryFallback(lang);
-        }
-      } else {
-        reply = salaryFallback(lang);
-      }
-    } catch {
-      reply = salaryFallback(lang);
-    }
-  }
-  let done = modelResult.done;
+  const allowed = new Set(question.options);
+  const mappedTo = [...new Set(modelResult.mappedTo.filter((option) => allowed.has(option)))];
 
-  const updated = await deps.store.update(seekerId, (current) => {
+  await deps.store.update(seekerId, (current) => {
     assertVisible(current, seekerId);
     const seekerTurnNumber = current.interview.length + 1;
     const nextDraft = { ...current.draft, ...draftPatch };
-    const maxAgentQuestions = modelResult.mode === "explore" ? EXPLORE_MAX_AGENT_QUESTIONS : DIRECT_MAX_AGENT_QUESTIONS;
-    const atQuestionLimit = current.interview.filter((turn) => turn.role === "agent").length + 1 >= maxAgentQuestions;
-    const hasConfirmedOccupation = (nextDraft.targetOccupations?.length ?? 0) > 0;
-    done = atQuestionLimit || (done && hasConfirmedOccupation);
-
     const claims = statedSkills.map(({ skill, quote }) =>
       statedSkillClaim(seekerId, skill, interviewSource(seekerId, seekerTurnNumber, text, quote))
     );
@@ -496,10 +512,174 @@ export async function interviewTurn(
       interview: [
         ...current.interview,
         { role: "seeker", text, at: now() },
+        { role: "agent", text: modelResult.reply, at: now() },
+      ],
+    };
+  });
+
+  return { reply: modelResult.reply, mappedTo };
+}
+
+export async function interviewTurn(
+  deps: Deps,
+  seekerId: string,
+  text: string,
+): Promise<{ reply: string; done: boolean; preferences: CareerPreferencesDraft; sources?: Source[] }> {
+  const record = await deps.store.get(seekerId);
+  assertVisible(record, seekerId);
+  const intake = await deps.store.getIntake(seekerId);
+  const inIntakeChat = intake?.phase === "chat";
+
+  if (text === "") {
+    if (inIntakeChat) {
+      const opening = intakeChatOpening(record);
+      if (opening === null) {
+        await finishIntakeChat(deps, intake);
+        return { reply: "Thanks — that covers everything.", done: true, preferences: record.draft };
+      }
+      const chatStarted = record.interview.some(
+        (turn) => turn.role === "agent" &&
+          (turn.text === INTAKE_CHAT_FIRST_QUESTION || turn.text === INTAKE_CHAT_SALARY_QUESTION),
+      );
+      if (chatStarted) {
+        const lastAgentTurn = record.interview.findLast((turn) => turn.role === "agent");
+        return {
+          reply: lastAgentTurn?.text ?? opening,
+          done: false,
+          preferences: record.draft,
+          ...(lastAgentTurn?.sources?.length ? { sources: lastAgentTurn.sources } : {}),
+        };
+      }
+      const updated = await deps.store.update(seekerId, (current) => ({
+        ...current,
+        interview: [...current.interview, { role: "agent", text: opening, at: now() }],
+      }));
+      return { reply: opening, done: false, preferences: updated.draft };
+    }
+    if (record.interview.length > 0) {
+      const lastAgentTurn = record.interview.findLast((turn) => turn.role === "agent");
+      return {
+        reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION,
+        done: false,
+        preferences: record.draft,
+        ...(lastAgentTurn?.sources?.length ? { sources: lastAgentTurn.sources } : {}),
+      };
+    }
+    const updated = await deps.store.update(seekerId, (current) => {
+      assertVisible(current, seekerId);
+      if (current.interview.length > 0) return current;
+      return {
+        ...current,
+        interview: [...current.interview, { role: "agent", text: FIRST_INTERVIEW_QUESTION, at: now() }],
+      };
+    });
+    const lastAgentTurn = updated.interview.findLast((turn) => turn.role === "agent");
+    return { reply: lastAgentTurn?.text ?? FIRST_INTERVIEW_QUESTION, done: false, preferences: updated.draft };
+  }
+
+  const activeMessages = inIntakeChat
+    ? intakeChatMessages(record.interview, record.draft, text, intake, record.profile.preferences)
+    : interviewMessages(record.interview, record.draft, text);
+  const modelResult = await askLlm(deps, activeMessages);
+  const [draftPatch, statedSkills] = await Promise.all([
+    validateDraftPatch(modelResult.draftPatch),
+    validateStatedSkills(deps, modelResult.statedSkills, text),
+  ]);
+  let reply = modelResult.reply;
+  let sources: Source[] = [];
+  const lookupCount = record.interview.filter(
+    (turn) => turn.role === "agent" && turn.sources?.some((source) => source.tool === "exa"),
+  ).length;
+  if (modelResult.salaryLookup && deps.exa && lookupCount < 2) {
+    const lang = salaryLanguage(record, draftPatch, text);
+    try {
+      const salary = await lookupSalary(
+        { llm: deps.llm, exa: deps.exa },
+        { occupation: modelResult.salaryLookup.lookup, country: modelResult.salaryLookup.country, city: modelResult.salaryLookup.city, lang },
+      );
+      if (salary.figures.length > 0) {
+        const salaryReply = await verifiedSalaryReply(
+          deps,
+          record.interview,
+          record.draft,
+          text,
+          salary.figures,
+          inIntakeChat ? activeMessages : undefined,
+        );
+        if (salaryReply) {
+          reply = salaryReply;
+          sources = salary.sources;
+        } else {
+          reply = salaryFallback(lang);
+        }
+      } else {
+        reply = salaryFallback(lang);
+      }
+    } catch {
+      reply = salaryFallback(lang);
+    }
+  }
+  let done = modelResult.done;
+
+  const updated = await deps.store.update(seekerId, (current) => {
+    assertVisible(current, seekerId);
+    const seekerTurnNumber = current.interview.length + 1;
+    const acceptedPatch = inIntakeChat ? intakeChatPatch(draftPatch) : draftPatch;
+    if (inIntakeChat && acceptedPatch.dreamCompanies) {
+      acceptedPatch.dreamCompanies = addDreamCompanies(
+        addDreamCompanies(current.profile.preferences.dreamCompanies, current.draft.dreamCompanies),
+        acceptedPatch.dreamCompanies,
+      );
+    }
+    const nextDraft = { ...current.draft, ...acceptedPatch };
+    if (inIntakeChat) {
+      const dealBreakersCollected = hasOwn(nextDraft, "dealBreakers") || current.profile.preferences.dealBreakers.length > 0;
+      const salaryCollected = hasOwn(nextDraft, "salaryExpectation") || current.profile.preferences.salaryExpectation !== undefined;
+      const allCollected = dealBreakersCollected && salaryCollected;
+      const atQuestionLimit = intakeChatAgentTurns(current.interview) + 1 >= INTAKE_CHAT_MAX_AGENT_TURNS;
+      done = done || allCollected || atQuestionLimit;
+    } else {
+      const maxAgentQuestions = modelResult.mode === "explore" ? EXPLORE_MAX_AGENT_QUESTIONS : DIRECT_MAX_AGENT_QUESTIONS;
+      const atQuestionLimit = current.interview.filter((turn) => turn.role === "agent").length + 1 >= maxAgentQuestions;
+      const hasConfirmedOccupation = (nextDraft.targetOccupations?.length ?? 0) > 0;
+      done = atQuestionLimit || (done && hasConfirmedOccupation);
+    }
+
+    const claims = statedSkills.map(({ skill, quote }) =>
+      statedSkillClaim(seekerId, skill, interviewSource(seekerId, seekerTurnNumber, text, quote))
+    );
+    const mergedSkills = mergeStatedSkills(current.profile.statedSkills, claims);
+    let profile = current.profile;
+    let profileChanged = JSON.stringify(mergedSkills) !== JSON.stringify(current.profile.statedSkills);
+    if (profileChanged) profile = { ...profile, statedSkills: mergedSkills };
+
+    const preferences = inIntakeChat
+      ? {
+          ...profile.preferences,
+          ...(acceptedPatch.dealBreakers !== undefined ? { dealBreakers: acceptedPatch.dealBreakers } : {}),
+          ...(acceptedPatch.salaryExpectation !== undefined ? { salaryExpectation: acceptedPatch.salaryExpectation } : {}),
+          ...(acceptedPatch.dreamCompanies !== undefined ? { dreamCompanies: acceptedPatch.dreamCompanies } : {}),
+        }
+      : preferencesFromDraft(nextDraft, profile.preferences);
+    if (preferences && JSON.stringify(preferences) !== JSON.stringify(profile.preferences)) {
+      profile = { ...profile, preferences };
+      profileChanged = true;
+    }
+    if (profileChanged) profile = touch(profile);
+
+    return {
+      ...current,
+      profile,
+      draft: nextDraft,
+      interview: [
+        ...current.interview,
+        { role: "seeker", text, at: now() },
         { role: "agent", text: reply, at: now(), ...(sources.length ? { sources } : {}) },
       ],
     };
   });
+
+  if (inIntakeChat && done) await finishIntakeChat(deps, intake);
 
   return { reply, done, preferences: updated.draft, ...(sources.length ? { sources } : {}) };
 }
