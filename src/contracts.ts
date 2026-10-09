@@ -213,6 +213,8 @@ export type TechTrend = { name: string; kind: "language" | "topic"; nowShare: nu
 /** Aggregates only: counts of role models and links to public repos, never a list of people. */
 export type RoleModelInsights = {
   occupation: Occupation;
+  platform: "github" | "web";      // where this occupation's work was read, chosen per occupation
+  sites: string[];                 // e.g. ["github.com"] or ["behance.net", "dribbble.com"]
   companies: { name: string; githubOrg: string; roleModels: number }[];
   roleModelsRead: number;
   window: { nowSince: string; thenBefore: string };

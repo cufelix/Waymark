@@ -8,6 +8,8 @@ import { newId } from "../../ids";
 import { chatJson } from "../../llm";
 import { errorMessage, log } from "../../log";
 import { gh, mapLimit } from "./github";
+import { toolRegistry } from "../../tools";
+import { runTool } from "../../tools/types";
 
 const PEOPLE_PER_ORG = 15;
 const MAX_ORGS = 5;
@@ -23,20 +25,31 @@ type Repo = {
 const monthsAgo = (m: number, now: Date) => new Date(now.getTime() - m * 30.44 * 86_400_000);
 const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]/g, "");
 
-const codeCache = new Map<string, boolean>();
-/** Whether people in this occupation typically show their work as public code; skips GitHub for nurses or electricians. */
-async function producesCode(occupation: Occupation, runId: string): Promise<boolean> {
-  const hit = codeCache.get(occupation.uri);
-  if (hit !== undefined) return hit;
+export type EvidencePlatform = { platform: "github" | "web" | "none"; domains: string[]; workWord: string };
+const platformCache = new Map<string, EvidencePlatform>();
+
+/**
+ * Where people in this occupation show their work in public, decided per occupation (adaptive, any job):
+ * GitHub for code, portfolio or publishing sites for other work (Behance, Dribbble, SoundCloud, Kaggle…), none
+ * where work isn't shown publicly (a nurse, an electrician).
+ */
+async function evidencePlatform(occupation: Occupation, runId: string): Promise<EvidencePlatform> {
+  const hit = platformCache.get(occupation.uri);
+  if (hit) return hit;
   const { value } = await chatJson(
-    z.object({ code: z.boolean() }),
-    "You know which jobs produce public source code.",
-    `Is "${occupation.label}" a job whose work is mainly writing code or building software, data or ML systems, ` +
-      `so that public GitHub projects show the skills it needs? Return {"code": true} or {"code": false}.`,
+    z.object({ platform: z.enum(["github", "web", "none"]), domains: z.array(z.string()).default([]), workWord: z.string().default("project") }),
+    "You know where professionals in every occupation publish their work online.",
+    `Occupation: "${occupation.label}". Where do people in this job publicly show their recent work?\n` +
+      `- "github" if the work is mainly code (software, data, ML).\n` +
+      `- "web" if they publish work on other public sites; give up to 4 site domains where it is typically published (e.g. behance.net, dribbble.com, soundcloud.com, kaggle.com, youtube.com, medium.com) and workWord, the word for one piece of work (e.g. "case study", "track", "notebook").\n` +
+      `- "none" if the work is not usually shown publicly.\n` +
+      `Return {"platform":"web","domains":["behance.net"],"workWord":"case study"}.`,
     { runId, maxTokens: 400 },
   );
-  codeCache.set(occupation.uri, value.code);
-  return value.code;
+  const domains = value.domains.map((d) => d.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase()).filter((d) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)).slice(0, 4);
+  const result: EvidencePlatform = value.platform === "web" && domains.length === 0 ? { platform: "none", domains: [], workWord: "" } : { ...value, domains };
+  platformCache.set(occupation.uri, result);
+  return result;
 }
 
 /** The company's GitHub organization, when its login clearly matches the company name. */
@@ -82,27 +95,30 @@ const Themes = z.object({
 });
 
 /** Groups today's repos into project themes; examples are real repos, counts are distinct people. */
-async function projectThemes(repos: Repo[], occupation: Occupation, runId: string): Promise<ProjectTheme[]> {
-  const top = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count).slice(0, 80);
+type Work = { title: string; url: string; description: string; owner: string; score: number; tags: string };
+const fromRepo = (r: Repo): Work => ({ title: r.full_name, url: r.html_url, description: r.description ?? "", owner: r.owner.login, score: r.stargazers_count, tags: `[${r.language ?? "-"}] ${(r.topics ?? []).slice(0, 6).join(",")}` });
+
+async function projectThemes(works: Work[], occupation: Occupation, runId: string): Promise<ProjectTheme[]> {
+  const top = [...works].sort((a, b) => b.score - a.score).slice(0, 80);
   if (top.length < 3) return [];
   const { value } = await chatJson(
     Themes,
     "You read lists of recent GitHub projects and name the kinds of projects people build.",
-    `These are recent projects (started in the last two years, still active) by people working as ${occupation.label} at the companies a job seeker targets. ` +
+    `These are recent public works (from the last two years) by people working as ${occupation.label}, at or near the companies a job seeker targets. ` +
       `Group them into up to 6 project themes that a junior could build today to show the same skills. For each: theme (short), description (one sentence), ` +
       `skills (3-6 short skill names) and repos (the numbers of the projects in it). Return {"themes":[{"theme":"...","description":"...","skills":["..."],"repos":[0,3]}]}.\n\n` +
-      top.map((r, i) => `${i}. ${r.full_name} [${r.language ?? "-"}] ${(r.topics ?? []).slice(0, 6).join(",")} — ${(r.description ?? "").slice(0, 160)}`).join("\n"),
+      top.map((w, i) => `${i}. ${w.title} ${w.tags} — ${w.description.slice(0, 160)}`).join("\n"),
     { runId, maxTokens: 2500 },
   );
   const now = new Date().toISOString();
   return value.themes
     .map((t) => {
-      const members = [...new Set(t.repos)].map((i) => top[i]).filter((r): r is Repo => !!r);
-      const examples: Source[] = [...members].sort((a, b) => b.stargazers_count - a.stargazers_count).slice(0, 3).map((r) => ({
-        id: newId("src"), url: r.html_url, title: r.full_name, fetchedAt: now, tool: "official-api",
-        ...(r.description ? { quote: r.description.slice(0, 200) } : {}), contentHash: r.full_name,
+      const members = [...new Set(t.repos)].map((i) => top[i]).filter((w): w is Work => !!w);
+      const examples: Source[] = [...members].sort((a, b) => b.score - a.score).slice(0, 3).map((w) => ({
+        id: newId("src"), url: w.url, title: w.title, fetchedAt: now, tool: "official-api",
+        ...(w.description ? { quote: w.description.slice(0, 200) } : {}), contentHash: w.url,
       }));
-      return { theme: t.theme, description: t.description, skills: t.skills.slice(0, 6), roleModels: new Set(members.map((r) => r.owner.login)).size, examples };
+      return { theme: t.theme, description: t.description, skills: t.skills.slice(0, 6), roleModels: new Set(members.map((w) => w.owner)).size, examples };
     })
     .filter((t) => t.roleModels >= 2 && t.examples.length > 0)   // a theme needs more than one person behind it
     .sort((a, b) => b.roleModels - a.roleModels);
@@ -110,18 +126,21 @@ async function projectThemes(repos: Repo[], occupation: Occupation, runId: strin
 
 /** Role-model insights for one occupation, from the dream companies first, then the companies hiring in this run. */
 export async function roleModels(runId: string, occupation: Occupation, dreamCompanies: string[], now = new Date()): Promise<RoleModelInsights | null> {
+  let where: EvidencePlatform;
   try {
-    if (!(await producesCode(occupation, runId))) return null;
+    where = await evidencePlatform(occupation, runId);
   } catch (err) {
-    log.warn("role models: code check failed", { runId, error: errorMessage(err) });
+    log.warn("role models: platform choice failed", { runId, error: errorMessage(err) });
     return null;
   }
+  if (where.platform === "none") return null;
   const hiring = await query<{ name: string }>(
     `SELECT c.name, count(*) AS n FROM run_vacancies rv JOIN vacancies v ON v.id = rv.vacancy_id JOIN companies c ON c.id = v.company_id
      WHERE rv.run_id = $1 AND v.data->'query'->>'occupationUri' = $2 GROUP BY c.name ORDER BY n DESC LIMIT 10`,
     [runId, occupation.uri],
   );
   const candidates = [...new Set([...dreamCompanies, ...hiring.map((h) => h.name)])];
+  if (where.platform === "web") return webRoleModels(runId, occupation, candidates.slice(0, MAX_ORGS), where, now);
   const orgs = (await mapLimit(candidates, 4, async (name) => ({ name, org: await findOrg(name) }))).filter((o): o is { name: string; org: string } => !!o.org).slice(0, MAX_ORGS);
   if (orgs.length === 0) return null;
 
@@ -137,16 +156,61 @@ export async function roleModels(runId: string, occupation: Occupation, dreamCom
   const thenRepos = repos.filter((r) => new Date(r.created_at) < monthsAgo(THEN_YEARS * 12, now));
   let themesNow: ProjectTheme[] = [];
   try {
-    themesNow = await projectThemes(nowRepos, occupation, runId);
+    themesNow = await projectThemes(nowRepos.map(fromRepo), occupation, runId);
   } catch (err) {
     log.warn("role models: themes failed", { runId, error: errorMessage(err) });
   }
   return {
     occupation,
+    platform: "github",
+    sites: ["github.com"],
     companies: people.map((p) => ({ name: p.name, githubOrg: p.org, roleModels: p.logins.length })),
     roleModelsRead: logins.length,
     window: { nowSince: monthsAgo(NOW_CREATED_MONTHS, now).toISOString().slice(0, 10), thenBefore: monthsAgo(THEN_YEARS * 12, now).toISOString().slice(0, 10) },
     themesNow,
     techTrends: techTrends(nowRepos, thenRepos),
+  };
+}
+
+/** Owner of a public work: the account in the URL path, or the subdomain on per-account hosts. */
+function ownerOf(url: string): string {
+  try {
+    const u = new URL(url);
+    const seg = u.pathname.split("/").filter(Boolean)[0] ?? "";
+    return `${u.hostname}/${seg.replace(/^@/, "")}`;
+  } catch {
+    return url;
+  }
+}
+
+/** Role models for non-code jobs: recent public work on the occupation's own platforms, found with Exa. */
+async function webRoleModels(runId: string, occupation: Occupation, companies: string[], where: EvidencePlatform, now: Date): Promise<RoleModelInsights | null> {
+  const exa = toolRegistry.get("exa_search");
+  if (!exa?.available()) return null;
+  const since = monthsAgo(NOW_CREATED_MONTHS, now).toISOString().slice(0, 10);
+  const queries = [...companies.map((c) => `${occupation.label} ${c} ${where.workWord}`), `${occupation.label} ${where.workWord}`];
+  const found = await mapLimit(queries, 3, async (q) => {
+    const res = await runTool(exa, { query: q, numResults: 10, includeDomains: where.domains, startPublishedDate: since }, { runId });
+    return res.ok && Array.isArray(res.raw) ? (res.raw as { url: string; title?: string; text?: string }[]) : [];
+  });
+  const works = [...new Map(found.flat().map((r) => [r.url, r])).values()].map((r, i) => ({
+    title: r.title ?? r.url, url: r.url, description: (r.text ?? "").slice(0, 300), owner: ownerOf(r.url), score: 100 - i, tags: "",
+  }));
+  if (works.length < 3) return null;
+  let themesNow: ProjectTheme[] = [];
+  try {
+    themesNow = await projectThemes(works, occupation, runId);
+  } catch (err) {
+    log.warn("role models: web themes failed", { runId, error: errorMessage(err) });
+  }
+  return {
+    occupation,
+    platform: "web",
+    sites: where.domains,
+    companies: companies.map((name) => ({ name, githubOrg: "", roleModels: 0 })),
+    roleModelsRead: new Set(works.map((w) => w.owner)).size,
+    window: { nowSince: since, thenBefore: monthsAgo(THEN_YEARS * 12, now).toISOString().slice(0, 10) },
+    themesNow,
+    techTrends: [],
   };
 }
