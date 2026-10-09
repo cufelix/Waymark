@@ -64,7 +64,9 @@ function renderHeader() {
   if (!el) return;
   const step = Number(el.dataset.step || 0);
   el.className = 'top';
-  el.innerHTML = '<a class="brand" href="index.html">' + LOGO + 'WayMark</a><span class="sample">Sample data</span>';
+  const sample = new URLSearchParams(location.search).get('sample') === '1';
+  const page = (href) => href + (sample ? '?sample=1' : '');
+  el.innerHTML = '<a class="brand" href="' + page('index.html') + '">' + LOGO + 'WayMark</a>' + (sample ? '<span class="sample">Sample data</span>' : '');
   const steps = [['index.html', 'Interview', 'interview'], ['research.html', 'Research', 'research'], ['paths.html', 'Paths', 'paths'], ['roadmap.html', 'Roadmap', 'roadmap']];
   const nav = document.createElement('nav');
   nav.className = 'stepbar';
@@ -72,7 +74,7 @@ function renderHeader() {
   nav.innerHTML = steps.map(([href, name, ic], i) => {
     const cls = i + 1 === step ? 'on' : i + 1 < step ? 'past' : '';
     return (i ? '<svg class="wave ' + (i + 1 <= step ? 'lit' : '') + '" viewBox="0 0 56 10" aria-hidden="true"><path d="M2 5 Q8.5 1 15 5 T28 5 T41 5 T54 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 4.5"/></svg>' : '') +
-      '<a href="' + href + '" class="' + cls + '"' + (cls === 'on' ? ' aria-current="step"' : '') + '><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + STEP_ICON[ic] + '</svg><span>' + name + '</span></a>';
+      '<a href="' + page(href) + '" class="' + cls + '"' + (cls === 'on' ? ' aria-current="step"' : '') + '><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + STEP_ICON[ic] + '</svg><span>' + name + '</span></a>';
   }).join('');
   document.body.appendChild(nav);
 }

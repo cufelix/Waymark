@@ -88,15 +88,23 @@ function fakeEngine(): IntakeEngine {
             notForMe: path.notForMe + (rating === "no" ? 1 : 0),
           }
         : path);
-      return {
+      const next: IntakeState = {
         ...state,
-        phase: state.practical ? "chat" : "practical",
+        phase: state.resumeAfterCards ?? (state.practical ? "chat" : "practical"),
         cards: { rated: [...state.cards.rated, { card, rating, at }], done: true },
         paths,
       };
+      delete next.resumeAfterCards;
+      return next;
     },
     addMoreCards(state, deck): IntakeState {
-      return { ...state, phase: "cards", cards: { ...state.cards, done: false, current: deck.cards[1] }, extraUntil: state.cards.rated.length + 4 };
+      return {
+        ...state,
+        phase: "cards",
+        cards: { ...state.cards, done: false, current: deck.cards[1] },
+        extraUntil: state.cards.rated.length + 4,
+        resumeAfterCards: state.phase === "chat" || state.phase === "done" ? state.phase : "practical",
+      };
     },
     toPublic: (state) => publicView(state),
   };
@@ -198,10 +206,17 @@ test("practical validation is strict and targets only appear after cards finish;
   assert.deepEqual(record.profile.preferences.languages, practical.languages);
   assert.deepEqual(record.profile.preferences.dreamCompanies, practical.dreamCompanies);
   const targets = structuredClone(record.profile.preferences.targetOccupations);
-  await assert.rejects(moreCards(done.deps, done.seekerId), rejectsCode("conflict"));
+  const beforeExtraVersion = record.profile.profileVersion;
+  const extra = await moreCards(done.deps, done.seekerId);
+  assert.equal(extra.phase, "cards");
+  const returnedToChat = await rateCard(done.deps, done.seekerId, extra.cards.current!.cardId, { rating: "maybe" });
+  assert.equal(returnedToChat.phase, "chat");
+  assert.equal((await done.store.get(done.seekerId))!.profile.profileVersion, beforeExtraVersion + 1);
   assert.deepEqual((await done.store.get(done.seekerId))!.profile.preferences.targetOccupations, targets);
   assert.equal((await skipChat(done.deps, done.seekerId)).phase, "done");
-  await assert.rejects(moreCards(done.deps, done.seekerId), rejectsCode("conflict"));
+  const fromDone = await moreCards(done.deps, done.seekerId);
+  const returnedToDone = await rateCard(done.deps, done.seekerId, fromDone.cards.current!.cardId, { rating: "no" });
+  assert.equal(returnedToDone.phase, "done");
   await assert.rejects(skipChat(done.deps, done.seekerId), rejectsCode("conflict"));
 });
 

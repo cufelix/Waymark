@@ -38,13 +38,13 @@
 
 <main class="wrap" style="max-width: 1280px; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 32px">
   <div style="display: flex; flex-direction: column; gap: 10px">
-    <h1 class="h1">Three paths that fit you</h1>
-    <p class="lead" style="max-width: 680px">Picked from how you reacted to real tasks, and ordered by real demand where you want to work. No scores.</p>
+    <h1 class="h1">Three paths to explore</h1>
+    <p class="lead" style="max-width: 680px">Picked from your task reactions and kept in the API’s order. No scores.</p>
   </div>
   <div class="cards" id="cards"></div>
   <div class="more-stack">
     <p>Not feeling any of these?</p>
-    <a class="alt" href="index.html?more">Show me 4 more tasks</a>
+    <a class="alt" href="index.html?more=1" id="moreTasks">Show me 4 more tasks</a>
   </div>
 </main>
 
@@ -60,7 +60,7 @@
     <p id="dWhat" style="margin: 0; font-size: 18px; line-height: 1.55; color: var(--text-soft)"></p>
     <div class="grid">
       <div style="display: flex; flex-direction: column; gap: 12px">
-        <span class="lbl">A typical day</span>
+        <span class="lbl">Sourced evidence</span>
         <div id="dDay" style="display: flex; flex-direction: column; gap: 12px"></div>
       </div>
       <div style="display: flex; flex-direction: column; gap: 12px">
@@ -69,87 +69,12 @@
         <div style="font-size: 13px; color: var(--faint)">Salary ranges fill in from scraped job ads.</div>
       </div>
     </div>
-    <a class="cta" href="roadmap.html">Choose this path</a>
+    <button class="cta" type="button" id="drawerChoose">Choose this path</button>
   </div>
 </div>
 
-<script>
-const $ = (id) => document.getElementById(id);
-const PATHS = [
-  { key: 'backend', rank: 'Most open roles', title: 'Backend developer', roles: '143', time: '~7 mo',
-    oneLine: 'Builds the parts of an app nobody sees: the logic, the data, the plumbing.',
-    proof: 'You liked 4 of 5 coding tasks', reason: 'And you said you love figuring out why something broke.',
-    head: ['Python (school)', 'Basic HTML'], cos: 'RPKM',
-    what: 'You build the engine behind apps and websites. When someone taps “Pay”, your code checks the card, saves the order and tells the warehouse. Most of the job is solving small puzzles and making sure things do not break.',
-    day: [['09:30', 'Quick team stand up'], ['10:00', 'Fix a bug a customer reported yesterday'], ['13:00', 'Build a small new feature with a senior dev'], ['16:00', 'Review a teammate’s code']],
-    ladder: [['Junior backend developer', '0 to 2 years'], ['Backend developer', '2 to 5 years'], ['Senior backend developer', '5+ years'], ['Tech lead / Head of engineering', '8+ years']] },
-  { key: 'data', rank: 'Fastest to start', title: 'Data analyst', roles: '86', time: '~5 mo',
-    oneLine: 'Turns messy numbers into answers a business can act on.',
-    proof: 'You liked 3 of 4 data tasks', reason: 'And you said you like working with information and numbers.',
-    head: ['Excel', 'Python (school)'], cos: 'SAOD',
-    what: 'You help a company understand what is happening. You pull data, clean it up, find the pattern and explain it in a chart someone in a meeting can understand.',
-    day: [['09:30', 'Check this morning’s sales dashboard'], ['10:30', 'Answer a question from marketing with SQL'], ['14:00', 'Clean up a messy spreadsheet'], ['16:00', 'Present one chart and what it means']],
-    ladder: [['Junior data analyst', '0 to 2 years'], ['Data analyst', '2 to 4 years'], ['Senior analyst', '4+ years'], ['Head of data / Analytics lead', '8+ years']] },
-  { key: 'qa', rank: 'Least competition', title: 'QA engineer', roles: '52', time: '~4 mo',
-    oneLine: 'Finds what is broken before customers do.',
-    proof: 'You liked 2 of 3 testing tasks', reason: 'A great way into tech without years of coding first.',
-    head: ['Customer service', 'Basic HTML'], cos: 'LTNB',
-    what: 'You try to break the product on purpose, so customers never see the bugs. You write down exactly how to reproduce a problem and, over time, write code that tests things automatically.',
-    day: [['09:30', 'Stand up with the developers'], ['10:00', 'Test a new feature on phone and desktop'], ['13:30', 'Write clear bug reports'], ['15:30', 'Automate one test to run every night']],
-    ladder: [['Junior QA tester', '0 to 2 years'], ['QA engineer', '2 to 4 years'], ['Senior QA / Automation engineer', '4+ years'], ['QA lead / Head of quality', '7+ years']] }
-];
-// Use the real interview evidence where the path matches.
-try {
-  const top = JSON.parse(localStorage.getItem('top3') || '[]');
-  PATHS.forEach((p) => { const t = top.find((x) => x.key === p.key); if (t && t.shown) p.proof = 'You liked ' + t.liked + ' of ' + t.shown + ' ' + t.kind + ' tasks'; });
-} catch (e) {}
-
-$('cards').innerHTML = PATHS.map((p, i) => `
-  <article class="pcard">
-    <div class="head">
-      <span class="rank">${p.rank}</span>
-      <h2>${p.title}</h2>
-      <p class="one">${p.oneLine}</p>
-    </div>
-    <div class="proof"><b>${p.proof}</b><span>${p.reason}</span></div>
-    <div class="sec" style="border-top: none; padding-top: 22px">
-      <span class="lbl">The market</span>
-      <div class="big2">
-        <div><b>${p.roles}</b><span>open roles near you</span></div>
-        <div><b>${p.time}</b><span>to job ready at 10h a week</span></div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px">
-        <span style="font-size: 13px; color: var(--faint); margin-right: 4px">Hiring now</span>
-        ${p.cos.split('').map((c) => `<span class="logo-ph">${c}</span>`).join('')}
-      </div>
-    </div>
-    <div class="sec">
-      <span class="lbl">Your head start</span>
-      <div style="display: flex; flex-wrap: wrap; gap: 6px">${p.head.map((h) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${h}</span>`).join('')}</div>
-    </div>
-    <div class="foot">
-      <a class="cta" href="roadmap.html">Choose this path</a>
-      <button class="textlink" type="button" data-open="${i}">What's this job like?</button>
-    </div>
-  </article>`).join('');
-
-function open(i) {
-  const p = PATHS[i];
-  $('dTitle').textContent = p.title;
-  $('dWhat').textContent = p.what;
-  $('dDay').innerHTML = p.day.map(([t, x]) => `<div class="day"><span>${t}</span><span>${x}</span></div>`).join('');
-  $('dLadder').innerHTML = p.ladder.map(([r, y], j) => `
-    <div class="rung"><div class="rail"><div class="dot ${j === 0 ? 'on' : ''}"></div><div class="bar"></div></div>
-      <div class="body"><div><div style="font-weight: 600; font-size: 15px">${r}</div><div style="font-size: 13px; color: var(--muted)">${y} · [CZK range]</div></div></div></div>`).join('');
-  $('scrim').classList.add('open');
-  $('close').focus();
-}
-function close() { $('scrim').classList.remove('open'); }
-document.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => open(Number(b.dataset.open)));
-$('close').innerHTML = ICON.x;
-$('close').onclick = close;
-$('scrim').addEventListener('click', (e) => { if (e.target === $('scrim')) close(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-</script>
+<script src="sample.js"></script>
+<script src="live.js"></script>
+<script src="paths-live.js"></script>
 </body>
 </html>

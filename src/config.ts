@@ -37,11 +37,15 @@ const Env = z.object({
   EXA_API_KEY: optional,
   FIRECRAWL_API_KEY: optional,
   GITHUB_TOKEN: optional,
+  ELEVENLABS_API_KEY: optional,
+  ELEVENLABS_VOICE_ID: z.string().default("21m00Tcm4TlvDq8MzCmL"),
+  ELEVENLABS_TTS_MODEL: z.string().default("eleven_flash_v2_5"),
 
   CAP_LLM_USD: z.coerce.number().default(50),
   CAP_APIFY_USD: z.coerce.number().default(50),
   CAP_EXA_USD: z.coerce.number().default(50),
   CAP_FIRECRAWL_USD: z.coerce.number().default(50),
+  CAP_ELEVENLABS_CHARS_PER_DAY: z.coerce.number().int().min(1).default(20_000),
 
   // ponytail: flat estimate per Firecrawl credit, replace with the plan's real rate
   FIRECRAWL_USD_PER_CREDIT: z.coerce.number().default(0.001),

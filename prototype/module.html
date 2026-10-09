@@ -22,40 +22,24 @@
   <div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: center">
     <span id="heroTile" style="filter: drop-shadow(0 0 18px rgba(184,242,91,.5)); animation: pop .4s ease-out both"></span>
     <div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 6px">
-      <span style="font-size: 13px; color: var(--muted)">Section 2 · Your first language: Python · Module 1 of 4</span>
-      <h1 style="font: 700 44px/1.05 var(--display)">Variables and logic</h1>
+      <span id="moduleMeta" style="font-size: 13px; color: var(--muted)">Roadmap chapter</span>
+      <h1 id="chapterTitle" style="font:700 44px/1.05 var(--display)">Loading chapter…</h1>
     </div>
   </div>
 
   <div class="goal">
     <span class="lbl" style="color: var(--accent)">After this you can</span>
-    <div class="goal-text">Write a small program that takes input, makes decisions and gives an answer.</div>
+    <div class="goal-text" id="outcome"></div>
     <div class="goal-meta">
-      <span class="chip" style="font-size: 13px; padding: 5px 12px">For example: a tip calculator or a quiz</span>
-      <span style="font-size: 14px; color: var(--muted)">About 2 weeks at 10h a week</span>
+      <span class="chip" id="skillsMeta" style="font-size:13px;padding:5px 12px"></span><span id="effortMeta" style="font-size:14px;color:var(--muted)"></span>
     </div>
   </div>
 
-  <div class="why-row">
-    <span class="lbl">Why this matters</span>
-    <span style="font-size: 16px"><b style="color: var(--accent-hover)">41 of 120</b> junior backend ads in Prague ask for Python</span>
-    <span style="display: inline-flex; align-items: center; gap: 6px"><span class="logo-ph">R</span><span class="logo-ph">P</span><span class="logo-ph">K</span></span>
-    <a href="#" style="font-size: 13px">See the ads</a>
-  </div>
+  <div class="why-row" id="whyRow"></div>
 
   <div style="display: flex; flex-direction: column; gap: 14px">
     <span class="lbl">Start here</span>
-    <a class="res top" href="https://cs50.harvard.edu/python/" target="_blank" rel="noopener">
-      <div class="ic" style="width: 56px; height: 56px; border-radius: 14px; background: var(--accent)">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0D0F0C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4-2.5z" fill="#0D0F0C"/></svg>
-      </div>
-      <div class="meta">
-        <div style="font: 600 20px var(--display)">CS50's Introduction to Programming with Python</div>
-        <div class="by">Harvard · lectures 0 to 1 cover exactly this module</div>
-        <div class="tags"><span class="tag free">Free</span><span class="tag">Video course</span><span class="tag">Beginner</span><span class="tag">~6h for this module</span></div>
-      </div>
-      <span data-icon="ext"></span>
-    </a>
+    <div id="topResource"></div>
   </div>
 
   <div style="display: flex; flex-direction: column; gap: 14px">
@@ -74,48 +58,16 @@
     <div class="unlocked" id="unlocked" hidden>
       <span id="nextTile" style="filter: drop-shadow(0 0 14px rgba(184,242,91,.5))"></span>
       <div style="flex: 1; min-width: 220px">
-        <div style="font: 700 22px var(--display)">Unlocked: Functions</div>
-        <div style="font-size: 14px; color: var(--muted)">Nice. That's 3 of 16. Your next module is ready.</div>
+        <div id="nextTitle" style="font: 700 22px var(--display)">Unlocked: Next module</div>
+        <div id="completionText" style="font-size: 14px; color: var(--muted)">Nice. That's 0 of 0. Your next module is ready.</div>
       </div>
       <a class="cta" href="roadmap.html">Back to roadmap</a>
     </div>
   </div>
 </main>
 
-<script>
-const $ = (id) => document.getElementById(id);
-const RES = [
-  { ic: 'PY', title: 'Python for Everybody', by: 'Dr. Charles Severance · University of Michigan', free: true, type: 'Course', time: 'Chapters 1 to 4', url: 'https://www.py4e.com/' },
-  { ic: 'YT', title: 'Python Tutorial for Beginners', by: 'Corey Schafer · YouTube series', free: true, type: 'Video', time: 'Episodes 2 to 6', url: 'https://www.youtube.com/@coreyms' },
-  { ic: 'EX', title: 'Exercism Python track', by: 'Exercism · practice with mentor feedback', free: true, type: 'Practice', time: 'First 10 exercises', url: 'https://exercism.org/tracks/python' },
-  { ic: 'BK', title: 'Automate the Boring Stuff with Python', by: 'Al Sweigart · free online, paid print', free: true, type: 'Book', time: 'Chapters 1 to 2', url: 'https://automatetheboringstuff.com/' },
-  { ic: 'UD', title: '100 Days of Code: The Complete Python Pro Bootcamp', by: 'Angela Yu · Udemy', free: false, type: 'Course', time: 'Days 1 to 4', url: 'https://www.udemy.com/' },
-  { ic: 'BK', title: 'Python Crash Course', by: 'Eric Matthes · No Starch Press', free: false, type: 'Book', time: 'Chapters 2 to 5', url: 'https://nostarch.com/python-crash-course-3rd-edition' }
-];
-let filter = 'Free first';
-
-function render() {
-  $('filters').innerHTML = ['Free first', 'Free', 'Paid'].map((f) =>
-    `<button class="seg ${f === filter ? 'on' : ''}" type="button" aria-pressed="${f === filter}">${f}</button>`).join('');
-  $('filters').querySelectorAll('button').forEach((b) => b.onclick = () => { filter = b.textContent; render(); });
-  let list = RES;
-  if (filter === 'Free') list = RES.filter((r) => r.free);
-  if (filter === 'Paid') list = RES.filter((r) => !r.free);
-  if (filter === 'Free first') list = [...RES.filter((r) => r.free), ...RES.filter((r) => !r.free)];
-  $('list').innerHTML = list.map((r) => `
-    <a class="res" href="${r.url}" target="_blank" rel="noopener">
-      <div class="ic">${r.ic}</div>
-      <div class="meta"><div class="title">${r.title}</div><div class="by">${r.by}</div></div>
-      <div class="tags" style="justify-content: flex-end; max-width: 320px">
-        <span class="tag ${r.free ? 'free' : 'paid'}">${r.free ? 'Free' : '[price]'}</span><span class="tag">${r.type}</span><span class="tag">${r.time}</span>
-      </div>
-    </a>`).join('');
-}
-$('markDone').onclick = () => { $('todo').hidden = true; $('unlocked').hidden = false; };
-$('heroTile').innerHTML = tile('current', 'logo', 96, 80);
-$('nextTile').innerHTML = tile('current', 'logo', 60, 50);
-document.querySelectorAll('[data-icon]').forEach((el) => el.innerHTML = ICON[el.dataset.icon]);
-render();
-</script>
+<script src="sample.js"></script>
+<script src="live.js"></script>
+<script src="module-live.js"></script>
 </body>
 </html>
