@@ -135,6 +135,29 @@ test("more cards rates exactly four cards from outside the prior top three", () 
   assert.ok(extra.every((item) => !topUris.has(item.card.occupation.uri)));
 });
 
+test("more cards returns to chat or done without asking for practical details again", () => {
+  const practical = {
+    locations: [{ country: "CZ", city: "Example City" }],
+    remote: "ok" as const,
+    hoursPerWeek: "5-10" as const,
+    courseBudget: "some" as const,
+    education: "bachelor" as const,
+    languages: [{ lang: "en", level: "working" as const }],
+    dreamCompanies: [{ name: "Example Company" }],
+  };
+
+  for (const returnPhase of ["chat", "done"] as const) {
+    let state = finishWarmup();
+    while (!state.cards.done) state = rateCurrent(state, "like");
+    state = addMoreCards({ ...state, phase: returnPhase, practical }, FAKE_DECK);
+    assert.equal(state.phase, "cards");
+    while (!state.cards.done) state = rateCurrent(state, "maybe");
+    assert.equal(state.phase, returnPhase);
+    assert.deepEqual(state.practical, practical);
+    assert.equal(state.resumeAfterCards, undefined);
+  }
+});
+
 test("more cards finishes early when fewer than four unseen cards remain outside the prior top three", () => {
   let state = finishWarmup();
   while (!state.cards.done) state = rateCurrent(state, "like");

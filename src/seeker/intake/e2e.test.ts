@@ -110,6 +110,34 @@ test("guided intake completes end to end through handle", async () => {
   const skipped = await call("POST", `/v1/seekers/${seekerId}/intake/chat/skip`);
   assert.equal(skipped.status, 200);
   assert.equal((skipped.body.data as Intake).phase, "done");
-  const final = await call("GET", `/v1/seekers/${seekerId}/intake`);
-  assert.equal((final.body.data as Intake).phase, "done");
+
+  const beforeExtra = (await call("GET", `/v1/seekers/${seekerId}/profile`)).body.data as SeekerProfile;
+  const priorTopUris = new Set(beforeExtra.preferences.targetOccupations.map((occupation) => occupation.uri));
+  const reopened = await call("POST", `/v1/seekers/${seekerId}/intake/cards/more`);
+  assert.equal(reopened.status, 200);
+  intake = reopened.body.data as Intake;
+  assert.equal(intake.phase, "cards");
+  const beforeCount = intake.cards.rated.length;
+  while (!intake.cards.done) {
+    assert.ok(intake.cards.current);
+    const rated = await call(
+      "POST",
+      `/v1/seekers/${seekerId}/intake/cards/${intake.cards.current.cardId}/rating`,
+      { rating: "maybe" },
+    );
+    assert.equal(rated.status, 200);
+    intake = rated.body.data as Intake;
+  }
+  const extra = intake.cards.rated.slice(beforeCount);
+  assert.equal(extra.length, 4);
+  assert.ok(extra.every(({ card }) => !priorTopUris.has(card.occupation.uri)));
+  assert.equal(intake.phase, "done");
+  assert.ok(intake.practical);
+
+  const afterExtra = (await call("GET", `/v1/seekers/${seekerId}/profile`)).body.data as SeekerProfile;
+  assert.equal(afterExtra.profileVersion, beforeExtra.profileVersion + 1);
+  assert.deepEqual(
+    afterExtra.preferences.targetOccupations,
+    intake.paths.filter((path) => path.top3).slice(0, 3).map((path) => path.occupation),
+  );
 });

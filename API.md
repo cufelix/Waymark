@@ -76,7 +76,7 @@ sequenceDiagram
 | `GET /v1/seekers/{seekerId}/intake` | The guided intake (warm-up, task cards, practical bits) as it stands: the current question or card, the answers so far, and the paths in the seeker's order of interest. See "Guided intake" below. | | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/warmup` | Answer the current warm-up question: one of its options or free text (the fast model maps free text to the options). | `{ questionKey: string, answer: string }` (max 500 characters) | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/cards/{cardId}/rating` | Rate the current task card. Returns the next card, or `cards.done: true` once the top 3 are clear (8 to 12 cards). | `{ rating: "like" \| "maybe" \| "no" }` | `Intake` |
-| `POST /v1/seekers/{seekerId}/intake/cards/more` | "None of these feel right": 4 more cards, picked away from the current top 3. | | `Intake` |
+| `POST /v1/seekers/{seekerId}/intake/cards/more` | "None of these feel right": after the first card round is complete, reopen cards with 4 unseen cards picked away from the current top 3. Available during `practical`, `chat` or `done`; after the extra cards it returns to the phase it came from and does not re-ask saved practical details. | | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/chat/skip` | End the "Anything else?" step without (more) chat | | `Intake` |
 | `PUT /v1/seekers/{seekerId}/intake/practical` | The practical bits, all required. Sets `preferences.locations`, `remote`, `hoursPerWeek`, `courseBudget`, `education`, `languages` (at least one) and `dreamCompanies` (may be empty only when sent as an explicit empty list, "none yet"); once the cards are done it also sets `targetOccupations` to the top 3 paths, which makes the profile `complete`. | `IntakePractical` | `Intake` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
@@ -112,7 +112,8 @@ The free-text interview above is part of this flow (steps 1 and 4).
   - Each card is one task from a real job ad, rewritten in plain words ("Find out why the website gets slow every Monday morning, and fix it.").
   - The card's `source` holds the verbatim sentence from the ad and the ad's URL. After a rating, the UI reveals which job the card came from.
   - Cards come from a prebuilt **deck per country**: `scripts/build-task-deck.ts` searches real ads with Exa for about 12 entry-level occupations, the fast model picks tasks, and every card keeps a quote that appears verbatim in the ad. The deck is a JSON file in `src/seeker/intake/decks/`. It holds nothing personal and costs nothing per seeker.
-  - The next card is picked to separate the paths the seeker's answers leave closest. The cards stop once the top 3 are clear, never before 8 cards and never after 12. "None of these feel right" adds 4 cards from outside the current top 3.
+  - The next card is picked to separate the paths the seeker's answers leave closest. The cards stop once the top 3 are clear, never before 8 cards and never after 12.
+  - After that first round, "None of these feel right" can reopen the cards phase at any later intake phase. It adds 4 unseen cards from outside the current top 3. If practical details already exist, finishing those cards returns directly to the prior `chat` or `done` phase instead of asking for practical details again.
 - **Paths:**
   - `paths` lists each candidate occupation in the seeker's order of interest, with how many of its cards they liked, were unsure about or didn't want.
   - The order comes only from the seeker's own answers. It says what they would enjoy, not what they are good at or how likely they are to get hired.
@@ -123,7 +124,7 @@ The free-text interview above is part of this flow (steps 1 and 4).
   - Pay questions get the salary lookup.
   - The client uses `POST …/interview/messages` as today; the reply's `done: true` ends the step. `POST …/intake/chat/skip` ends it at once ("Skip, I'm done").
   - Either way, the phase moves to `done`.
-- **Handoff:** once the cards are done and the practical bits are in, the top 3 paths become `preferences.targetOccupations`, so the research run covers them. The seeker can still change everything with `PUT /preferences`.
+- **Handoff:** once the cards are done and the practical bits are in, the top 3 paths become `preferences.targetOccupations`, so the research run covers them. Finishing an extra four-card round writes its new top 3 and increments `profileVersion`, including when the three occupations happen to be unchanged, so the client can start a fresh research run. The seeker can still change everything with `PUT /preferences`.
 
 ### Salary lookup in the interview
 

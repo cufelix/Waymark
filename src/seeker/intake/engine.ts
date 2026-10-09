@@ -14,6 +14,7 @@ export type IntakeState = Omit<Intake, "cards"> & {
   extraUntil: number;
   goal?: CareerPreferences["goal"];
   extraPathKeys?: string[];
+  resumeAfterCards?: Extract<Intake["phase"], "practical" | "chat" | "done">;
 };
 
 export type CardRating = "like" | "maybe" | "no";
@@ -56,7 +57,13 @@ function currentCard(card: TaskCard): IntakeCurrentCard {
 }
 
 function finishedPhase(state: IntakeState): Intake["phase"] {
-  return state.practical ? "chat" : "practical";
+  return state.resumeAfterCards ?? (state.practical ? "chat" : "practical");
+}
+
+function finishCards(state: IntakeState): void {
+  state.cards.done = true;
+  state.phase = finishedPhase(state);
+  delete state.resumeAfterCards;
 }
 
 /** Creates the private state for a seeker's guided intake. Pure; performs no I/O. */
@@ -120,8 +127,7 @@ export function applyWarmup(state: IntakeState, deck: Deck, key: string, mappedO
     next.phase = "cards";
     next.cards = { ...next.cards, current: pickNextCard(next, deck) };
     if (!next.cards.current) {
-      next.cards.done = true;
-      next.phase = finishedPhase(next);
+      finishCards(next);
     }
   }
   next.paths = orderedPaths(next, deck);
@@ -164,15 +170,13 @@ export function applyRating(state: IntakeState, deck: Deck, cardId: string, rati
   next.paths = orderedPaths(next, deck);
 
   if (isConfident(next)) {
-    next.cards.done = true;
-    next.phase = finishedPhase(next);
+    finishCards(next);
     return next;
   }
 
   const current = pickNextCard(next, deck);
   if (!current) {
-    next.cards.done = true;
-    next.phase = finishedPhase(next);
+    finishCards(next);
   } else {
     next.cards.current = current;
   }
@@ -194,12 +198,12 @@ export function addMoreCards(state: IntakeState, deck: Deck): IntakeState {
     },
     extraUntil: state.cards.rated.length + Math.min(4, available),
     extraPathKeys,
+    resumeAfterCards: state.phase === "chat" || state.phase === "done" ? state.phase : "practical",
   };
   const current = available > 0 ? pickNextCard(next, deck) : undefined;
   if (current) next.cards.current = current;
   else {
-    next.cards.done = true;
-    next.phase = finishedPhase(next);
+    finishCards(next);
   }
   next.paths = orderedPaths(next, deck);
   return next;
