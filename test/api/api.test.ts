@@ -274,3 +274,12 @@ describe("rate limit", () => {
     expect(other.status).toBe(404);
   });
 });
+
+describe("request size limit", () => {
+  it("refuses a JSON body over 1 MB before reading it", async () => {
+    const res = await app.request("/v1/research-runs", {
+      method: "POST", headers: { ...KEY, "content-type": "application/json" }, body: "x".repeat(1024 * 1024 + 10),
+    });
+    expect(res.status).toBe(400);
+  });
+});

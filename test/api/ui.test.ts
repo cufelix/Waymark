@@ -20,7 +20,8 @@ function publicApp(rateLimitPerMinute = 120): Hono {
     publicRateLimitPerMinute: rateLimitPerMinute,
   });
   app.post("/v1/seekers", (c) => c.json({ ok: true, data: { seekerId: MINE } }, 201));
-  app.get("/v1/seekers/:id/profile", (c) => c.json({ ok: true, data: { seekerId: c.req.param("id") } }));
+  app.get("/v1/seekers/:id/profile", (c) => c.json({ ok: true, data: { seekerId: c.req.param("id"), stored: true } }));
+  app.post("/v1/research-runs", async (c) => c.json({ ok: true, data: { received: await c.req.json() } }, 202));
   return app;
 }
 
@@ -53,7 +54,7 @@ describe("public UI bridge", () => {
 
     const response = await bridge(app, goodHeaders({ cookie }));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, data: { seekerId: MINE } });
+    expect(await response.json()).toEqual({ ok: true, data: { seekerId: MINE, stored: true } });
   });
 
   it("rejects public requests without a session (the server key is never lent to strangers)", async () => {
@@ -114,5 +115,26 @@ describe("public UI bridge", () => {
     expect(await limited.json()).toMatchObject({ error: { code: "rate_limited" } });
 
     expect((await bridge(app, goodHeaders({ cookie, "cf-connecting-ip": "192.0.2.11" }))).status).toBe(200);
+  });
+
+  it("starts research on the stored profile, ignoring a forged one, and limits runs per day", async () => {
+    const app = publicApp(100);
+    const cookie = await session(app);
+    const post = () => app.request(`${PUBLIC_ORIGIN}/ui/api/v1/research-runs`, {
+      method: "POST", headers: { ...goodHeaders({ cookie }), "content-type": "application/json" },
+      body: JSON.stringify({ profile: { seekerId: MINE, status: "complete", forged: true } }),
+    });
+    const first = await post();
+    expect(first.status).toBe(202);
+    expect((await first.json()).data.received.profile).toEqual({ seekerId: MINE, stored: true });
+    expect((await post()).status).toBe(202);
+    expect((await post()).status).toBe(429);
+  });
+
+  it("limits new profiles per address per day", async () => {
+    const app = publicApp(100);
+    for (let i = 0; i < 5; i++) expect(await session(app)).toMatch(/^wm_seeker=/);
+    const sixth = await app.request(`${PUBLIC_ORIGIN}/ui/api/v1/seekers`, { method: "POST", headers: { ...goodHeaders(), "content-type": "application/json" }, body: "{}" });
+    expect(sixth.status).toBe(429);
   });
 });

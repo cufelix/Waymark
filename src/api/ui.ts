@@ -63,6 +63,7 @@ export function mountUi(app: Hono<any>, {
       for (const [ip, bucket] of publicBuckets) if (bucket.resetAt <= now) publicBuckets.delete(ip);
       nextSweep = now + 60_000;
     }
+    if (publicBuckets.size > 50_000 && !publicBuckets.has(clientIp)) return false; // bounded memory under spoofing
     const current = publicBuckets.get(clientIp);
     const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + 60_000 } : current;
     bucket.count += 1;
@@ -112,6 +113,24 @@ export function mountUi(app: Hono<any>, {
     return app.fetch(new Request(url, init), c.env);
   });
 
+  // Spend quotas for anonymous public use (per day). ponytail: in memory, one process; move to Postgres for several instances.
+  const DAY = 86_400_000;
+  const quota = new Map<string, { n: number; resetAt: number }>();
+  const take = (key: string, limit: number): boolean => {
+    const now = Date.now();
+    if (quota.size > 100_000) for (const [k, v] of quota) if (v.resetAt <= now) quota.delete(k);
+    const q = quota.get(key);
+    const cur = !q || q.resetAt <= now ? { n: 0, resetAt: now + DAY } : q;
+    cur.n += 1;
+    quota.set(key, cur);
+    return cur.n <= limit;
+  };
+  const SEEKERS_PER_IP_PER_DAY = 5;
+  const RUNS_PER_SEEKER_PER_DAY = 2;
+  const MODEL_CALLS_PER_SEEKER_PER_DAY = 150;
+  // Routes that call a paid model or provider on the seeker's behalf.
+  const MODEL_ROUTE = /^\/v1\/seekers\/skr_[0-9A-Za-z]+\/(interview|intake|documents|voice)/;
+
   /** Forwards one API request with the server key, without any client cookie. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const forward = (c: any, path: string, method: string, body?: string, contentType?: string) => {
@@ -119,6 +138,10 @@ export function mountUi(app: Hono<any>, {
     if (contentType) headers.set("content-type", contentType);
     return app.fetch(new Request(new URL(path, "http://internal"), { method, headers, ...(body !== undefined ? { body } : {}) }), c.env);
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const clientIpOf = (c: any): string =>
+    trustCloudflare ? (c.req.header("cf-connecting-ip")?.trim() || getConnInfo(c).remote.address || "") : (getConnInfo(c).remote.address ?? "");
 
   /** Does this seeker own the validation or roadmap with this id? Checked before the request runs. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,8 +181,10 @@ export function mountUi(app: Hono<any>, {
     const multipart = contentType?.startsWith("multipart/form-data");
     const deny = (status: 401 | 403 | 404, message: string) => c.json({ ok: false, data: null, error: { code: status === 404 ? "not_found" : "unauthorized", message }, meta: {} }, status);
 
+    const limited = (message: string) => c.json({ ok: false, data: null, error: { code: "rate_limited", message }, meta: {} }, 429);
     // Creating a seeker starts the session: the new id goes into a signed, HttpOnly, same-site cookie.
     if (method === "POST" && path === "/v1/seekers") {
+      if (!take(`ip:${clientIpOf(c)}`, SEEKERS_PER_IP_PER_DAY)) return limited(`At most ${SEEKERS_PER_IP_PER_DAY} new profiles a day from one address`);
       const res = await forward(c, path, method, await c.req.text(), contentType);
       const json = (await res.clone().json().catch(() => null)) as { data?: { seekerId?: string } } | null;
       const id = json?.data?.seekerId;
@@ -172,6 +197,17 @@ export function mountUi(app: Hono<any>, {
     if (!own) return deny(401, "No seeker session");
     const body = multipart || method === "GET" || method === "HEAD" ? undefined : await c.req.text();
     if (!(await authorize(c, path, method, body, own))) return deny(404, "Not found");
+    if (method !== "GET" && MODEL_ROUTE.test(path) && !take(`model:${own}`, MODEL_CALLS_PER_SEEKER_PER_DAY)) return limited("Daily limit for this profile reached");
+    if (method === "POST" && path === "/v1/research-runs") {
+      if (!take(`run:${own}`, RUNS_PER_SEEKER_PER_DAY)) return limited(`At most ${RUNS_PER_SEEKER_PER_DAY} research runs a day per profile`);
+      // Research runs on the profile stored for this seeker, never on one the browser sends.
+      const stored = await forward(c, `/v1/seekers/${own}/profile`, "GET");
+      const storedJson = (await stored.json().catch(() => null)) as { data?: unknown } | null;
+      if (!stored.ok || !storedJson?.data) return deny(404, "Not found");
+      let options: unknown;
+      try { options = (JSON.parse(body ?? "{}") as { options?: unknown }).options; } catch { options = undefined; }
+      return forward(c, path, method, JSON.stringify({ profile: storedJson.data, ...(options !== undefined ? { options } : {}) }), "application/json");
+    }
     if (multipart) {
       // CV uploads go to the seeker's own documents route, already checked above.
       const headers = new Headers({ authorization: `Bearer ${apiKeys()[0] ?? ""}`, "content-type": contentType! });

@@ -61,6 +61,8 @@ export const config: Config = Env.parse(process.env);
 if (config.UI_PUBLIC_ORIGIN && !process.env.VITEST) {
   if (config.PROOF_SECRET.startsWith("dev-only")) throw new Error("UI_PUBLIC_ORIGIN is set but PROOF_SECRET is the development default");
   if (config.API_KEYS.split(",").some((k) => k.trim() === "dev-key-change-me")) throw new Error("UI_PUBLIC_ORIGIN is set but API_KEYS contains the example key");
+  // Behind a reverse proxy that connects from loopback, "Host: localhost" would otherwise reach the full-key local bridge.
+  if (config.UI_LOCAL) throw new Error("UI_PUBLIC_ORIGIN and UI_LOCAL=1 can't be combined");
 }
 
 export const apiKeys = (): string[] =>

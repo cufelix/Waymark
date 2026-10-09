@@ -1,4 +1,5 @@
 // Part 2 HTTP API, as specified in API.md: one envelope, Bearer API keys, fixed error codes.
+import { bodyLimit } from "hono/body-limit";
 import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
@@ -53,6 +54,14 @@ export function createApp({ rateLimitPerMinute = 60, voice = voiceConfig() }: { 
   });
 
   app.get("/health", (c) => ok(c, { status: "ok" }));
+
+  // Request size limits, before anything reads a body: CV uploads up to 11 MB, everything else 1 MB.
+  const tooLarge = (c: Ctx) => fail(c, "bad_request", "Request body too large");
+  const uploadLimit = bodyLimit({ maxSize: 11 * 1024 * 1024, onError: tooLarge });
+  const jsonLimit = bodyLimit({ maxSize: 1024 * 1024, onError: tooLarge });
+  for (const prefix of ["/v1/*", "/ui/api/*"]) {
+    app.use(prefix, (c, next) => ((c.req.header("content-type") ?? "").startsWith("multipart/form-data") ? uploadLimit : jsonLimit)(c, next));
+  }
   mountUi(app);
 
   app.use("/v1/*", async (c, next) => {
