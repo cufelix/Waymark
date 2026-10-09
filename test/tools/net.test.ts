@@ -53,3 +53,14 @@ describe("Apify run cost", () => {
     expect(runCostUsd({})).toBeNull();
   });
 });
+
+import { assertGithubPath } from "../../src/tools/github";
+describe("github_api path guard", () => {
+  it.each(["/users/%2e%2e/user/repos", "/users/..%2fuser", "/users/x/../../user", "/repos/a//b", "/users/a\\..\\user", "/user/repos", "/users/a b"])("refuses %s", (p) => {
+    expect(() => assertGithubPath(p)).toThrow();
+  });
+  it("allows plain public paths", () => {
+    expect(assertGithubPath("/users/torvalds/repos?per_page=100&sort=pushed").pathname).toBe("/users/torvalds/repos");
+    expect(assertGithubPath("/search/users?q=google+type:org&per_page=5").pathname).toBe("/search/users");
+  });
+});
