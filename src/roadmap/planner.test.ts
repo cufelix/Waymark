@@ -217,6 +217,29 @@ test("strips score, fit, skill-match, percent and probability summaries without 
   assert.doesNotMatch(JSON.stringify(modules), /\b(?:score|fit score|skill match|percent|probability)\b/iu);
 });
 
+test("strips N-of-M seeker skill totals while preserving N-of-M employer-ad demand", async () => {
+  const unsafe = answer([
+    chapter(
+      "Python practice",
+      "code",
+      [PYTHON.uri],
+      "You already have 72 of 120 skills. Employer demand shows 72 of 120 ads ask for Python.",
+    ),
+    chapter("SQL practice", "data", [SQL.uri], "Use SQL in a task."),
+  ], { why: "You cover 72 of 120 requirements. Follow employer demand." });
+  const llm = new FakeLlm([unsafe, unsafe]);
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+
+  assert.equal(llm.calls.length, 2);
+  assert.equal(modules[0]!.why, "Follow employer demand.");
+  assert.equal(
+    bySkill(allChapters(modules), PYTHON.uri).outcome,
+    "Employer demand shows 72 of 120 ads ask for Python.",
+  );
+  assert.doesNotMatch(JSON.stringify(modules), /72 of 120 (?:skills|requirements)/iu);
+});
+
 test("retries the first planner request once after a transport failure", async () => {
   const calls: unknown[] = [];
   const llm = {
