@@ -7,6 +7,7 @@ const Live = (() => {
   };
 
   async function api(method, path, body) {
+    if (sample) return Sample.api(method, path, body);
     const opts = { method, headers: { 'X-Ethera-UI': '1' } };
     if (body instanceof FormData) opts.body = body;
     else if (body !== undefined) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
@@ -17,6 +18,7 @@ const Live = (() => {
   }
 
   const POLICY_VERSION = '2026-10-01';
+  const sample = new URLSearchParams(location.search).get('sample') === '1';
 
   // GDPR: nothing is stored about the seeker until they agree. Name search is a separate, optional opt-in.
   function askConsent() {
@@ -41,6 +43,7 @@ const Live = (() => {
 
   let pending = null;
   async function seeker() {
+    if (sample) { store.set('seekerId', 'skr_SAMPLE_JANE_EXAMPLE'); return 'skr_SAMPLE_JANE_EXAMPLE'; }
     let id = store.get('seekerId');
     if (id) return id;
     // One consent prompt even if several calls ask for the seeker at once.
@@ -52,7 +55,9 @@ const Live = (() => {
     return pending;
   }
 
-  function reset() { ['seekerId', 'runId'].forEach((k) => store.set(k, null)); }
+  function reset() { ['seekerId', 'runId', 'validationId', 'roadmapId', 'chapterId'].forEach((k) => store.set(k, null)); if (sample) Sample.reset(); }
+
+  function href(page) { return page + (sample ? (page.includes('?') ? '&sample=1' : '?sample=1') : ''); }
 
   function banner(text, kind) {
     const d = document.createElement('div');
@@ -65,5 +70,5 @@ const Live = (() => {
     return d;
   }
 
-  return { api, seeker, reset, store, banner };
+  return { api, seeker, reset, store, banner, sample, href };
 })();

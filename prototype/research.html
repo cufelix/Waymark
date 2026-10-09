@@ -14,12 +14,12 @@
   <section class="col-main" style="flex-basis: 520px; gap: 28px">
     <div style="display: flex; flex-direction: column; gap: 10px">
       <h1 class="h1" id="headline">Researching the job market for you…</h1>
-      <p class="lead">We're reading real job ads and company pages in Prague to see what employers actually ask for right now.</p>
+      <p class="lead" id="lead">We're reading real job ads and company pages to see what employers actually ask for right now.</p>
     </div>
     <ol class="feed" id="feed"></ol>
     <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
       <a class="cta" href="paths.html" id="next" hidden>See my top 3 paths <span data-icon="arrow"></span></a>
-      <button class="ghost" type="button" id="replay">Replay</button>
+
     </div>
   </section>
 
@@ -27,7 +27,7 @@
     <div class="panel">
       <div class="panel-title">Companies found</div>
       <div class="logos" id="logos"></div>
-      <div style="font-size: 13px; color: var(--faint)">Logo placeholders. Real company logos come from the scrape.</div>
+      <div style="font-size:13px;color:var(--faint)">Company initials are shown because the API does not provide logos.</div>
     </div>
     <div class="panel" style="gap: 8px">
       <div class="lbl">Now reading</div>
@@ -36,51 +36,8 @@
   </aside>
 </main>
 
-<script>
-const $ = (id) => document.getElementById(id);
-const STEPS = [
-  { label: 'Understanding your answers', count: 0, unit: '', reading: 'Your answers, your task reactions and anything you shared' },
-  { label: 'Reading job ads in Prague', count: 214, unit: 'ads', reading: 'Junior backend developer · job ad · posted 3 days ago' },
-  { label: 'Finding companies hiring juniors', count: 38, unit: 'companies', reading: 'Careers page · “We hire for potential, not years”' },
-  { label: 'Checking what they ask for', count: 27, unit: 'skills', reading: 'Requirements: Python, SQL, Git, REST APIs, Docker' },
-  { label: 'Collecting free and paid resources', count: 96, unit: 'resources', reading: 'CS50P · Harvard · free course' }
-];
-const PER = 10, END = STEPS.length * PER, LETTERS = 'RPKMSAODLTNB';
-const DONE_IC = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#B8F25B"/><path d="M7 12.5l3.2 3.2L17 9" stroke="#0D0F0C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const SPIN_IC = '<svg class="spin" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#2A2F27" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="#B8F25B" stroke-width="3" stroke-linecap="round"/></svg>';
-const WAIT_IC = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#2A2F27" stroke-width="2"/></svg>';
-let t = 0, timer, shownLogos = 0;
-try {
-  const I = JSON.parse(localStorage.getItem('interview') || 'null');
-  const top = JSON.parse(localStorage.getItem('top3') || '[]');
-  if (I) STEPS[0].reading = 'Your answers, ' + I.seen.length + ' task reactions' + (I.cv ? ' and your CV' : '') + '. Leaning towards ' + top.map((x) => x.name).join(', ') + '.';
-} catch (e) {}
-
-$('feed').innerHTML = STEPS.map((s) => '<li><span class="ico"></span><span class="label">' + s.label + '</span><span class="count"></span></li>').join('');
-const rows = [...$('feed').children];
-
-function tick() {
-  rows.forEach((li, i) => {
-    const start = i * PER, end = start + PER, s = STEPS[i];
-    const done = t >= end, active = t >= start && t < end;
-    li.className = done ? 'done' : active ? 'active' : '';
-    const ico = done ? DONE_IC : active ? SPIN_IC : WAIT_IC;
-    if (li.dataset.ico !== li.className) { li.querySelector('.ico').innerHTML = ico; li.dataset.ico = li.className; }
-    const frac = done ? 1 : active ? (t - start) / PER : 0;
-    li.querySelector('.count').textContent = s.count && (done || active) ? Math.round(s.count * frac) + ' ' + s.unit : '';
-  });
-  const want = Math.min(12, Math.max(0, Math.round((t - 18) / 1.6)));
-  while (shownLogos < want) { const d = document.createElement('div'); d.textContent = LETTERS[shownLogos++]; $('logos').appendChild(d); }
-  const finished = t >= END;
-  $('reading').textContent = finished ? 'Finished. 214 ads, 38 companies, 96 resources.' : STEPS[Math.min(Math.floor(t / PER), STEPS.length - 1)].reading;
-  $('headline').textContent = finished ? 'Done. Here is what the market says.' : 'Researching the job market for you…';
-  $('next').hidden = !finished;
-  if (finished) clearInterval(timer); else t += 1;
-}
-function start() { clearInterval(timer); t = 0; shownLogos = 0; $('logos').innerHTML = ''; tick(); timer = setInterval(tick, 120); }
-$('replay').onclick = start;
-document.querySelectorAll('[data-icon]').forEach((el) => el.innerHTML = ICON[el.dataset.icon]);
-start();
-</script>
+<script src="sample.js"></script>
+<script src="live.js"></script>
+<script src="research-live.js"></script>
 </body>
 </html>
