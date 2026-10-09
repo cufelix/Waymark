@@ -3,6 +3,7 @@ import { z } from "zod";
 import { config } from "./config";
 import { log } from "./log";
 import { releaseCost, reserveCost, settleCost } from "./ledger";
+import { openRouterProviderPolicy } from "./openrouter-privacy";
 
 export type ChatMessage =
   | { role: "system" | "user"; content: string }
@@ -38,6 +39,7 @@ export async function chat(
     messages,
     max_tokens: opts.maxTokens ?? 4000,
     usage: { include: true },
+    provider: openRouterProviderPolicy(),
     ...(opts.tools?.length ? { tools: opts.tools, tool_choice: "auto" } : {}),
     ...(opts.json ? { response_format: { type: "json_object" } } : {}),
     // Reasoning is on by default on OpenRouter and spends the token budget before the answer; extraction doesn't need it.

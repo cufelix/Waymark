@@ -1,5 +1,6 @@
 import type { Envelope } from "../seeker/core/errors.ts";
 import { authenticate, parseApiKeys } from "../seeker/core/auth.ts";
+import { errorMessage, log } from "../log.ts";
 import { ApiError, fail, ok } from "../seeker/core/errors.ts";
 import { newId } from "../seeker/core/ids.ts";
 import type { RoadmapProgress, RoadmapRequest } from "./contracts.ts";
@@ -81,7 +82,7 @@ export async function handle(req: RoadmapApiRequest, deps: RoadmapApiDeps): Prom
     const data = await matched.handler(req, deps, params);
     return { status: matched.status ?? 200, body: ok(data, requestId) };
   } catch (error) {
-    if (!(error instanceof ApiError)) console.error(`[roadmap-api] ${requestId}`, error);
+    if (!(error instanceof ApiError)) log.error("part 4 request failed", { requestId, error: errorMessage(error) });
     return fail(error, requestId);
   }
 }

@@ -1,4 +1,5 @@
 import { authenticate, parseApiKeys, type Headers } from "./core/auth.ts";
+import { errorMessage, log } from "../log.ts";
 import { ApiError, fail, ok, type Envelope } from "./core/errors.ts";
 import { newId } from "./core/ids.ts";
 import { validateCareerChoice, validateCreateSeeker, validateInterviewMessage, validateLinks, validatePreferences } from "./core/validate.ts";
@@ -211,7 +212,7 @@ export async function handle(req: ApiRequest, deps: ApiDeps): Promise<ApiRespons
     const data = await r.handler(req, deps, params);
     return { status: r.status ?? 200, body: ok(data, requestId) };
   } catch (err) {
-    if (!(err instanceof ApiError)) console.error(`[seeker-api] ${requestId}`, err);
+    if (!(err instanceof ApiError)) log.error("part 1 request failed", { requestId, error: errorMessage(err) });
     return fail(err, requestId);
   }
 }

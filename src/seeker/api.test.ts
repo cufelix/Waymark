@@ -70,14 +70,22 @@ const intakeEngine: IntakeEngine = {
   },
   applyRating(state, deck, cardId, rating, at): IntakeState {
     const card = deck.cards.find((candidate) => candidate.cardId === cardId)!;
-    return {
+    const next: IntakeState = {
       ...state,
-      phase: state.practical ? "chat" : "practical",
+      phase: state.resumeAfterCards ?? (state.practical ? "chat" : "practical"),
       cards: { rated: [...state.cards.rated, { card, rating, at }], done: true },
     };
+    delete next.resumeAfterCards;
+    return next;
   },
   addMoreCards(state, deck): IntakeState {
-    return { ...state, phase: "cards", cards: { ...state.cards, done: false, current: deck.cards[1] }, extraUntil: state.cards.rated.length + 4 };
+    return {
+      ...state,
+      phase: "cards",
+      cards: { ...state.cards, done: false, current: deck.cards[1] },
+      extraUntil: state.cards.rated.length + 4,
+      resumeAfterCards: state.phase === "chat" || state.phase === "done" ? state.phase : "practical",
+    };
   },
   toPublic: (state) => intakePublic(state),
 };
@@ -208,13 +216,21 @@ test("guided intake routes cover warm-up, ratings, more cards, practical data, s
   const saved = await call("PUT", `/v1/seekers/${id}/intake/practical`, practical);
   assert.equal(saved.status, 200);
   assert.equal((saved.body.data as any).phase, "chat");
-  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/more`)).status, 409);
 
-  const profile = (await call("GET", `/v1/seekers/${id}/profile`)).body.data as any;
+  let profile = (await call("GET", `/v1/seekers/${id}/profile`)).body.data as any;
   assert.equal(profile.status, "complete");
   assert.equal(profile.preferences.targetOccupations.length, 3);
   assert.deepEqual(profile.preferences.languages, practical.languages);
   assert.deepEqual(profile.preferences.dreamCompanies, []);
+
+  const beforeExtraVersion = profile.profileVersion;
+  const afterPracticalMore = await call("POST", `/v1/seekers/${id}/intake/cards/more`);
+  assert.equal(afterPracticalMore.status, 200);
+  const extraCardId = (afterPracticalMore.body.data as Intake).cards.current!.cardId;
+  const returnedToChat = await call("POST", `/v1/seekers/${id}/intake/cards/${extraCardId}/rating`, { rating: "maybe" });
+  assert.equal((returnedToChat.body.data as Intake).phase, "chat");
+  profile = (await call("GET", `/v1/seekers/${id}/profile`)).body.data as any;
+  assert.equal(profile.profileVersion, beforeExtraVersion + 1);
 
   const exported = await call("GET", `/v1/seekers/${id}/export`);
   assert.equal(exported.status, 200);
@@ -226,7 +242,11 @@ test("guided intake routes cover warm-up, ratings, more cards, practical data, s
   const skipped = await call("POST", `/v1/seekers/${id}/intake/chat/skip`);
   assert.equal(skipped.status, 200);
   assert.equal((skipped.body.data as any).phase, "done");
-  assert.equal((await call("POST", `/v1/seekers/${id}/intake/cards/more`)).status, 409);
+  const afterDoneMore = await call("POST", `/v1/seekers/${id}/intake/cards/more`);
+  assert.equal(afterDoneMore.status, 200);
+  const doneCardId = (afterDoneMore.body.data as Intake).cards.current!.cardId;
+  const returnedToDone = await call("POST", `/v1/seekers/${id}/intake/cards/${doneCardId}/rating`, { rating: "no" });
+  assert.equal((returnedToDone.body.data as Intake).phase, "done");
 
   assert.equal((await call("DELETE", `/v1/seekers/${id}`)).status, 200);
   assert.equal(await deps.store.getIntake(id), undefined);

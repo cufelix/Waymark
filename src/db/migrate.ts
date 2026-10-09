@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { pool } from "./pool";
 import { log } from "../log";
+import { config } from "../config";
 
 const dir = fileURLToPath(new URL("./migrations/", import.meta.url));
 
@@ -27,6 +28,11 @@ async function applyPending(): Promise<string[]> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      // Personal-data migrations use this transaction-local setting to backfill from the original
+      // creation time without hard-coding the deployment's retention policy.
+      await client.query("SELECT set_config('waymark.personal_data_retention_days', $1, true)", [
+        String(config.PERSONAL_DATA_RETENTION_DAYS),
+      ]);
       await client.query(await readFile(dir + file, "utf8"));
       await client.query("INSERT INTO schema_migrations (name) VALUES ($1)", [file]);
       await client.query("COMMIT");

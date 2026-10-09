@@ -41,6 +41,7 @@ sequenceDiagram
 
 - **Base path** `/v1`. A breaking change goes to `/v2`.
 - **Auth:** `Authorization: Bearer <API key>` on every call. Keys come from environment variables, never from the repo. User login arrives with the UI.
+- **UI bridge:** `/ui/api/*` adds the server's API key for the browser. Local mode remains loopback-only. When `UI_PUBLIC_ORIGIN` is set, public bridge requests must use that origin's host, send `X-Ethera-UI: 1`, report `Sec-Fetch-Site: same-origin` or `none`, and have a matching `Origin` when that header is present. Public requests are limited to 120 per client IP per minute; `CF-Connecting-IP` is trusted only with `TRUST_CLOUDFLARE=1`, otherwise the socket address is used.
 - **JSON everywhere**, except the CV upload (`multipart/form-data`).
 - **Response envelope**, the same on every endpoint:
 
@@ -76,7 +77,7 @@ sequenceDiagram
 | `GET /v1/seekers/{seekerId}/intake` | The guided intake (warm-up, task cards, practical bits) as it stands: the current question or card, the answers so far, and the paths in the seeker's order of interest. See "Guided intake" below. | | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/warmup` | Answer the current warm-up question: one of its options or free text (the fast model maps free text to the options). | `{ questionKey: string, answer: string }` (max 500 characters) | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/cards/{cardId}/rating` | Rate the current task card. Returns the next card, or `cards.done: true` once the top 3 are clear (8 to 12 cards). | `{ rating: "like" \| "maybe" \| "no" }` | `Intake` |
-| `POST /v1/seekers/{seekerId}/intake/cards/more` | "None of these feel right": 4 more cards, picked away from the current top 3. | | `Intake` |
+| `POST /v1/seekers/{seekerId}/intake/cards/more` | "None of these feel right": after the first card round is complete, reopen cards with 4 unseen cards picked away from the current top 3. Available during `practical`, `chat` or `done`; after the extra cards it returns to the phase it came from and does not re-ask saved practical details. Returns `conflict` without changing the intake when fewer than 4 eligible cards remain. | | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/chat/skip` | End the "Anything else?" step without (more) chat | | `Intake` |
 | `PUT /v1/seekers/{seekerId}/intake/practical` | The practical bits, all required. Sets `preferences.locations`, `remote`, `hoursPerWeek`, `courseBudget`, `education`, `languages` (at least one) and `dreamCompanies` (may be empty only when sent as an explicit empty list, "none yet"); once the cards are done it also sets `targetOccupations` to the top 3 paths, which makes the profile `complete`. | `IntakePractical` | `Intake` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
@@ -112,7 +113,8 @@ The free-text interview above is part of this flow (steps 1 and 4).
   - Each card is one task from a real job ad, rewritten in plain words ("Find out why the website gets slow every Monday morning, and fix it.").
   - The card's `source` holds the verbatim sentence from the ad and the ad's URL. After a rating, the UI reveals which job the card came from.
   - Cards come from a prebuilt **deck per country**: `scripts/build-task-deck.ts` searches real ads with Exa for about 12 entry-level occupations, the fast model picks tasks, and every card keeps a quote that appears verbatim in the ad. The deck is a JSON file in `src/seeker/intake/decks/`. It holds nothing personal and costs nothing per seeker.
-  - The next card is picked to separate the paths the seeker's answers leave closest. The cards stop once the top 3 are clear, never before 8 cards and never after 12. "None of these feel right" adds 4 cards from outside the current top 3.
+  - The next card is picked to separate the paths the seeker's answers leave closest. The cards stop once the top 3 are clear, never before 8 cards and never after 12.
+  - After that first round, "None of these feel right" can reopen the cards phase at any later intake phase. It adds 4 unseen cards from outside the current top 3. If practical details already exist, finishing those cards returns directly to the prior `chat` or `done` phase instead of asking for practical details again.
 - **Paths:**
   - `paths` lists each candidate occupation in the seeker's order of interest, with how many of its cards they liked, were unsure about or didn't want.
   - The order comes only from the seeker's own answers. It says what they would enjoy, not what they are good at or how likely they are to get hired.
@@ -123,7 +125,7 @@ The free-text interview above is part of this flow (steps 1 and 4).
   - Pay questions get the salary lookup.
   - The client uses `POST …/interview/messages` as today; the reply's `done: true` ends the step. `POST …/intake/chat/skip` ends it at once ("Skip, I'm done").
   - Either way, the phase moves to `done`.
-- **Handoff:** once the cards are done and the practical bits are in, the top 3 paths become `preferences.targetOccupations`, so the research run covers them. The seeker can still change everything with `PUT /preferences`.
+- **Handoff:** once the cards are done and the practical bits are in, the top 3 paths become `preferences.targetOccupations`, so the research run covers them. Finishing an extra four-card round writes its new top 3 and increments `profileVersion`, including when the three occupations happen to be unchanged, so the client can start a fresh research run. The seeker can still change everything with `PUT /preferences`.
 
 ### Salary lookup in the interview
 
@@ -156,7 +158,7 @@ Seekers ask "what does this pay?" during the interview, long before the research
 | `GET /v1/research-runs/{runId}/trends` | Then vs now per target occupation: each skill's demand about ten years ago against the last 12 months and today's vacancies, labelled rising, stable or fading, with quotes. Keeps advice built on older career paths current. | | `OccupationTrends[]` |
 | `GET /v1/research-runs/{runId}/seeker-research` | User research: what the seeker's links show, plus the opt-in name search | | `SeekerResearch` |
 | `DELETE /v1/research-runs/{runId}` | Cancel a running run or delete a finished one | | `{ deleted: true }` |
-| `GET /v1/seekers/{seekerId}/research-runs` | All runs stored for a seeker, with results (used by Part 1's export) | | `ResearchRun[]` |
+| `GET /v1/seekers/{seekerId}/research-runs` | Complete stored research export for a seeker: public run, original profile/options, extracted artifacts and exact cost-ledger rows | | `ResearchRunExport[]` |
 | `DELETE /v1/seekers/{seekerId}/research` | Hard delete of every run, user-research result and name-search candidate for a seeker (used by Part 1's delete) | | `{ deleted: true, runs: number }` |
 | `GET /v1/companies/{companyId}` | One company with all its claims and sources (shared across runs) | | `Company` |
 | `GET /v1/vacancies/{vacancyId}` | One vacancy with every sighting (when and where it was seen) | | `Vacancy & { sightings: VacancySighting[] }` |
@@ -200,7 +202,7 @@ Stage 4 of the whiteboard. It turns a validation into a learning roadmap for the
 - **Modules** come in prerequisite order, for example "Python + Mathematics: core foundations", then "Data + SQL".
 - Each module holds **chapters**, for example "Variables and logic". The UI prototype calls modules "sections" and chapters "modules".
 - Each chapter lists **learning resources** found on the web: free resources first, and one marked as the top pick.
-- Its inputs are the validation from Part 3 (over HTTP) and the seeker's profile. It finds resources with Exa: one search per chapter, then the fast model picks and labels them from the page text.
+- Its inputs are the validation from Part 3 (over HTTP) and the seeker's profile. It finds resources with Exa, trying the seeker's languages in order when a search is empty, then the fast model picks and labels them from the page text.
 - Code lives in `src/roadmap/`. It is mounted the same way as Part 3, through `src/api/part4.ts`.
 
 | Method and path | Does | Body | Returns |
@@ -231,7 +233,10 @@ What the whiteboard's two steps become:
 - **Resources:**
   - Every resource has a `source` (the page, tool `exa`) whose `quote` appears on that page.
   - `price`, `effortHours` and `scope` are filled only when the page states them.
-  - Resources are cached per skill and language across seekers, because they hold nothing personal.
+  - Resources are cached per skill and language across seekers, because they hold nothing personal. Cached evidence expires after `RESOURCE_CACHE_TTL_HOURS` (seven days by default).
+  - Repeated URLs are removed across chapters when another verified resource is available. When resource discovery is configured, an unfinished chapter without a verified resource is omitted rather than exposed as actionable; `free-only` likewise omits chapters without a verified free option. The build fails if no actionable unfinished chapter remains.
+  - A provider failure marks the background build `failed`; it is not disguised as a ready roadmap with empty resources.
+  - On server startup, a `building` roadmap left untouched for more than five minutes is marked `failed` with error code `build_interrupted`. The client can retry by creating a new roadmap.
 
 **Guardrail:** the same as in Part 3. The roadmap has no progress percentage, no XP and no level. The API returns no "3 of 16 chapters" count, and nothing compares the seeker with other people.
 
@@ -253,7 +258,7 @@ type Source = {
   url: string;                    // web URL, or seeker-upload://… / seeker-interview://… (see Conventions)
   title: string;
   fetchedAt: ISODate;
-  tool: "apify" | "firecrawl" | "exa" | "registry" | "seeker-upload" | "seeker-link" | "seeker-interview";
+  tool: "apify" | "firecrawl" | "exa" | "registry" | "fetch" | "official-api" | "seeker-upload" | "seeker-link" | "seeker-interview";
   quote?: string;                 // must appear verbatim in the stored snapshot
   contentHash: string;
   snapshotKey?: string;           // raw copy in object storage
@@ -337,7 +342,14 @@ type CareerChoice = {
   chosenAt: ISODate;
 };
 
-type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; intake?: Intake; researchRuns: ResearchRun[]; validations: Validation[]; roadmaps: Roadmap[] };
+type ResearchRunExport = {
+  // all ResearchRun fields, plus every stored input representation:
+  storedInput: { profile: SeekerProfile; options: ResearchOptions };
+  artifacts: { artifactId: string; inputId: string; data: unknown; createdAt: ISODate }[];
+  costLedger: { at: ISODate; tool: string; units: number; usd: number; detail?: string }[];
+} & ResearchRun;
+
+type SeekerExport = { profile: SeekerProfile; interview: InterviewTurn[]; intake?: Intake; researchRuns: ResearchRunExport[]; validations: Validation[]; roadmaps: Roadmap[] };
 
 type TaskCard = {
   cardId: string;                 // "crd_…", stable within a deck
@@ -657,6 +669,17 @@ type LearningResource = {
   source: Source;                 // the page, tool "exa"; quote = the sentence the labels rest on
 };
 ```
+
+## Voice
+
+Voice is optional and is used only after the seeker chooses voice mode. Both routes use the same Bearer authentication and per-key rate limit as every other `/v1` route.
+
+| Method and path | Does | Body | Returns |
+|---|---|---|---|
+| `POST /v1/voice/speech` | Turns up to 600 characters into speech with ElevenLabs. | `{ text: string }` | `audio/mpeg` |
+| `POST /v1/voice/transcribe` | Transcribes an audio recording of at most 10 MB with ElevenLabs Scribe. | multipart field `file` | `{ text }` in the normal JSON envelope |
+
+`ELEVENLABS_API_KEY` enables the routes. `ELEVENLABS_VOICE_ID` selects the voice, `ELEVENLABS_TTS_MODEL` defaults to `eleven_flash_v2_5`, and `CAP_ELEVENLABS_CHARS_PER_DAY` defaults to 20,000 characters per process-day. Both routes answer `unprocessable` with `Voice is not configured` when no key is configured. The speech route answers `rate_limited` after the daily character cap, and provider failures on either route answer `upstream_failed` without returning provider response bodies.
 
 ## Testing the seam
 

@@ -111,6 +111,51 @@ test("adds a fallback chapter for a missing most-demanded skill", async () => {
   assert.equal(fallback.done, false);
 });
 
+test("does not turn every many-band skill into a fallback chapter", async () => {
+  const llm = new FakeLlm([answer([
+    chapter("Python practice", "code", [PYTHON.uri], "Use Python in a practical task."),
+  ])]);
+
+  const chapters = allChapters(await planModules(VALIDATION, PROFILE, { llm }));
+  assert.ok(bySkill(chapters, PYTHON.uri));
+  assert.equal(chapters.some(({ skills }) => skills.some(({ uri }) => uri === SQL.uri)), false);
+});
+
+test("caps learn-fast plans even when the model returns too many chapters", async () => {
+  const chapters = Array.from({ length: 15 }, (_, index) =>
+    chapter(`Practice topic ${index}`, "project", [], "Complete a practical task."));
+  const llm = new FakeLlm([answer(chapters), answer(chapters)]);
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+
+  assert.equal(allChapters(modules).length, 8);
+  assert.match(llm.calls[0]!.messages[0]!.content as string, /chapterLimit/);
+  assert.match(llm.calls[0]!.messages[0]!.content as string, /one coherent learning route/);
+  assert.match(llm.calls[0]!.messages[1]!.content as string, /"chapterLimit":8/);
+});
+
+test("keeps a most-demanded skill when it appears after the learn-fast cap", async () => {
+  const chapters = [
+    ...Array.from({ length: 8 }, () => chapter("Foundation", "theory", [], "Understand a useful foundation.")),
+    chapter("Python practice", "code", [PYTHON.uri], "Use Python in a practical task."),
+  ];
+
+  const planned = allChapters(await planModules(VALIDATION, PROFILE, { llm: new FakeLlm([answer(chapters)]) }));
+
+  assert.equal(planned.length, 8);
+  assert.ok(bySkill(planned, PYTHON.uri));
+});
+
+test("reserves a capped slot for an omitted most-demanded fallback", async () => {
+  const chapters = Array.from({ length: 8 }, () =>
+    chapter("Foundation", "theory", [], "Understand a useful foundation."));
+
+  const planned = allChapters(await planModules(VALIDATION, PROFILE, { llm: new FakeLlm([answer(chapters)]) }));
+
+  assert.equal(planned.length, 8);
+  assert.ok(bySkill(planned, PYTHON.uri));
+});
+
 test("retries unsupported free-text numbers, then removes offending sentences", async () => {
   const first = answer([
     chapter("Python practice", "code", [PYTHON.uri], "Build a Python task."),
@@ -170,6 +215,29 @@ test("strips score, fit, skill-match, percent and probability summaries without 
   assert.equal(modules[0]!.why, "Employer demand includes 72 of 120 vacancies.");
   assert.equal(bySkill(allChapters(modules), PYTHON.uri).outcome, "Match the design to the requirements.");
   assert.doesNotMatch(JSON.stringify(modules), /\b(?:score|fit score|skill match|percent|probability)\b/iu);
+});
+
+test("strips N-of-M seeker skill totals while preserving N-of-M employer-ad demand", async () => {
+  const unsafe = answer([
+    chapter(
+      "Python practice",
+      "code",
+      [PYTHON.uri],
+      "You already have 72 of 120 skills. Employer demand shows 72 of 120 ads ask for Python.",
+    ),
+    chapter("SQL practice", "data", [SQL.uri], "Use SQL in a task."),
+  ], { why: "You cover 72 of 120 requirements. Follow employer demand." });
+  const llm = new FakeLlm([unsafe, unsafe]);
+
+  const modules = await planModules(VALIDATION, PROFILE, { llm });
+
+  assert.equal(llm.calls.length, 2);
+  assert.equal(modules[0]!.why, "Follow employer demand.");
+  assert.equal(
+    bySkill(allChapters(modules), PYTHON.uri).outcome,
+    "Employer demand shows 72 of 120 ads ask for Python.",
+  );
+  assert.doesNotMatch(JSON.stringify(modules), /72 of 120 (?:skills|requirements)/iu);
 });
 
 test("retries the first planner request once after a transport failure", async () => {

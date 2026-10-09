@@ -13,17 +13,21 @@ const json = (data: unknown, init: ResponseInit = {}): Response => new Response(
 test("reads a shape-checked validation with bearer auth", async () => {
   let requestedUrl = "";
   let authorization = "";
+  const validation = structuredClone(VALIDATION);
+  validation.runId = "run_01m4f43g5em4g0p73dptff8a7r";
+  validation.skills[0]!.demand.sources[0]!.tool = "official-api";
+  validation.skills[0]!.demand.sources[0]!.id = "src_01m4f43g5em4g0p73dptff8a7r";
   const reader = new HttpValidationReader({
     baseUrl: "https://validation.example/",
     apiKey: "part3-secret",
     fetchImpl: async (input, init) => {
       requestedUrl = String(input);
       authorization = new Headers(init?.headers).get("authorization") ?? "";
-      return json({ ok: true, data: VALIDATION, error: null, meta: { requestId: "req_test" } });
+      return json({ ok: true, data: validation, error: null, meta: { requestId: "req_test" } });
     },
   });
 
-  assert.deepEqual(await reader.getValidation(VALIDATION.validationId), VALIDATION);
+  assert.deepEqual(await reader.getValidation(VALIDATION.validationId), validation);
   assert.equal(requestedUrl, `https://validation.example/v1/validations/${VALIDATION.validationId}`);
   assert.equal(authorization, "Bearer part3-secret");
 });

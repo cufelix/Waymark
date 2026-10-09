@@ -5,10 +5,11 @@ import { MemoryStore } from "../store/memory.ts";
 import { FakeResearchClient } from "../research-client.ts";
 import { FakeRoadmapClient } from "../roadmap-client.ts";
 import { createSeeker, getProfile } from "./seekers.ts";
-import { deleteSeeker, exportSeeker } from "./gdpr.ts";
+import { deleteSeeker, exportSeeker, retryDeletionJobs, startDeletionRetryWorker } from "./gdpr.ts";
 import type { Consent } from "../contracts.ts";
 import { FakeValidationClient } from "../validation-client.ts";
 import type { Roadmap } from "../../roadmap/contracts.ts";
+import type { DeletionQueue } from "../store/deletion-jobs.ts";
 
 const consent: Consent = { dataProcessing: true, nameSearch: false, givenAt: "2026-10-08T21:00:00Z", policyVersion: "2026-10-01" };
 const code = (c: string) => (e: unknown) => e instanceof ApiError && e.code === c;
@@ -30,6 +31,15 @@ const setup = () => ({
   validations: new FakeValidationClient(),
   roadmaps: new FakeRoadmapClient(),
 });
+
+class FakeDeletionQueue implements DeletionQueue {
+  pending = new Set<string>();
+  failures: string[] = [];
+  async request(seekerId: string): Promise<void> { this.pending.add(seekerId); }
+  async complete(seekerId: string): Promise<void> { this.pending.delete(seekerId); }
+  async fail(_seekerId: string, failureCode: string): Promise<void> { this.failures.push(failureCode); }
+  async claimDue(): Promise<string[]> { return [...this.pending]; }
+}
 
 test("export returns profile, interview, research runs, validations and roadmaps for that seeker only", async () => {
   const deps = setup();
@@ -112,4 +122,35 @@ test("delete with failing Part 2: 502, deletion-pending hides the seeker, retry 
   assert.equal((await exportSeeker(deps, a)).profile.seekerId, a, "export still works while pending");
   assert.deepEqual(await deleteSeeker(deps, a), { deleted: true });
   assert.equal(await deps.store.get(a), null);
+});
+
+test("failed cascade deletion is persisted and completed by the retry worker", async () => {
+  const deps = { ...setup(), deletions: new FakeDeletionQueue() };
+  const seekerId = (await createSeeker(deps, consent)).seekerId;
+  deps.roadmaps.failDeletes = 1;
+
+  await assert.rejects(deleteSeeker(deps, seekerId), code("upstream_failed"));
+  assert.deepEqual(deps.deletions.failures, ["roadmap_delete_failed"]);
+  assert.equal(deps.deletions.pending.has(seekerId), true);
+
+  assert.deepEqual(await retryDeletionJobs(deps), { completed: 1, failed: 0 });
+  assert.equal(deps.deletions.pending.has(seekerId), false);
+  assert.equal(await deps.store.get(seekerId), null);
+});
+
+test("the deletion retry worker processes pending jobs immediately on startup", async () => {
+  const deps = { ...setup(), deletions: new FakeDeletionQueue() };
+  const seekerId = (await createSeeker(deps, consent)).seekerId;
+  await deps.deletions.request(seekerId);
+
+  const stop = startDeletionRetryWorker(deps, 3_600);
+  try {
+    for (let attempt = 0; attempt < 10 && await deps.store.get(seekerId); attempt++) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    assert.equal(await deps.store.get(seekerId), null);
+    assert.equal(deps.deletions.pending.has(seekerId), false);
+  } finally {
+    stop();
+  }
 });

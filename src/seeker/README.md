@@ -1,22 +1,25 @@
 # Part 1: User input (`src/seeker/`)
 
-Owner: @Dymyt-ry. Contract: `API.md` → "Part 1: User input" (on branch `cufelix/implementation-plan`, read it with `git show origin/cufelix/implementation-plan:API.md`).
+Owner: @Dymyt-ry. Contract: `API.md` → “Part 1: User input”.
 
-Framework-free TypeScript, **zero npm dependencies** until @cufelix lands `package.json`. Node 26 runs `.ts` directly (type stripping), so:
+Framework-free TypeScript run directly by modern Node type stripping, so:
 - imports use the `.ts` extension;
 - no `enum`, no `namespace`, no constructor parameter properties (type stripping can't erase them);
-- tests: `node --test 'src/seeker/**/*.test.ts'` (`node:test` + `node:assert/strict`). `src/seeker/package.json` only sets `"type": "module"`; it has no dependencies and goes away when the root `package.json` lands.
+- tests use `node:test` + `node:assert/strict` and never call the network.
 
-Next.js routes get wired once the skeleton exists. `api.ts` exposes one framework-free `handle()` so each route is a thin wrapper.
+`api.ts` exposes one framework-free `handle()`. `src/api/part1.ts` mounts it into the shared Hono server.
 
-## Files and owners (one owner per file)
+## Main areas
 
-| Path | Owner | What |
-|---|---|---|
-| `contracts.ts`, `core/ids.ts`, `core/errors.ts`, `core/claims.ts`, `core/profile.ts`, `llm/llm.ts`, `store/store.ts`, `store/memory.ts`, `taxonomy.ts` | base (`Dymyt-ry/part1-base`) | shared; change only through the base branch |
-| `core/validate.ts`, `core/auth.ts`, `service/seekers.ts`, `service/gdpr.ts`, `api.ts`, `fixtures/profiles/` | `Dymyt-ry/part1-core` | create seeker, preferences, links, profile handoff, export/delete, request handling |
-| `service/interview.ts`, `service/interview.prompts.ts` | `Dymyt-ry/part1-interview` | interview turns via OpenRouter, preferences draft, stated skills from answers |
-| `service/documents.ts`, `cv/extract.ts` | `Dymyt-ry/part1-cv` | CV upload (PDF/DOCX), parse into stated skills, experience, education; delete |
+| Path | What |
+|---|---|
+| `contracts.ts`, `core/` | Shared Part 1 types, validation, IDs, errors and profile rules |
+| `intake/` | Guided warm-up, task-card deck/engine, practical details and final chat |
+| `service/seekers.ts`, `service/gdpr.ts`, `api.ts` | Seeker lifecycle, export/delete and request handling |
+| `service/interview.ts`, `service/interview.prompts.ts` | Interview turns, preference draft and stated skills |
+| `service/documents.ts`, `cv/extract.ts` | CV/document upload and extraction |
+| `salary/` | Source-checked salary lookup |
+| `store/` | Store interface, PostgreSQL production store, durable deletion queue and in-memory test store |
 
 Tests live next to the file they test (`service/interview.test.ts`).
 
@@ -26,5 +29,5 @@ Tests live next to the file they test (`service/interview.test.ts`).
 - Every stored record goes through `SeekerStore`; everything is scoped by `seekerId`.
 - Seeker skills are always `tier: "stated"` with a `seeker-upload://` or `seeker-interview://` source (`core/claims.ts`). Never "proven" in Part 1.
 - No single score, match percentage or ranking of a person anywhere.
-- Secrets only from env (`OPENROUTER_API_KEY`, `SEEKER_API_KEYS`); `.env*` is gitignored.
+- Secrets come from environment variables. The shared server injects `API_KEYS`; standalone Part 1 tests/tools may pass keys directly or use `SEEKER_API_KEYS`.
 - After changing a profile, always `touch()` it (`core/profile.ts`): version +1, `updatedAt`, status. Merge stated skills with `mergeStatedSkills()`, remove a document's or turn's evidence with `removeSources()`.

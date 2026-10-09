@@ -14,7 +14,7 @@ export type Source = {
   url: string; // web URL, or seeker-upload://… / seeker-interview://…
   title: string;
   fetchedAt: ISODate;
-  tool: "apify" | "firecrawl" | "exa" | "registry" | "seeker-upload" | "seeker-link" | "seeker-interview";
+  tool: "apify" | "firecrawl" | "exa" | "registry" | "fetch" | "official-api" | "seeker-upload" | "seeker-link" | "seeker-interview";
   quote?: string; // must appear verbatim in the stored snapshot
   contentHash: string;
   snapshotKey?: string;

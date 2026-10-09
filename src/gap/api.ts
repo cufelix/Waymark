@@ -2,6 +2,7 @@
 // Owner: worker service. src/api/part3.ts mounts it into the server.
 import type { Envelope } from "../seeker/core/errors.ts";
 import { authenticate, parseApiKeys } from "../seeker/core/auth.ts";
+import { errorMessage, log } from "../log.ts";
 import { ApiError, fail, ok } from "../seeker/core/errors.ts";
 import { newId } from "../seeker/core/ids.ts";
 import type { ValidationRequest } from "./contracts.ts";
@@ -54,7 +55,7 @@ export async function handle(req: GapRequest, deps: GapDeps): Promise<GapRespons
     const data = await route.handler(req, deps, params);
     return { status: route.status ?? 200, body: ok(data, requestId) };
   } catch (error) {
-    if (!(error instanceof ApiError)) console.error(`[gap-api] ${requestId}`, error);
+    if (!(error instanceof ApiError)) log.error("part 3 request failed", { requestId, error: errorMessage(error) });
     return fail(error, requestId);
   }
 }

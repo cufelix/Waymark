@@ -62,7 +62,7 @@ Prices are per 1,000 results from the Apify Store and vendor pages. Each actor i
 
 | Input | 1st choice | Fallback | What it proves |
 |---|---|---|---|
-| CV (PDF, DOCX) | local parsing (`pdf-parse`, `mammoth`); Claude vision for scanned PDFs | | **stated** skills, experience, education |
+| CV (PDF, DOCX) | local PDF parsing and a bounded ZIP/XML DOCX reader; vision transcription for scanned PDFs | | **stated** skills, experience, education |
 | Image (certificate, design work) | Claude vision | | stated, or proven if it links to a verifiable issuer page |
 | GitHub, GitLab | official REST API (free; 5,000 requests an hour with a token) | Firecrawl | authored repos (no forks), languages, commits, READMEs, CI and test files |
 | LinkedIn | the seeker uploads their LinkedIn data export | Exa `people` search (only with name-search consent) | mostly **stated**: it is self-described |

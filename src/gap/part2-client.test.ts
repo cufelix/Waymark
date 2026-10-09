@@ -65,6 +65,7 @@ test("getRun maps only a 404 to null", async () => {
 test("accepts valid elements from every Part 2 endpoint", async () => {
   const claim = {
     ...SEEKER_RESEARCH.links[0].provenSkills[0],
+    sources: SEEKER_RESEARCH.links[0].provenSkills[0]!.sources.map((source) => ({ ...source, tool: "official-api" as const })),
     validUntil: "2027-10-08T21:00:00Z",
   };
   const careerPaths = [{

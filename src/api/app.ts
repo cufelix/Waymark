@@ -10,6 +10,7 @@ import { part1Handler } from "./part1";
 import { part3Handler } from "./part3";
 import { part4Handler } from "./part4";
 import { mountUi } from "./ui";
+import { mountVoice, type VoiceConfig, voiceConfig } from "./voice";
 import { deleteResearchForSeeker, deleteRun, listRunsForSeeker } from "../research/gdpr";
 import { getCompany, getVacancy, listRunCompanies, listRunVacancies } from "../research/market/read";
 import { RunError, getRun, getRunRow, startRun } from "../research/run";
@@ -41,7 +42,7 @@ const Paging = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: number } = {}): Hono<Env> {
+export function createApp({ rateLimitPerMinute = 60, voice = voiceConfig() }: { rateLimitPerMinute?: number; voice?: VoiceConfig } = {}): Hono<Env> {
   const app = new Hono<Env>();
   // ponytail: in-memory token bucket per key, one process only; move to Postgres or Redis when the API runs on several instances
   const buckets = new Map<string, { tokens: number; at: number }>();
@@ -71,6 +72,8 @@ export function createApp({ rateLimitPerMinute = 60 }: { rateLimitPerMinute?: nu
     c.set("apiKey", key);
     await next();
   });
+
+  mountVoice(app, voice);
 
   app.post("/v1/research-runs", async (c) => {
     let body: unknown;

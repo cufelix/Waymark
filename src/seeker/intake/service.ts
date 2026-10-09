@@ -107,10 +107,10 @@ function deckFor(deps: IntakeViewDeps, country: string): Deck {
   }
 }
 
-function withPreferencePatch(record: SeekerRecord, patch: Partial<CareerPreferences>): SeekerRecord {
+function withPreferencePatch(record: SeekerRecord, patch: Partial<CareerPreferences>, forceVersion = false): SeekerRecord {
   const preferences = { ...record.profile.preferences, ...patch };
   const draft = { ...record.draft, ...patch };
-  return isDeepStrictEqual(record.profile.preferences, preferences)
+  return !forceVersion && isDeepStrictEqual(record.profile.preferences, preferences)
     ? { ...record, draft }
     : { ...record, draft, profile: touch({ ...record.profile, preferences }) };
 }
@@ -202,11 +202,12 @@ export async function rateCard(deps: IntakeDeps, seekerId: string, cardId: strin
       throw new ApiError("conflict", `Task card ${cardId} is not current`);
     }
     const next = engineFor(deps).applyRating(current, deck, cardId, rating, at);
+    const completedExtraRound = current.resumeAfterCards !== undefined && next.cards.done && next.practical !== undefined;
     const targets = next.cards.done && next.practical
       ? next.paths.filter(({ top3 }) => top3).slice(0, 3).map(({ occupation }) => occupation)
       : undefined;
     return {
-      record: targets ? withPreferencePatch(record, { targetOccupations: targets }) : record,
+      record: targets ? withPreferencePatch(record, { targetOccupations: targets }, completedExtraRound) : record,
       intake: next,
     };
   });
@@ -216,12 +217,24 @@ export async function rateCard(deps: IntakeDeps, seekerId: string, cardId: strin
 /** Requests four additional cards away from the current top three paths. */
 export async function moreCards(deps: IntakeDeps, seekerId: string): Promise<Intake> {
   const { state, deck } = await ensureState(deps, seekerId);
-  if (!state.cards.done || state.phase !== "practical" || state.practical !== undefined) {
+  if (!state.cards.done || (state.phase !== "practical" && state.phase !== "chat" && state.phase !== "done")) {
     throw new ApiError("conflict", "More task cards are not available at this stage");
   }
-  const next = engineFor(deps).addMoreCards(state, deck);
-  await deps.store.putIntake(next);
-  return engineFor(deps).toPublic(next, deck);
+  const updated = await deps.store.updateRecordAndIntake(seekerId, (record, stored) => {
+    const current = stored as IntakeState;
+    if (!current.cards.done || (current.phase !== "practical" && current.phase !== "chat" && current.phase !== "done")) {
+      throw new ApiError("conflict", "More task cards are not available at this stage");
+    }
+    const next = engineFor(deps).addMoreCards(current, deck);
+    const targets = next.cards.done && next.practical
+      ? next.paths.filter(({ top3 }) => top3).slice(0, 3).map(({ occupation }) => occupation)
+      : undefined;
+    return {
+      record: targets ? withPreferencePatch(record, { targetOccupations: targets }, true) : record,
+      intake: next,
+    };
+  });
+  return engineFor(deps).toPublic(updated.intake as IntakeState, deck);
 }
 
 /** Stores practical constraints and updates profile preferences and target occupations. */

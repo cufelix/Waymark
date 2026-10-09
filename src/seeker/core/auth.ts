@@ -28,7 +28,7 @@ export function authenticate(headers: Headers, keys: string[]): void {
   const value = header(headers, "authorization");
   const match = value ? /^Bearer\s+(\S+)\s*$/i.exec(value) : null;
   if (!match) throw new ApiError("unauthorized", "Missing or malformed Authorization header");
-  const given = digest(match[1]);
+  const given = digest(match[1]!);
   let valid = false;
   for (const key of keys) valid = timingSafeEqual(given, digest(key)) || valid;
   if (!valid) throw new ApiError("unauthorized", "Invalid API key");
