@@ -274,7 +274,7 @@ function prompts(validation: Validation, profile: SeekerProfile) {
     {
       role: "system" as const,
       content:
-        'Plan a learning roadmap in prerequisite order. Return only strict JSON: {"modules":[{"title":"string","subtitle":"string","why":"string","chapters":[{"title":"string","category":"code|data|theory|tools|project|soft","skillUris":["exact supplied URI"],"outcome":"string","estimatedHours":number?}]}]}. Use no other keys. Unknown skill URIs are forbidden. A foundation chapter may use an empty skillUris array. Do not write scores, percentages, progress, XP, numeric levels, rankings, or hiring probabilities. Do not put a digit in title, subtitle, why, or outcome unless it exactly copies a supplied vacanciesRequiring or vacanciesTotal fact. For learn-fast, use fewer shorter chapters and place projects early. For stability, put the most-demanded skills first within prerequisite constraints. For mission, keep the natural prerequisite order.',
+        'Plan a learning roadmap in prerequisite order. Return only strict JSON: {"modules":[{"title":"string","subtitle":"string","why":"string","chapters":[{"title":"string","category":"code|data|theory|tools|project|soft","skillUris":["exact supplied URI"],"outcome":"string","estimatedHours":number?}]}]}. Use no other keys. Unknown skill URIs are forbidden. A foundation chapter may use an empty skillUris array. Do not write scores, percentages, progress, XP, numeric levels, rankings, or hiring probabilities. Do not put a digit in title, subtitle, why, or outcome unless it exactly copies a supplied vacanciesRequiring or vacanciesTotal fact. Use hoursPerWeek only to shape scope: under-5 means fewer, smaller chapters. Use education only to set the starting depth: education none means start from basics, never lower expectations about ability. estimatedHours is the only numeric time output; do not write schedules or time-to-completion numbers in prose. For learn-fast, use fewer shorter chapters and place projects early. For stability, put the most-demanded skills first within prerequisite constraints. For mission, keep the natural prerequisite order.',
     },
     {
       role: "user" as const,
@@ -283,6 +283,8 @@ function prompts(validation: Validation, profile: SeekerProfile) {
         skills,
         goal: profile.preferences.goal,
         languages: profile.preferences.languages,
+        hoursPerWeek: profile.preferences.hoursPerWeek,
+        education: profile.preferences.education,
       }),
     },
   ];

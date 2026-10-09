@@ -246,6 +246,84 @@ test("findResources orders free before freemium before paid and prefers active f
   assert.equal(result.topPickId, result.resources[1]!.resourceId);
 });
 
+test("free-only leaves the top pick unset when no free resource exists", async () => {
+  const pages: ExaResult[] = [
+    { url: "https://example.com/freemium", title: "Freemium course", text: "Freemium course uses a freemium plan for Python." },
+    { url: "https://example.com/paid", title: "Paid practice", text: "Paid practice costs EUR 18 for Python exercises." },
+  ];
+  const llm = new FakeLlm([answer([
+    { pageIndex: 0, title: pages[0]!.title, provider: "Example", format: "course", cost: "freemium", level: "beginner", lang: "en", quote: pages[0]!.text },
+    { pageIndex: 1, title: pages[1]!.title, provider: "Example", format: "practice", cost: "paid", level: "beginner", lang: "en", quote: pages[1]!.text },
+  ])]);
+
+  const result = await findResources(chapter(), { ...context, courseBudget: "free-only" }, {
+    exa: new FakeExa(pages),
+    llm,
+    cache: new MemoryResourceCache(),
+  });
+
+  assert.deepEqual(result.resources.map(({ cost }) => cost), ["freemium", "paid"]);
+  assert.equal(result.topPickId, undefined);
+});
+
+test("free-only moves cached paid resources last and top-picks a free resource", async () => {
+  const cachedResource = (
+    resourceId: string,
+    cost: LearningResource["cost"],
+    level: LearningResource["level"],
+  ): LearningResource => ({
+    resourceId,
+    title: `${cost} Python resource`,
+    provider: "Example",
+    url: `https://example.com/${cost}`,
+    format: "course",
+    cost,
+    level,
+    lang: "en",
+    source: {
+      id: `src_${resourceId.slice(4)}`,
+      url: `https://example.com/${cost}`,
+      title: `${cost} Python resource`,
+      fetchedAt: "2026-10-09T10:00:00Z",
+      tool: "exa" as const,
+      quote: `This is a ${cost} Python resource.`,
+      contentHash: "a".repeat(64),
+    },
+  });
+  const paid = cachedResource("res_00000000000000000000000001", "paid", "beginner");
+  const freemium = cachedResource("res_00000000000000000000000002", "freemium", "beginner");
+  const free = cachedResource("res_00000000000000000000000003", "free", "intermediate");
+  const cache: ResourceCache = {
+    async get(): Promise<LearningResource[]> {
+      return [paid, freemium, free];
+    },
+    async set(): Promise<void> {},
+  };
+
+  const result = await findResources(chapter(), { ...context, courseBudget: "free-only" }, {
+    exa: null,
+    llm: new FakeLlm([]),
+    cache,
+  });
+
+  assert.deepEqual(result.resources.map(({ cost }) => cost), ["free", "freemium", "paid"]);
+  assert.equal(result.topPickId, free.resourceId);
+});
+
+test("some and any budgets retain the existing fallback top-pick behaviour", async () => {
+  for (const courseBudget of ["some", "any"] as const) {
+    const llm = new FakeLlm([answer([candidate(1)])]);
+    const result = await findResources(chapter(), { ...context, courseBudget }, {
+      exa: new FakeExa(EXA_PAGES),
+      llm,
+      cache: new MemoryResourceCache(),
+    });
+
+    assert.equal(result.topPickId, result.resources[0]!.resourceId);
+    assert.equal(result.resources[0]!.cost, "paid");
+  }
+});
+
 test("findResources cache key sorts skill URIs and a cache hit avoids another Exa or model call", async () => {
   const exa = new FakeExa(EXA_PAGES);
   const llm = new FakeLlm([answer([candidate(0)])]);
