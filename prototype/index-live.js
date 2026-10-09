@@ -441,6 +441,7 @@ async function startRecording() {
   if (!navigator.mediaDevices || !window.MediaRecorder) { setBar('idle', 'Microphone unavailable', 'Tap or type your answer instead'); return; }
   try {
     recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    startMeter(recordingStream);
     const chunks = []; recorder = new MediaRecorder(recordingStream);
     recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
     recorder.onstop = async () => {
@@ -490,19 +491,19 @@ function renderVoiceUI() {
   if ($('vSkip')) $('vSkip').onclick = finish;
 }
 
-async function startMeter() {
+async function startMeter(existingStream) {
   if (meter || !navigator.mediaDevices) return;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = existingStream || await navigator.mediaDevices.getUserMedia({ audio: true });
     const context = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = context.createAnalyser(); analyser.fftSize = 512; context.createMediaStreamSource(stream).connect(analyser);
-    meter = { stream, context, analyser, buffer: new Uint8Array(analyser.fftSize) };
+    meter = { stream, ownsStream: !existingStream, context, analyser, buffer: new Uint8Array(analyser.fftSize) };
   } catch {}
 }
 
 function stopMeter() {
   if (!meter) return;
-  meter.stream.getTracks().forEach((track) => track.stop()); meter.context.close(); meter = null;
+  if (meter.ownsStream) meter.stream.getTracks().forEach((track) => track.stop()); meter.context.close(); meter = null;
 }
 
 function animateOrb(time) {
@@ -511,6 +512,7 @@ function animateOrb(time) {
     let sum = 0; for (const value of meter.buffer) sum += ((value - 128) / 128) ** 2;
     orbLevel = Math.max(orbLevel, Math.min(1, Math.sqrt(sum / meter.buffer.length) * 6));
   }
+  if (document.body.classList.contains('v-speaking')) orbLevel = Math.max(orbLevel, .2 + Math.abs(Math.sin(time / 130)) * .35);
   orbLevel *= .9;
   const breathe = Math.sin(time / 900) * .03;
   $('orb').style.transform = `scale(${(1 + breathe + orbLevel * .22).toFixed(3)})`;

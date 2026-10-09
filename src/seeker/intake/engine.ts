@@ -189,6 +189,7 @@ export function addMoreCards(state: IntakeState, deck: Deck): IntakeState {
   const extraPathKeys = deck.paths.map((path) => path.key).filter((key) => !topThree.has(key));
   const seen = new Set(state.cards.rated.map((item) => item.card.cardId));
   const available = deck.cards.filter((card) => !seen.has(card.cardId) && extraPathKeys.includes(card.pathKey)).length;
+  if (available < 4) throw new ApiError("conflict", "Four more task cards are not available");
   const next: IntakeState = {
     ...state,
     phase: "cards",
@@ -196,15 +197,11 @@ export function addMoreCards(state: IntakeState, deck: Deck): IntakeState {
       rated: state.cards.rated.map((item) => ({ card: publicCard(item.card), rating: item.rating, at: item.at })),
       done: false,
     },
-    extraUntil: state.cards.rated.length + Math.min(4, available),
+    extraUntil: state.cards.rated.length + 4,
     extraPathKeys,
     resumeAfterCards: state.phase === "chat" || state.phase === "done" ? state.phase : "practical",
   };
-  const current = available > 0 ? pickNextCard(next, deck) : undefined;
-  if (current) next.cards.current = current;
-  else {
-    finishCards(next);
-  }
+  next.cards.current = pickNextCard(next, deck)!;
   next.paths = orderedPaths(next, deck);
   return next;
 }

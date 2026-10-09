@@ -26,6 +26,7 @@ const Sample = (() => {
   const newIntake = () => ({ seekerId: 'skr_SAMPLE_JANE_EXAMPLE', phase: 'warmup', warmup: { questions: warmupQuestions, answers: [], currentKey: 'drawn' }, cards: { current: undefined, rated: [], done: false }, paths: [], deck: { country: 'CZ', version: 'sample-1' } });
   let intake = newIntake();
   let extraRound = false;
+  let activeExtraCards = [];
   let resumePhase = 'done';
   let runNumber = 0;
   let runPolls = sessionStorage.getItem('sampleRunDone') === '1' ? 3 : 0;
@@ -80,7 +81,7 @@ const Sample = (() => {
     if (/\/intake\/cards\/[^/]+\/rating$/.test(path)) {
       const card = allCards.find((item) => path.includes(item.cardId));
       intake.cards.rated.push({ card, rating: body.rating, at: new Date().toISOString() });
-      const roundCards = extraRound ? extraCards : cards;
+      const roundCards = extraRound ? activeExtraCards : cards;
       const ratedInRound = intake.cards.rated.filter((item) => roundCards.some((candidate) => candidate.cardId === item.card.cardId));
       const next = roundCards[ratedInRound.length];
       if (next) intake.cards.current = { cardId: next.cardId, text: next.text, source: next.source };
@@ -97,7 +98,14 @@ const Sample = (() => {
       }
       return structuredClone(intake);
     }
-    if (/\/intake\/cards\/more$/.test(path)) { resumePhase = intake.phase; extraRound = true; intake.phase = 'cards'; intake.cards.done = false; intake.cards.current = { cardId: extraCards[0].cardId, text: extraCards[0].text, source: extraCards[0].source }; return structuredClone(intake); }
+    if (/\/intake\/cards\/more$/.test(path)) {
+      const seen = new Set(intake.cards.rated.map((item) => item.card.cardId));
+      activeExtraCards = extraCards.filter((item) => !seen.has(item.cardId)).slice(0, 4);
+      if (activeExtraCards.length < 4) throw new Error('Four more sample task cards are not available');
+      resumePhase = intake.phase; extraRound = true; intake.phase = 'cards'; intake.cards.done = false;
+      intake.cards.current = { cardId: activeExtraCards[0].cardId, text: activeExtraCards[0].text, source: activeExtraCards[0].source };
+      return structuredClone(intake);
+    }
     if (/\/intake\/practical$/.test(path)) { intake.practical = body; intake.phase = 'chat'; return structuredClone(intake); }
     if (/\/intake\/chat\/skip$/.test(path)) { intake.phase = 'done'; return structuredClone(intake); }
     if (/\/interview\/messages$/.test(path)) return { reply: body.text ? 'Thanks, Jane Example. That is enough for this sample.' : 'Anything else I should know—deal breakers, salary expectations, or a question?', done: !!body.text, preferences: profile.preferences };
@@ -119,6 +127,6 @@ const Sample = (() => {
     if (/\/chapters\/[^/]+\/progress$/.test(path)) { const chapter = chapters.find((item) => path.includes(item.chapterId)); chapter.done = body.done; if (body.done) chapter.doneBy = 'seeker'; else delete chapter.doneBy; return structuredClone(chapter); }
     throw new Error('No offline sample for ' + method + ' ' + path);
   }
-  function reset() { intake = newIntake(); extraRound = false; resumePhase = 'done'; runNumber = 0; paths = structuredClone(initialPaths); profile.preferences.targetOccupations = OCC; profile.profileVersion = 1; runPolls = 0; sessionStorage.removeItem('sampleRunDone'); }
+  function reset() { intake = newIntake(); extraRound = false; activeExtraCards = []; resumePhase = 'done'; runNumber = 0; paths = structuredClone(initialPaths); profile.preferences.targetOccupations = OCC; profile.profileVersion = 1; runPolls = 0; sessionStorage.removeItem('sampleRunDone'); }
   return { api, profile, paths, companies, market, validation, roadmap, reset };
 })();

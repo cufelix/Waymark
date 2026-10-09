@@ -158,7 +158,7 @@ test("more cards returns to chat or done without asking for practical details ag
   }
 });
 
-test("more cards finishes early when fewer than four unseen cards remain outside the prior top three", () => {
+test("more cards rejects decks with fewer than four unseen cards outside the prior top three", () => {
   let state = finishWarmup();
   while (!state.cards.done) state = rateCurrent(state, "like");
   const topUris = new Set(state.paths.filter((path) => path.top3).map((path) => path.occupation.uri));
@@ -167,22 +167,16 @@ test("more cards finishes early when fewer than four unseen cards remain outside
   const eligible = FAKE_DECK.cards.filter((card) => !seenIds.has(card.cardId) && !topUris.has(card.occupation.uri)).slice(0, 2);
   assert.equal(eligible.length, 2);
   const shortDeck: Deck = { ...FAKE_DECK, cards: [...ratedCards, ...eligible] };
-  const before = state.cards.rated.length;
-
-  state = addMoreCards(state, shortDeck);
-  while (!state.cards.done) {
-    assert.ok(state.cards.current);
-    assert.equal(topUris.has(shortDeck.cards.find((card) => card.cardId === state.cards.current!.cardId)!.occupation.uri), false);
-    state = applyRating(state, shortDeck, state.cards.current.cardId, "maybe", "2026-10-09T12:00:00Z");
-  }
-
-  assert.equal(state.cards.rated.length - before, 2);
+  assert.throws(
+    () => addMoreCards(state, shortDeck),
+    (error) => error instanceof ApiError && error.code === "conflict",
+  );
 
   const noExtraDeck: Deck = { ...FAKE_DECK, cards: ratedCards };
-  const noExtra = addMoreCards({ ...state, cards: { ...state.cards, rated: state.cards.rated.slice(0, before), done: true } }, noExtraDeck);
-  assert.equal(noExtra.cards.done, true);
-  assert.equal(noExtra.cards.current, undefined);
-  assert.equal(noExtra.cards.rated.length, before);
+  assert.throws(
+    () => addMoreCards(state, noExtraDeck),
+    (error) => error instanceof ApiError && error.code === "conflict",
+  );
 });
 
 test("public intake hides the current occupation and every private or assessment-like field", () => {

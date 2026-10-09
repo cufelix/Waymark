@@ -43,19 +43,22 @@ function renderResources() {
 function renderProgress() {
   const chapters = allChapters();
   const index = chapters.findIndex((item) => item.chapterId === chapter.chapterId);
-  const next = chapters.slice(index + 1).find((item) => !isDone(item));
   const done = chapters.filter(isDone).length;
   const chapterDone = isDone(chapter);
+  const allComplete = chapters.length > 0 && done === chapters.length;
+  const next = chapterDone ? chapters.find((item) => !isDone(item)) : chapters.slice(index + 1).find((item) => !isDone(item));
   $('markDone').disabled = false;
   $('markDone').innerHTML = chapterDone ? 'Un-tick this chapter' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Mark as done';
   $('markDone').onclick = () => setProgress(!chapterDone);
   $('todo').querySelector('span').textContent = next ? 'Next up: ' + next.title : 'You can revisit any chapter from the roadmap.';
   $('todo').hidden = chapterDone;
   $('unlocked').hidden = !chapterDone;
-  $('nextTitle').textContent = next ? 'Unlocked: ' + next.title : 'Roadmap complete';
-  $('completionText').textContent = next
+  $('nextTitle').textContent = allComplete ? 'Roadmap complete' : next ? 'Unlocked: ' + next.title : 'Back to your roadmap';
+  $('completionText').textContent = allComplete
+    ? `Nice. That's ${done} of ${chapters.length}. Your roadmap is complete.`
+    : next
     ? `Nice. That's ${done} of ${chapters.length}. Your next module is ready.`
-    : `Nice. That's ${done} of ${chapters.length}. Your roadmap is complete.`;
+    : `Nice. That's ${done} of ${chapters.length}. Choose any unfinished module next.`;
 }
 
 function render() {
