@@ -69,6 +69,16 @@
       <div class="row"><span class="lbl">Time you can give it each week</span><div class="bubbles" style="padding: 0" data-group="hours"></div></div>
       <div class="row"><span class="lbl">Budget for courses</span><div class="bubbles" style="padding: 0" data-group="budget"></div></div>
       <div class="row"><span class="lbl">Education so far</span><div class="bubbles" style="padding: 0" data-group="degree"></div></div>
+      <div class="row"><span class="lbl">Languages you can work in</span><div class="bubbles" style="padding: 0" id="langs"></div></div>
+      <div class="row">
+        <span class="lbl">Companies you'd love to work for</span>
+        <form id="dreamForm" style="display: flex; gap: 10px">
+          <label for="dreamInput" class="sr-only">Company name</label>
+          <input id="dreamInput" class="field" type="text" placeholder="e.g. a company you admire…" autocomplete="off">
+          <button class="alt" type="submit" style="min-height: 44px; padding: 0 18px">Add</button>
+        </form>
+        <div class="bubbles" style="padding: 0" id="dream"></div>
+      </div>
       <div><button class="cta" type="button" id="practicalDone" disabled style="opacity: .4">Next <span data-icon="arrow"></span></button></div>
     </div>
 
@@ -189,6 +199,7 @@ const PRACTICAL = {
   budget: ['Free only', 'A little', 'Happy to invest'],
   degree: ['High school', 'Studying now', "Bachelor's", "Master's"]
 };
+const LANGS = ['Czech', 'Slovak', 'English', 'German', 'Ukrainian', 'Other'];
 const CV_SKILLS = ['Excel', 'Basic HTML', 'Python (school)', 'Customer service'];
 const PHASES = ['chat', 'bridge', 'cards', 'practical', 'cv'];
 
@@ -197,8 +208,8 @@ let S;
 function fresh(more) {
   let prev = null;
   try { prev = more && JSON.parse(localStorage.getItem('interview') || 'null'); } catch (e) {}
-  if (prev) { prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; prev.ratings = prev.ratings || []; return prev; }
-  return { phase: 'chat', step: 0, answers: {}, practical: {}, cv: null, links: [],
+  if (prev) { prev.langs = prev.langs || ['Czech']; prev.dream = prev.dream || []; prev.extraUntil = prev.seen.length + 4; prev.phase = 'cards'; prev.ratings = prev.ratings || []; return prev; }
+  return { phase: 'chat', step: 0, answers: {}, practical: {}, langs: ['Czech'], dream: [], noDream: false, cv: null, links: [],
     score: Object.fromEntries(Object.keys(PATHS).map((k) => [k, 0])), shownBy: {}, likedBy: {}, seen: [], ratings: [], extraUntil: 0 };
 }
 const ranked = () => Object.keys(PATHS).sort((a, b) => S.score[b] - S.score[a]);
@@ -298,11 +309,32 @@ function renderPractical() {
     g.innerHTML = PRACTICAL[key].map((o) => `<button type="button" class="bubble ${S.practical[key] === o ? 'on' : ''}">${o}</button>`).join('');
     g.querySelectorAll('button').forEach((b) => b.onclick = () => { S.practical[key] = b.textContent; renderPractical(); renderSide(); });
   });
-  const ready = Object.keys(PRACTICAL).every((k) => S.practical[k]);
+  // Languages: several allowed, at least one. Prefilled with the country's language.
+  $('langs').innerHTML = LANGS.map((l) => `<button type="button" class="bubble ${S.langs.includes(l) ? 'on' : ''}">${l}</button>`).join('');
+  $('langs').querySelectorAll('button').forEach((b) => b.onclick = () => {
+    const l = b.textContent;
+    S.langs = S.langs.includes(l) ? S.langs.filter((x) => x !== l) : [...S.langs, l];
+    renderPractical(); renderSide();
+  });
+  // Dream companies: a list, or an explicit "None yet". The research looks into each one.
+  $('dream').innerHTML = S.dream.map((c, i) => `<span class="chip">${esc(c)} <button type="button" class="icon-btn" data-i="${i}" aria-label="Remove ${esc(c)}" style="width: 20px; height: 20px">${ICON.x}</button></span>`).join('') +
+    `<button type="button" class="bubble ${S.noDream ? 'on' : ''}" id="noDream">None yet</button>`;
+  $('dream').querySelectorAll('[data-i]').forEach((b) => b.onclick = () => { S.dream.splice(Number(b.dataset.i), 1); renderPractical(); renderSide(); });
+  $('noDream').onclick = () => { S.noDream = !S.noDream; if (S.noDream) S.dream = []; renderPractical(); renderSide(); };
+  const ready = Object.keys(PRACTICAL).every((k) => S.practical[k]) && S.langs.length > 0 && (S.dream.length > 0 || S.noDream);
   $('practicalDone').disabled = !ready;
   $('practicalDone').style.opacity = ready ? 1 : .4;
 }
 $('practicalDone').onclick = () => go('cv');
+$('dreamForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const c = $('dreamInput').value.trim();
+  if (c && !S.dream.includes(c)) { S.dream.push(c); S.noDream = false; }
+  $('dreamInput').value = '';
+  renderPractical(); renderSide();
+});
+const practicalDoneCount = () => Object.keys(S.practical).length + (S.langs.length ? 1 : 0) + (S.dream.length || S.noDream ? 1 : 0);
+const PRACTICAL_TOTAL = Object.keys(PRACTICAL).length + 2;
 
 // ---------- optional CV and links ----------
 function showFile(name) {
@@ -349,7 +381,7 @@ function renderExpect() {
   const steps = [
     ['Warm up', '3 questions', S.step / OPENING.length],
     ['Task cards', 'about 10', S.phase === 'bridge' ? 0 : Math.min(S.seen.length / 10, 1)],
-    ['Practical', '4 quick ones', Object.keys(S.practical).length / 4],
+    ['Practical', PRACTICAL_TOTAL + ' quick ones', S.phase === 'practical' ? practicalDoneCount() / PRACTICAL_TOTAL : 0],
     ['Your stuff', 'optional', 0]
   ];
   $('expect').innerHTML = steps.map(([b, s, f], i) => {
@@ -365,7 +397,7 @@ function renderExpect() {
     const left = S.extraUntil ? S.extraUntil - n : Math.max(8 - n, 0);
     note = left > 0 ? 'About ' + left + ' more ' + (left === 1 ? 'card' : 'cards') : 'Almost there, just checking the close ones';
   }
-  if (S.phase === 'practical') note = (4 - Object.keys(S.practical).length) + ' left, then you’re basically done';
+  if (S.phase === 'practical') note = (PRACTICAL_TOTAL - practicalDoneCount()) + ' left, then you’re basically done';
   if (S.phase === 'cv') note = 'Last step, and you can skip it';
   $('expectNote').textContent = note;
 }
@@ -374,6 +406,8 @@ function renderExpect() {
 function renderFacts() {
   const facts = [...OPENING.map((q) => S.answers[q.key]), ...Object.keys(PRACTICAL).map((k) => S.practical[k])].filter(Boolean)
     .map((f) => `<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(f)}</span>`);
+  if (S.phase === 'practical' || S.phase === 'cv') S.langs.forEach((l) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(l)} <small>language</small></span>`));
+  S.dream.forEach((c) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(c)} <small>dream company</small></span>`));
   if (S.cv) S.cv.skills.forEach((s) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(s)} <small>CV</small></span>`));
   S.links.forEach((u) => facts.push(`<span class="chip" style="font-size: 13px; padding: 5px 10px">${esc(u)} <small>link</small></span>`));
   $('facts').innerHTML = facts.length ? facts.join('') : '<span class="chip-empty">Nothing yet. Answer the first question.</span>';
