@@ -1,184 +1,1079 @@
 {
   "country": "CZ",
-  "version": "fake-0",
+  "version": "2026-10-09",
   "paths": [
-    { "key": "backend", "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" }, "kind": "coding" },
-    { "key": "frontend", "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" }, "kind": "web building" },
-    { "key": "data", "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" }, "kind": "data" },
-    { "key": "qa", "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" }, "kind": "testing" },
-    { "key": "ux", "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "kind": "design research" },
-    { "key": "sales", "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" }, "kind": "sales" },
-    { "key": "marketing", "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" }, "kind": "marketing" },
-    { "key": "ops", "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" }, "kind": "organising" }
+    {
+      "key": "backend",
+      "kind": "coding",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+        "label": "developer/developerka",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "frontend",
+      "kind": "web building",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+        "label": "developer/developerka",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "data",
+      "kind": "data",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8d9ec84d-cf2d-4179-87bc-335cda54a427",
+        "label": "databázový designér/databázová designérka",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "qa",
+      "kind": "testing",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+        "label": "tester digitálních her/testerka digitálních her",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "ux",
+      "kind": "design research",
+      "occupation": {
+        "uri": "urn:stub:occupation:ux-designer",
+        "label": "UX designer",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "sales",
+      "kind": "sales",
+      "occupation": {
+        "uri": "urn:stub:occupation:sales-representative",
+        "label": "Sales representative",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "marketing",
+      "kind": "marketing",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/6fcf4638-e7c7-4978-9302-9a7b63a3d57c",
+        "label": "marketingový manažer/marketingová manažerka",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "project-coordination",
+      "kind": "organising",
+      "occupation": {
+        "uri": "urn:stub:occupation:project-coordinator",
+        "label": "Project coordinator",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "customer-support",
+      "kind": "customer support",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+        "label": "specialista pro merchandising/specialistka pro merchandising",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "it-support",
+      "kind": "technical support",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+        "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "graphic-design",
+      "kind": "visual design",
+      "occupation": {
+        "uri": "urn:stub:occupation:graphic-designer",
+        "label": "Graphic designer",
+        "lang": "cs"
+      }
+    },
+    {
+      "key": "accounting",
+      "kind": "accounting",
+      "occupation": {
+        "uri": "urn:stub:occupation:accountant-assistant",
+        "label": "Accountant assistant",
+        "lang": "cs"
+      }
+    }
   ],
   "cards": [
     {
-      "cardId": "crd_00000000000000000000000001",
-      "text": "Build the part of an app that saves a customer’s order and sends the receipt.",
-      "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" },
-      "related": [], "pathKey": "backend",
-      "source": { "id": "src_00000000000000000000000001", "url": "https://example.com/jobs/backend-1", "title": "[FAKE] Backend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Build the part of an app that saves a customer’s order and sends the receipt.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8WQSZA4576K67GRPY4VYV",
+      "text": "Connect different software systems so they can share information with each other.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+        "label": "developer/developerka",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "backend",
+      "source": {
+        "id": "src_01M4F8WQT1RX8HRC70FFA42N5A",
+        "url": "https://webtrh.cz/prace/junior-developer-ka/",
+        "title": "Junior Developer/ka - REMOTE - Webtrh.cz",
+        "fetchedAt": "2026-10-09T02:46:43.264Z",
+        "tool": "exa",
+        "quote": "Čeká tě práce s API, integrace mezi systémy a pokud tě baví umělá inteligence, najdeš u nás prostor se v tom rozvíjet.",
+        "contentHash": "f6b76f633670afb98979ce180346396ed1c16b958fdf6d3068de990ea9d5467d"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000002",
-      "text": "Find out why the website gets slow every Monday morning, and fix it.",
-      "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" }, "weight": 0.5 }], "pathKey": "backend",
-      "source": { "id": "src_00000000000000000000000002", "url": "https://example.com/jobs/backend-2", "title": "[FAKE] Backend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Find out why the website gets slow every Monday morning, and fix it.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8WQT3PMDQQQMQNK9THMTB",
+      "text": "Help build software that makes our clients' daily work faster and easier.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+        "label": "developer/developerka",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "backend",
+      "source": {
+        "id": "src_01M4F8WQT37W4277BXT9PVYQKT",
+        "url": "https://mindpal.co/jobs/95847",
+        "title": "Junior • Junior Developer - skvělý start tvé kariéry v IT! • Prague, Czech Republic | MindPal Jobs",
+        "fetchedAt": "2026-10-09T02:46:43.264Z",
+        "tool": "exa",
+        "quote": "Na pozici juniorního developera / developerky se budeš podílet na vývoji softwarových řešení, která reálně zlepšují procesy našich klientů.",
+        "contentHash": "1ea6e23311a07c9361910b538234faf4e579481c2235fd1f7e80543f6012cc15"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000003",
-      "text": "Connect the online shop to a new payment provider.",
-      "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" },
-      "related": [], "pathKey": "backend",
-      "source": { "id": "src_00000000000000000000000003", "url": "https://example.com/jobs/backend-3", "title": "[FAKE] Backend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Connect the online shop to a new payment provider.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8X0F6T16JY9G0KKCE23VD",
+      "text": "Test web apps and find and fix the bugs in them.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+        "label": "developer/developerka",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+            "label": "tester digitálních her/testerka digitálních her",
+            "lang": "cs"
+          },
+          "weight": 0.5
+        }
+      ],
+      "pathKey": "frontend",
+      "source": {
+        "id": "src_01M4F8X0F655W2ZQP5H7B3M01E",
+        "url": "https://cz.indeed.com/q-junior-developer-l-hlavn%C3%AD-m%C4%9Bsto-praha-nab%C3%ADdky-pr%C3%A1ce.html",
+        "title": "Nabídky práce Junior developer v lokalitě Hlavní město Praha",
+        "fetchedAt": "2026-10-09T02:46:50.399Z",
+        "tool": "exa",
+        "quote": "Testování a ladění webových aplikací.",
+        "contentHash": "b657a7204b7a87df62cbd72c95247126c19956bb1eb2f7100797efa0386affa8"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000004",
-      "text": "Rebuild the signup page so it works on every phone.",
-      "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" },
-      "related": [], "pathKey": "frontend",
-      "source": { "id": "src_00000000000000000000000004", "url": "https://example.com/jobs/frontend-1", "title": "[FAKE] Frontend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Rebuild the signup page so it works on every phone.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8X0F7WRBR82ZBV9VD8D89",
+      "text": "Build and look after the screens of web apps so they look sharp and load fast.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+        "label": "developer/developerka",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+            "label": "developer/developerka",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        },
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:ux-designer",
+            "label": "UX designer",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "frontend",
+      "source": {
+        "id": "src_01M4F8X0F7SFK90A4MJMQYQ3SN",
+        "url": "https://cz.indeed.com/q-junior-developer-l-hlavn%C3%AD-m%C4%9Bsto-praha-nab%C3%ADdky-pr%C3%A1ce.html",
+        "title": "Nabídky práce Junior developer v lokalitě Hlavní město Praha",
+        "fetchedAt": "2026-10-09T02:46:50.399Z",
+        "tool": "exa",
+        "quote": "Develop, optimize, and maintain Next.js-based front-end applications with pixel-perfect UI and high.",
+        "contentHash": "b657a7204b7a87df62cbd72c95247126c19956bb1eb2f7100797efa0386affa8"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000005",
-      "text": "Turn a designer’s mockup into a working web page.",
-      "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "weight": 0.5 }], "pathKey": "frontend",
-      "source": { "id": "src_00000000000000000000000005", "url": "https://example.com/jobs/frontend-2", "title": "[FAKE] Frontend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Turn a designer’s mockup into a working web page.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8X0F8C5E1YFZ9ZR235FB1",
+      "text": "Help build web apps for customers from abroad.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+        "label": "developer/developerka",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+            "label": "developer/developerka",
+            "lang": "cs"
+          },
+          "weight": 0.2
+        }
+      ],
+      "pathKey": "frontend",
+      "source": {
+        "id": "src_01M4F8X0F8NEC5K0ZW8TNMRE4J",
+        "url": "https://www.glassdoor.com/Job/prague-junior-web-developer-jobs-SRCH_IL.0,6_IM989_KO7,27.htm",
+        "title": "19 Junior web developer jobs in Prague, Czech Republic",
+        "fetchedAt": "2026-10-09T02:46:50.399Z",
+        "tool": "exa",
+        "quote": "Podílel by ses rád na vývoji webových aplikací pro zahraniční klienty?",
+        "contentHash": "e2574415ed6ddc64ac1dfdc24de043ee32762ce1330cdd3ab39c1ce130137596"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000006",
-      "text": "Add a smooth animation when someone adds an item to the cart.",
-      "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" },
-      "related": [], "pathKey": "frontend",
-      "source": { "id": "src_00000000000000000000000006", "url": "https://example.com/jobs/frontend-3", "title": "[FAKE] Frontend developer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Add a smooth animation when someone adds an item to the cart.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8X8PW1MB2WD4EC3CEHPTP",
+      "text": "Look at buying data and prepare reports for the sales team.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8d9ec84d-cf2d-4179-87bc-335cda54a427",
+        "label": "databázový designér/databázová designérka",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:sales-representative",
+            "label": "Sales representative",
+            "lang": "cs"
+          },
+          "weight": 0.6
+        }
+      ],
+      "pathKey": "data",
+      "source": {
+        "id": "src_01M4F8X8PWAYG577CYTN3PQG1B",
+        "url": "https://www.predvyber.cz/cs/nabidky-prace/datovy-analytik-databazovy-specialista/2000471079",
+        "title": "Junior Datový analytik / Databázový specialista",
+        "fetchedAt": "2026-10-09T02:47:00.736Z",
+        "tool": "exa",
+        "quote": "Analýza nákupních dat a poskytování podkladů obchodnímu týmu",
+        "contentHash": "fdde0f9d583544f995301b93978e47dfb8f0be5f13d090c4c66d7289ffd75441"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000007",
-      "text": "Figure out why 30% of customers abandon checkout.",
-      "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "weight": 0.3 }], "pathKey": "data",
-      "source": { "id": "src_00000000000000000000000007", "url": "https://example.com/jobs/data-1", "title": "[FAKE] Data analyst ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Figure out why 30% of customers abandon checkout.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8X8PW1DZFVNQCWDE0SWZ2",
+      "text": "Check that the data is up to date and correct.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8d9ec84d-cf2d-4179-87bc-335cda54a427",
+        "label": "databázový designér/databázová designérka",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+            "label": "tester digitálních her/testerka digitálních her",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "data",
+      "source": {
+        "id": "src_01M4F8X8PWHMMFTVYP76G455C3",
+        "url": "https://www.predvyber.cz/cs/nabidky-prace/datovy-analytik-databazovy-specialista/2000471079",
+        "title": "Junior Datový analytik / Databázový specialista",
+        "fetchedAt": "2026-10-09T02:47:00.736Z",
+        "tool": "exa",
+        "quote": "Zajištění aktuálnosti a přesnosti dat",
+        "contentHash": "fdde0f9d583544f995301b93978e47dfb8f0be5f13d090c4c66d7289ffd75441"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000008",
-      "text": "Build a weekly sales dashboard the boss checks every Monday.",
-      "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" },
-      "related": [], "pathKey": "data",
-      "source": { "id": "src_00000000000000000000000008", "url": "https://example.com/jobs/data-2", "title": "[FAKE] Data analyst ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Build a weekly sales dashboard the boss checks every Monday.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8X8PW3CSGXTGFVATVMY48",
+      "text": "Work together with other departments in the company on data.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8d9ec84d-cf2d-4179-87bc-335cda54a427",
+        "label": "databázový designér/databázová designérka",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:project-coordinator",
+            "label": "Project coordinator",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "data",
+      "source": {
+        "id": "src_01M4F8X8PWCTM5FGJ6R050K9FS",
+        "url": "https://www.predvyber.cz/cs/nabidky-prace/datovy-analytik-databazovy-specialista/2000471079",
+        "title": "Junior Datový analytik / Databázový specialista",
+        "fetchedAt": "2026-10-09T02:47:00.736Z",
+        "tool": "exa",
+        "quote": "Spolupráce s dalšími odděleními společnosti",
+        "contentHash": "fdde0f9d583544f995301b93978e47dfb8f0be5f13d090c4c66d7289ffd75441"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000009",
-      "text": "Clean up a spreadsheet of 10,000 messy customer records.",
-      "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" }, "weight": 0.5 }], "pathKey": "data",
-      "source": { "id": "src_00000000000000000000000009", "url": "https://example.com/jobs/data-3", "title": "[FAKE] Data analyst ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Clean up a spreadsheet of 10,000 messy customer records.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8XNBFT2T16FC0RADGDYG9",
+      "text": "Look for bugs in the game by following the steps your team has already set.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+        "label": "tester digitálních her/testerka digitálních her",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+            "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+            "lang": "cs"
+          },
+          "weight": 0.4
+        }
+      ],
+      "pathKey": "qa",
+      "source": {
+        "id": "src_01M4F8XNBFXKQYJHEQBMC6TP36",
+        "url": "https://gamejobs.co/QA-Tester-Praha-at-Warhorse-Studios",
+        "title": "QA Tester - Praha at Warhorse Studios",
+        "fetchedAt": "2026-10-09T02:47:11.342Z",
+        "tool": "exa",
+        "quote": "Hledání bugů v rámci nastavených procesů",
+        "contentHash": "d9ede879b5f06cf578c74bd2b5fc5bd990724037995e65cc588fc632d55d5558"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000010",
-      "text": "Try to break a new feature before it goes live, and write down exactly how you did it.",
-      "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" },
-      "related": [], "pathKey": "qa",
-      "source": { "id": "src_00000000000000000000000010", "url": "https://example.com/jobs/qa-1", "title": "[FAKE] QA engineer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Try to break a new feature before it goes live, and write down exactly how you did it.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8XNBFH7BYT9WQ7NH87H4F",
+      "text": "Write up the bugs you find and send them into the company's internal system.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+        "label": "tester digitálních her/testerka digitálních her",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+            "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        },
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:project-coordinator",
+            "label": "Project coordinator",
+            "lang": "cs"
+          },
+          "weight": 0.2
+        }
+      ],
+      "pathKey": "qa",
+      "source": {
+        "id": "src_01M4F8XNBF2VAH8FGM8BTJQCBN",
+        "url": "https://gamejobs.co/QA-Tester-Praha-at-Warhorse-Studios",
+        "title": "QA Tester - Praha at Warhorse Studios",
+        "fetchedAt": "2026-10-09T02:47:11.342Z",
+        "tool": "exa",
+        "quote": "Zadávání bug reportů do interního systému",
+        "contentHash": "d9ede879b5f06cf578c74bd2b5fc5bd990724037995e65cc588fc632d55d5558"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000011",
-      "text": "Test the app on 10 different phones and report everything that looks wrong.",
-      "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" },
-      "related": [], "pathKey": "qa",
-      "source": { "id": "src_00000000000000000000000011", "url": "https://example.com/jobs/qa-2", "title": "[FAKE] QA engineer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Test the app on 10 different phones and report everything that looks wrong.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8XNBFP57MT4S70QTZXQGG",
+      "text": "Write down the errors you find and keep track of them in the team's tool.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+        "label": "tester digitálních her/testerka digitálních her",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+            "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        },
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:project-coordinator",
+            "label": "Project coordinator",
+            "lang": "cs"
+          },
+          "weight": 0.2
+        }
+      ],
+      "pathKey": "qa",
+      "source": {
+        "id": "src_01M4F8XNBFS4Q2CX4X4XHK40Y1",
+        "url": "https://www.contractors.cz/cz/nabizene-pozice/testovani-software/1245-junior-tester-full-onsite-praha",
+        "title": "Junior Tester - full onsite, Praha - Contractors - portál pro IT specialisty",
+        "fetchedAt": "2026-10-09T02:47:11.342Z",
+        "tool": "exa",
+        "quote": "Evidence nalezených chyb a jejich správa v Jira",
+        "contentHash": "8a90cef1d9993a05eab55d2673da997a02790e0e7aa24ce96b904ad7a4f1e9c9"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000012",
-      "text": "Write a small script that checks the login page still works, every night.",
-      "occupation": { "uri": "urn:stub:occupation:qa", "label": "QA engineer", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" }, "weight": 0.5 }], "pathKey": "qa",
-      "source": { "id": "src_00000000000000000000000012", "url": "https://example.com/jobs/qa-3", "title": "[FAKE] QA engineer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Write a small script that checks the login page still works, every night.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8XX3S1AJFW8DJC2ATJNCX",
+      "text": "Help plan and run user research and tests on your designs.",
+      "occupation": {
+        "uri": "urn:stub:occupation:ux-designer",
+        "label": "UX designer",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+            "label": "tester digitálních her/testerka digitálních her",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "ux",
+      "source": {
+        "id": "src_01M4F8XX3SYADTDSD5QX4YF1ZD",
+        "url": "https://prace.katalog.cz/nabidka-prace/ux-designer-236604/",
+        "title": "UX Designer 85 000 - 90 000 Kč, Nabídka práce od Shoptet, a.s., Praha - Práce.katalog.cz",
+        "fetchedAt": "2026-10-09T02:47:20.994Z",
+        "tool": "exa",
+        "quote": "Podílí se na celém designovém procesu včetně realizace uživatelského výzkumu a testování.",
+        "contentHash": "78aec955fa149a3eb3de8bb69a9ec51f9194aee9cc4b1e33949cb1a7ca2f2003"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000013",
-      "text": "Interview 5 users and find out why they get stuck on the settings page.",
-      "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" }, "weight": 0.3 }], "pathKey": "ux",
-      "source": { "id": "src_00000000000000000000000013", "url": "https://example.com/jobs/ux-1", "title": "[FAKE] UX designer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Interview 5 users and find out why they get stuck on the settings page.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8XX3STVZE2PPFVSRXG9EE",
+      "text": "Work with product managers and developers to shape how new features should work.",
+      "occupation": {
+        "uri": "urn:stub:occupation:ux-designer",
+        "label": "UX designer",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:project-coordinator",
+            "label": "Project coordinator",
+            "lang": "cs"
+          },
+          "weight": 0.4
+        }
+      ],
+      "pathKey": "ux",
+      "source": {
+        "id": "src_01M4F8XX3SKDFG3H4P0NADNZA1",
+        "url": "https://prace.katalog.cz/nabidka-prace/ux-designer-236604/",
+        "title": "UX Designer 85 000 - 90 000 Kč, Nabídka práce od Shoptet, a.s., Praha - Práce.katalog.cz",
+        "fetchedAt": "2026-10-09T02:47:20.994Z",
+        "tool": "exa",
+        "quote": "Spolupracuje s product managery a vývojáři na návrhu funkcionalit.",
+        "contentHash": "78aec955fa149a3eb3de8bb69a9ec51f9194aee9cc4b1e33949cb1a7ca2f2003"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000014",
-      "text": "Sketch three different layouts for a new home screen.",
-      "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:frontend", "label": "Frontend developer", "lang": "en" }, "weight": 0.3 }], "pathKey": "ux",
-      "source": { "id": "src_00000000000000000000000014", "url": "https://example.com/jobs/ux-2", "title": "[FAKE] UX designer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Sketch three different layouts for a new home screen.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8XX3SH9QM478HRJ2EK6A1",
+      "text": "Check that AI-made designs follow the company's design rules and flag any mismatches.",
+      "occupation": {
+        "uri": "urn:stub:occupation:ux-designer",
+        "label": "UX designer",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/33e4f026-a823-4ffc-99e4-60d3fe597a1e",
+            "label": "tester digitálních her/testerka digitálních her",
+            "lang": "cs"
+          },
+          "weight": 0.6
+        },
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:graphic-designer",
+            "label": "Graphic designer",
+            "lang": "cs"
+          },
+          "weight": 0.2
+        }
+      ],
+      "pathKey": "ux",
+      "source": {
+        "id": "src_01M4F8XX3SG0DD579XH7TQ4RAV",
+        "url": "https://designproject.io/jobs/ux-designer-traineeai-design-support-my2n-at-2n-telekomunikace-a-s-ml4m53",
+        "title": "UX Designer Trainee/AI Design Support - My2N at 2N TELEKOMUNIKACE a.s.",
+        "fetchedAt": "2026-10-09T02:47:20.994Z",
+        "tool": "exa",
+        "quote": "Ensure adherence to the company's design system, including the correct application of components and styles.",
+        "contentHash": "66d0a0bc6bda750151b1f4a4bf1cdb3b510db888eb5df74e48e3b0cddbcd40c9"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000015",
-      "text": "Watch screen recordings of people using the app and spot what confuses them.",
-      "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" },
-      "related": [], "pathKey": "ux",
-      "source": { "id": "src_00000000000000000000000015", "url": "https://example.com/jobs/ux-3", "title": "[FAKE] UX designer ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Watch screen recordings of people using the app and spot what confuses them.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8Y84SZV6TVTV272PMT243",
+      "text": "Look for companies that might need regular deliveries or pickups from us, and find out who makes those buying decisions.",
+      "occupation": {
+        "uri": "urn:stub:occupation:sales-representative",
+        "label": "Sales representative",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/6fcf4638-e7c7-4978-9302-9a7b63a3d57c",
+            "label": "marketingový manažer/marketingová manažerka",
+            "lang": "cs"
+          },
+          "weight": 0.4
+        }
+      ],
+      "pathKey": "sales",
+      "source": {
+        "id": "src_01M4F8Y84SCEPP4Z106ZNYH9FA",
+        "url": "https://www.volnamista.cz/nabidka-prace/junior-business-development-b2b-sales-specialist/211002399",
+        "title": "JUNIOR BUSINESS DEVELOPMENT / B2B SALES SPECIALIST v Gotty s.r.o. Praha, Volná místa cz",
+        "fetchedAt": "2026-10-09T02:47:30.910Z",
+        "tool": "exa",
+        "quote": "vyhledávat firmy, kterým může Kurýr4You řešit pravidelné rozvozy, svozy, expresní přepravu nebo jinou městskou logistiku;",
+        "contentHash": "0df2cd0b9468a2b0c98ceccca5ee756d6b89db0e71ba0ad02a6654c68b39a3db"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000016",
-      "text": "Call 20 small businesses and find out what they struggle with.",
-      "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:ux", "label": "UX designer", "lang": "en" }, "weight": 0.3 }], "pathKey": "sales",
-      "source": { "id": "src_00000000000000000000000016", "url": "https://example.com/jobs/sales-1", "title": "[FAKE] Sales ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Call 20 small businesses and find out what they struggle with.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8Y84TJA40RBPN13YNT53M",
+      "text": "Contact the people who make buying choices at those firms by phone, email or LinkedIn, and set up short meetings.",
+      "occupation": {
+        "uri": "urn:stub:occupation:sales-representative",
+        "label": "Sales representative",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/6fcf4638-e7c7-4978-9302-9a7b63a3d57c",
+            "label": "marketingový manažer/marketingová manažerka",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "sales",
+      "source": {
+        "id": "src_01M4F8Y84TFY6HZD9QG2VH2T83",
+        "url": "https://www.volnamista.cz/nabidka-prace/junior-business-development-b2b-sales-specialist/211002399",
+        "title": "JUNIOR BUSINESS DEVELOPMENT / B2B SALES SPECIALIST v Gotty s.r.o. Praha, Volná místa cz",
+        "fetchedAt": "2026-10-09T02:47:30.910Z",
+        "tool": "exa",
+        "quote": "oslovovat relevantní decision makery telefonicky, e-mailem, přes LinkedIn a další vhodné B2B kanály;",
+        "contentHash": "0df2cd0b9468a2b0c98ceccca5ee756d6b89db0e71ba0ad02a6654c68b39a3db"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000017",
-      "text": "Give a 15 minute demo of the product to a potential client.",
-      "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" },
-      "related": [], "pathKey": "sales",
-      "source": { "id": "src_00000000000000000000000017", "url": "https://example.com/jobs/sales-2", "title": "[FAKE] Sales ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Give a 15 minute demo of the product to a potential client.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8Y84TAZQ69VXDHY4VJHDQ",
+      "text": "Write down every lead, contact and next step in the CRM system so nothing gets forgotten.",
+      "occupation": {
+        "uri": "urn:stub:occupation:sales-representative",
+        "label": "Sales representative",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+            "label": "specialista pro merchandising/specialistka pro merchandising",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "sales",
+      "source": {
+        "id": "src_01M4F8Y84TH0MB80BFQH51GPY7",
+        "url": "https://www.volnamista.cz/nabidka-prace/junior-business-development-b2b-sales-specialist/211002399",
+        "title": "JUNIOR BUSINESS DEVELOPMENT / B2B SALES SPECIALIST v Gotty s.r.o. Praha, Volná místa cz",
+        "fetchedAt": "2026-10-09T02:47:30.910Z",
+        "tool": "exa",
+        "quote": "zapisovat leady, kontakty, další kroky a follow-up do CRM;",
+        "contentHash": "0df2cd0b9468a2b0c98ceccca5ee756d6b89db0e71ba0ad02a6654c68b39a3db"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000018",
-      "text": "Follow up with a customer who went quiet, and win them back.",
-      "occupation": { "uri": "urn:stub:occupation:sales", "label": "Sales", "lang": "en" },
-      "related": [], "pathKey": "sales",
-      "source": { "id": "src_00000000000000000000000018", "url": "https://example.com/jobs/sales-3", "title": "[FAKE] Sales ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Follow up with a customer who went quiet, and win them back.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8YHHVMNKPS4TY4Z3D8TVX",
+      "text": "Help prepare materials for campaigns, such as emails, direct mail, webinars, paid ads and social media posts.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/6fcf4638-e7c7-4978-9302-9a7b63a3d57c",
+        "label": "marketingový manažer/marketingová manažerka",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "marketing",
+      "source": {
+        "id": "src_01M4F8YHHVC9TT8CWC92KZ5V6D",
+        "url": "https://jobs.smartrecruiters.com/ayming/744000149368759",
+        "title": "Marketing Assistant / Junior Marketing Specialist - nástup od 11/2026 at Ayming",
+        "fetchedAt": "2026-10-09T02:47:41.451Z",
+        "tool": "exa",
+        "quote": "příprava podkladů pro kampaně – e-mailing, direct mail, webináře, PPC, sociální sítě",
+        "contentHash": "73ea109894ee01cba7c6317d63ad245a586c220ec6a69a6dc76af3f220ddd845"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000019",
-      "text": "Write the posts for a product launch on Instagram and LinkedIn.",
-      "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" },
-      "related": [], "pathKey": "marketing",
-      "source": { "id": "src_00000000000000000000000019", "url": "https://example.com/jobs/marketing-1", "title": "[FAKE] Marketing ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Write the posts for a product launch on Instagram and LinkedIn.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8YHHVJT6RZBQ2RW5AX180",
+      "text": "Keep the website and LinkedIn content up to date and check that it is still current.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/6fcf4638-e7c7-4978-9302-9a7b63a3d57c",
+        "label": "marketingový manažer/marketingová manažerka",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "marketing",
+      "source": {
+        "id": "src_01M4F8YHHVW7H83AZJ6BSAEFTA",
+        "url": "https://jobs.smartrecruiters.com/ayming/744000149368759",
+        "title": "Marketing Assistant / Junior Marketing Specialist - nástup od 11/2026 at Ayming",
+        "fetchedAt": "2026-10-09T02:47:41.451Z",
+        "tool": "exa",
+        "quote": "správa obsahu na **webu (WordPress)** a **LinkedInu**, kontrola aktuálnosti",
+        "contentHash": "73ea109894ee01cba7c6317d63ad245a586c220ec6a69a6dc76af3f220ddd845"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000020",
-      "text": "Run two versions of an ad and work out which one works better.",
-      "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:data", "label": "Data analyst", "lang": "en" }, "weight": 0.5 }], "pathKey": "marketing",
-      "source": { "id": "src_00000000000000000000000020", "url": "https://example.com/jobs/marketing-2", "title": "[FAKE] Marketing ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Run two versions of an ad and work out which one works better.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8YHHV8K5WZM5TVJVGXTTY",
+      "text": "Make sure the content that gets published is correct, and help keep the website regularly updated.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/6fcf4638-e7c7-4978-9302-9a7b63a3d57c",
+        "label": "marketingový manažer/marketingová manažerka",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "marketing",
+      "source": {
+        "id": "src_01M4F8YHHVZZFBDMR7Z78YY87A",
+        "url": "https://www.pracezarohem.cz/dl/jd/PZRG-6d6c8cc5-bcde-41c0-bdc9-c07b177b01be",
+        "title": "Junior Marketing Coordinator | Práce za rohem",
+        "fetchedAt": "2026-10-09T02:47:41.451Z",
+        "tool": "exa",
+        "quote": "Zajištění správnosti publikovaného obsahu a pravidelných webových updateů",
+        "contentHash": "1fb8d6f3c8e3343cb8d2b0be232f6e67361d1191f6a0eca0c616f4e9f8e26516"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000021",
-      "text": "Plan a month of content for the company blog.",
-      "occupation": { "uri": "urn:stub:occupation:marketing", "label": "Marketing", "lang": "en" },
-      "related": [], "pathKey": "marketing",
-      "source": { "id": "src_00000000000000000000000021", "url": "https://example.com/jobs/marketing-3", "title": "[FAKE] Marketing ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Plan a month of content for the company blog.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8YS8TZXV381A738WPA9JH",
+      "text": "Keep the sales, design, network, warehouse and finance teams and outside suppliers talking, so the job moves forward together.",
+      "occupation": {
+        "uri": "urn:stub:occupation:project-coordinator",
+        "label": "Project coordinator",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:sales-representative",
+            "label": "Sales representative",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "project-coordination",
+      "source": {
+        "id": "src_01M4F8YS8TCNZY8E125EHWM9PR",
+        "url": "https://www.pracezarohem.cz/dl/jd/PZRG-c78e3de9-54a9-4fd8-a268-540036389dd1",
+        "title": "Junior projektový koordinátor – optická síť a zákaznické aktivace | Práce za rohem",
+        "fetchedAt": "2026-10-09T02:47:50.151Z",
+        "tool": "exa",
+        "quote": "Koordinuješ Sales, Projektanta, Inženýring, Network, Realizaci, sklad, Finance i externí dodavatele.",
+        "contentHash": "324a41979e19f9e4a5b0c63697f06957ca39112fcfba1d2b533ae16b60269202"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000022",
-      "text": "Plan a team offsite for 40 people: venue, travel, schedule.",
-      "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" },
-      "related": [], "pathKey": "ops",
-      "source": { "id": "src_00000000000000000000000022", "url": "https://example.com/jobs/ops-1", "title": "[FAKE] Project coordinator ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Plan a team offsite for 40 people: venue, travel, schedule.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8YS8T958J95RHYH9KT89P",
+      "text": "Own a client's change request and follow it all the way until the work is delivered.",
+      "occupation": {
+        "uri": "urn:stub:occupation:project-coordinator",
+        "label": "Project coordinator",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+            "label": "specialista pro merchandising/specialistka pro merchandising",
+            "lang": "cs"
+          },
+          "weight": 0.5
+        },
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+            "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "project-coordination",
+      "source": {
+        "id": "src_01M4F8YS8TYJWN617XYYPBPW3X",
+        "url": "https://mindpal.co/jobs/99775",
+        "title": "Junior • IT Project Coordinator • Praha, Czechia | MindPal Jobs",
+        "fetchedAt": "2026-10-09T02:47:50.151Z",
+        "tool": "exa",
+        "quote": "Take ownership of client change requests and coordinate them through delivery",
+        "contentHash": "986ffb2cae49d0ca913abecc92b2d796c36cfdd04756e89e1f1b168721a554bc"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000023",
-      "text": "Keep a project on track: who does what by when, and chase what’s late.",
-      "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" },
-      "related": [], "pathKey": "ops",
-      "source": { "id": "src_00000000000000000000000023", "url": "https://example.com/jobs/ops-2", "title": "[FAKE] Project coordinator ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Keep a project on track: who does what by when, and chase what’s late.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8YS8VC9TYDDJ25N029PPX",
+      "text": "Watch the plan, and when a project or request starts to drift off track, raise it quickly and clearly.",
+      "occupation": {
+        "uri": "urn:stub:occupation:project-coordinator",
+        "label": "Project coordinator",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+            "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+            "lang": "cs"
+          },
+          "weight": 0.2
+        }
+      ],
+      "pathKey": "project-coordination",
+      "source": {
+        "id": "src_01M4F8YS8VARQF807F0SGQP3WK",
+        "url": "https://mindpal.co/jobs/99775",
+        "title": "Junior • IT Project Coordinator • Praha, Czechia | MindPal Jobs",
+        "fetchedAt": "2026-10-09T02:47:50.151Z",
+        "tool": "exa",
+        "quote": "Actively address issues when projects or requests deviate from the plan",
+        "contentHash": "986ffb2cae49d0ca913abecc92b2d796c36cfdd04756e89e1f1b168721a554bc"
+      }
     },
     {
-      "cardId": "crd_00000000000000000000000024",
-      "text": "Set up a simple system so customer requests stop getting lost.",
-      "occupation": { "uri": "urn:stub:occupation:ops", "label": "Project coordinator", "lang": "en" },
-      "related": [{ "occupation": { "uri": "urn:stub:occupation:backend", "label": "Backend developer", "lang": "en" }, "weight": 0.2 }], "pathKey": "ops",
-      "source": { "id": "src_00000000000000000000000024", "url": "https://example.com/jobs/ops-3", "title": "[FAKE] Project coordinator ad", "fetchedAt": "2026-10-09T00:00:00Z", "tool": "exa", "quote": "Set up a simple system so customer requests stop getting lost.", "contentHash": "0000000000000000000000000000000000000000000000000000000000000000" }
+      "cardId": "crd_01M4F8Z3RWWPYD6ZPMF2TMVXC0",
+      "text": "Listen to what customers and clients say and pass their feedback on to the team.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+        "label": "specialista pro merchandising/specialistka pro merchandising",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "customer-support",
+      "source": {
+        "id": "src_01M4F8Z3RWXG9AXP4WJ9SGWYP5",
+        "url": "https://www.fnshp.cz/junior-marketing",
+        "title": "JUNIOR MARKETINGOVÝ A PROJEKTOVÝ SPECIALISTA - PRAHA (stáž) - fnshp.cz",
+        "fetchedAt": "2026-10-09T02:47:59.406Z",
+        "tool": "exa",
+        "quote": "naslouchat zpětné vazbě našich zákazníků a klientů",
+        "contentHash": "80c7644aaad29b083ce7ec65ba11be98f0e21682404e6438f80343a17f8780de"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8Z3RXZJ211DPNA0Y1N4Y8",
+      "text": "Make sure customers can find all the info they need about products on the online shops.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+        "label": "specialista pro merchandising/specialistka pro merchandising",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "customer-support",
+      "source": {
+        "id": "src_01M4F8Z3RXBSW5HN6A7C0GXB93",
+        "url": "https://www.vimvic.cz/pracovni-nabidka/junior-e-commerce-produktovy-specialista-produktova-specialistka",
+        "title": "Junior E-commerce produktový specialista/produktová specialistka | VímVíc.cz",
+        "fetchedAt": "2026-10-09T02:47:59.406Z",
+        "tool": "exa",
+        "quote": "Zodpovědnost za správné fungování e‑shopů, správnost ceníků produktů a zajištění, aby zákazníci (B2C i B2B) měli k dispozici veškeré potřebné informace",
+        "contentHash": "4b368df0686012c656669a3d84fc77e1d074acddcd64e92d781a1821d806760e"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8Z3RY523GYZM5KJBPJQBZ",
+      "text": "Look for weak spots in customer feedback and send useful notes to the team.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+        "label": "specialista pro merchandising/specialistka pro merchandising",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "customer-support",
+      "source": {
+        "id": "src_01M4F8Z3RYYHNZQTXVER1ZTK6A",
+        "url": "https://www.vimvic.cz/pracovni-nabidka/junior-e-commerce-produktovy-specialista-produktova-specialistka",
+        "title": "Junior E-commerce produktový specialista/produktová specialistka | VímVíc.cz",
+        "fetchedAt": "2026-10-09T02:47:59.406Z",
+        "tool": "exa",
+        "quote": "Identifikace slabých míst, analýza zpětné vazby a dodávání relevantních podkladů do týmu pro stanovení priorit rozvoje",
+        "contentHash": "4b368df0686012c656669a3d84fc77e1d074acddcd64e92d781a1821d806760e"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZC6ZJSWCQ1R8MVC9FXPV",
+      "text": "Help keep the internal helpdesk running for more than 300 users.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+        "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+            "label": "specialista pro merchandising/specialistka pro merchandising",
+            "lang": "cs"
+          },
+          "weight": 0.8
+        },
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:project-coordinator",
+            "label": "Project coordinator",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "it-support",
+      "source": {
+        "id": "src_01M4F8ZC70ZE6CSBY8N7EYCWJH",
+        "url": "https://www.jenprace.cz/nabidka/7d2c1g/it-projektovy-manazer-junior",
+        "title": "IT Projektový Manažer Junior | JenPráce.cz",
+        "fetchedAt": "2026-10-09T02:48:09.743Z",
+        "tool": "exa",
+        "quote": "Čeká Tě zajímavá a zodpovědná práce v týmu profesionálů, kdy Tvojí hlavní odpovědností bude podílet se na fungování interního helpdesku pro více, než 300 uživatelů a spolupracovat při vývoji interních systémů.",
+        "contentHash": "4bc9d6f50c6d9781c66563f6635ba125cef4e96234460f0e8b3f49f9fc0658de"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZC70S06KPEFMS441DAM2",
+      "text": "Solve everyday problems that users bring to you, and enjoy talking with people.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+        "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/f1fcad3b-fdf0-444a-81b0-e50e96f8966a",
+            "label": "specialista pro merchandising/specialistka pro merchandising",
+            "lang": "cs"
+          },
+          "weight": 0.9
+        }
+      ],
+      "pathKey": "it-support",
+      "source": {
+        "id": "src_01M4F8ZC702QRMY3GF4YT81MV5",
+        "url": "https://www.jenprace.cz/nabidka/7d2c1g/it-projektovy-manazer-junior",
+        "title": "IT Projektový Manažer Junior | JenPráce.cz",
+        "fetchedAt": "2026-10-09T02:48:09.743Z",
+        "tool": "exa",
+        "quote": "Orientuješ se v IT, baví Tě komunikace s lidmi a řešení uživatelských problémů?",
+        "contentHash": "4bc9d6f50c6d9781c66563f6635ba125cef4e96234460f0e8b3f49f9fc0658de"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZC70G72RF4YH6QPE3T6N",
+      "text": "Prepare notes and details that programmers need, and work with them.",
+      "occupation": {
+        "uri": "http://data.europa.eu/esco/occupation/8b6388a4-4904-471b-9331-d3b1211f5525",
+        "label": "projektový manažer pro ICT / projektová manažerka pro ICT",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/b9711647-463f-4991-a858-d5de66ff2f83",
+            "label": "developer/developerka",
+            "lang": "cs"
+          },
+          "weight": 0.4
+        },
+        {
+          "occupation": {
+            "uri": "urn:stub:occupation:project-coordinator",
+            "label": "Project coordinator",
+            "lang": "cs"
+          },
+          "weight": 0.5
+        }
+      ],
+      "pathKey": "it-support",
+      "source": {
+        "id": "src_01M4F8ZC70SRZ09KVJTPTFDKHT",
+        "url": "https://www.jenprace.cz/nabidka/7d2c1g/it-projektovy-manazer-junior",
+        "title": "IT Projektový Manažer Junior | JenPráce.cz",
+        "fetchedAt": "2026-10-09T02:48:09.743Z",
+        "tool": "exa",
+        "quote": "Příprava podkladů a spolupráce s programátory",
+        "contentHash": "4bc9d6f50c6d9781c66563f6635ba125cef4e96234460f0e8b3f49f9fc0658de"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZN432TTD11GB0HXWMHDX",
+      "text": "Make social media posts and ads for online campaigns.",
+      "occupation": {
+        "uri": "urn:stub:occupation:graphic-designer",
+        "label": "Graphic designer",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/6fcf4638-e7c7-4978-9302-9a7b63a3d57c",
+            "label": "marketingový manažer/marketingová manažerka",
+            "lang": "cs"
+          },
+          "weight": 0.7
+        }
+      ],
+      "pathKey": "graphic-design",
+      "source": {
+        "id": "src_01M4F8ZN43VS7ZDJA3XXYYYHA3",
+        "url": "https://www.volnamista.cz/nabidka-prace/junior-graphic-designer/211168929",
+        "title": "Junior Graphic Designer v Studio perspektiv s.r.o. Praha, Volná místa cz",
+        "fetchedAt": "2026-10-09T02:48:17.177Z",
+        "tool": "exa",
+        "quote": "tvořit kreativy pro online kampaně a sociální sítě",
+        "contentHash": "330418c1bfaee8d6dbd83c9c89274a6772abb2f4a744ccf6cbe7021af8bf2776"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZN44WPP0E18YJ7D9PY62",
+      "text": "Resize and adapt existing visuals so they fit other formats.",
+      "occupation": {
+        "uri": "urn:stub:occupation:graphic-designer",
+        "label": "Graphic designer",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "graphic-design",
+      "source": {
+        "id": "src_01M4F8ZN44CG01TK0FQRQVD95K",
+        "url": "https://www.volnamista.cz/nabidka-prace/junior-graphic-designer/211168929",
+        "title": "Junior Graphic Designer v Studio perspektiv s.r.o. Praha, Volná místa cz",
+        "fetchedAt": "2026-10-09T02:48:17.177Z",
+        "tool": "exa",
+        "quote": "připravovat resizy a adaptace vizuálů",
+        "contentHash": "330418c1bfaee8d6dbd83c9c89274a6772abb2f4a744ccf6cbe7021af8bf2776"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZN44WMA9HH1N6J004DWQ",
+      "text": "Do basic edits and touch-ups on photos.",
+      "occupation": {
+        "uri": "urn:stub:occupation:graphic-designer",
+        "label": "Graphic designer",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "graphic-design",
+      "source": {
+        "id": "src_01M4F8ZN4451KYKHDRSEK2NPRN",
+        "url": "https://www.volnamista.cz/nabidka-prace/junior-graphic-designer/211168929",
+        "title": "Junior Graphic Designer v Studio perspektiv s.r.o. Praha, Volná místa cz",
+        "fetchedAt": "2026-10-09T02:48:17.177Z",
+        "tool": "exa",
+        "quote": "dělat základní úpravy a retuše fotografií",
+        "contentHash": "330418c1bfaee8d6dbd83c9c89274a6772abb2f4a744ccf6cbe7021af8bf2776"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZXZ4NHBEFZC74JN3YZ08",
+      "text": "Check incoming and outgoing invoices and make sure they are handled correctly.",
+      "occupation": {
+        "uri": "urn:stub:occupation:accountant-assistant",
+        "label": "Accountant assistant",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "accounting",
+      "source": {
+        "id": "src_01M4F8ZXZ46FGW0YJWZ67A1ZYE",
+        "url": "https://www.jenprace.cz/nabidka/xe3y9e/junior-ucetni-m-z-moznost-zkraceneho-uvazku-idealni-i-pro-absolventy",
+        "title": "Junior účetní (m/ž) – možnost zkráceného úvazku, ideální i pro absolventy 📊 | JenPráce.cz",
+        "fetchedAt": "2026-10-09T02:48:27.191Z",
+        "tool": "exa",
+        "quote": "📈Zpracování a kontrola přijatých i vydaných faktur",
+        "contentHash": "940efdbff83bac1439fdc8840bc018a2872d6c163ee40d4229d051281949c683"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZXZ4KVJ5WFRRVFM919DW",
+      "text": "Learn step by step how to record accounting papers, process invoices, and handle bank and cash records.",
+      "occupation": {
+        "uri": "urn:stub:occupation:accountant-assistant",
+        "label": "Accountant assistant",
+        "lang": "cs"
+      },
+      "related": [],
+      "pathKey": "accounting",
+      "source": {
+        "id": "src_01M4F8ZXZ4QY85RJ2WN6NNFW7K",
+        "url": "https://personalka.cz/index.php/1065016",
+        "title": "Nabídka práce: Junior účetní / Asistent(ka) ekonomického ředitele\n - Personálka.cz",
+        "fetchedAt": "2026-10-09T02:48:27.191Z",
+        "tool": "exa",
+        "quote": "Postupné zaučení do agendy finančního účetnictví (evidence účetních dokladů, zpracování faktur, banky, pokladny apod.)",
+        "contentHash": "b35480660f3fed1e27b107d2d24eda242c3132e14880784d791184963285a2b2"
+      }
+    },
+    {
+      "cardId": "crd_01M4F8ZXZ6ECRGZBJ6FWKMG9YT",
+      "text": "Help prepare the papers the auditor needs for the final report, working under an auditor's guidance.",
+      "occupation": {
+        "uri": "urn:stub:occupation:accountant-assistant",
+        "label": "Accountant assistant",
+        "lang": "cs"
+      },
+      "related": [
+        {
+          "occupation": {
+            "uri": "http://data.europa.eu/esco/occupation/8d9ec84d-cf2d-4179-87bc-335cda54a427",
+            "label": "databázový designér/databázová designérka",
+            "lang": "cs"
+          },
+          "weight": 0.3
+        }
+      ],
+      "pathKey": "accounting",
+      "source": {
+        "id": "src_01M4F8ZXZ615HB5SWC05RVE7JD",
+        "url": "https://advancesro.cz/nabidky-prace/junior-ucetni-ucetni-asistent-ka/",
+        "title": "Junior účetní/účetní asistent/ka | Personální agentura ADVANCE HR, s.r.o.",
+        "fetchedAt": "2026-10-09T02:48:27.191Z",
+        "tool": "exa",
+        "quote": "Vaším hlavním úkolem bude účast na průběžných auditech společností z různých odvětví, práce pod vedením auditora, provádění účetních kontrol a analýz, práce s daty v Excelu a využití Excelu při auditorských analýzách, příprava podkladů pro závěrečnou zprávu auditora, zpracování příslušné dokumentace.",
+        "contentHash": "70eb6a02e31e391a483aa861678a503ab81a301a131c9ff6cebbe18634e82ba2"
+      }
     }
   ]
 }
