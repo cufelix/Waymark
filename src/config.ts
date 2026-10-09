@@ -40,8 +40,9 @@ const Env = z.object({
   FIRECRAWL_API_KEY: optional,
   GITHUB_TOKEN: optional,
   ELEVENLABS_API_KEY: optional,
-  ELEVENLABS_VOICE_ID: z.string().default("21m00Tcm4TlvDq8MzCmL"),
-  ELEVENLABS_TTS_MODEL: z.string().default("eleven_flash_v2_5"),
+  // An empty value (compose passes "" when unset) falls back to the default voice too.
+  ELEVENLABS_VOICE_ID: z.string().trim().min(1).catch("UgBBYS2sOqTuMpoF3BR0"),
+  ELEVENLABS_TTS_MODEL: z.string().trim().min(1).catch("eleven_flash_v2_5"),
 
   CAP_LLM_USD: z.coerce.number().default(50),
   CAP_APIFY_USD: z.coerce.number().default(50),
