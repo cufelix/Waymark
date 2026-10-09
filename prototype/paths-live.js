@@ -92,6 +92,8 @@ async function choose(index, button) {
     profile = await Live.api('GET', '/v1/seekers/' + seekerId + '/profile');
     const validation = await Live.api('POST', '/v1/validations', { profile, runId, occupationUri: path.occupation.uri });
     Live.store.set('validationId', validation.validationId);
+    Live.store.set('roadmapId', null);
+    Live.store.set('chapterId', null);
     location.href = Live.href('roadmap.html');
   } catch (error) {
     choosing = false; if (button) button.textContent = old;

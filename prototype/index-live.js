@@ -248,6 +248,9 @@ async function finish() {
     if (profile.status !== 'complete') throw new Error('The guided intake is not complete yet');
     const run = await Live.api('POST', '/v1/research-runs', { profile, options: { nameSearch: profile.consent.nameSearch } });
     Live.store.set('runId', run.runId);
+    Live.store.set('validationId', null);
+    Live.store.set('roadmapId', null);
+    Live.store.set('chapterId', null);
     location.href = Live.href('research.html');
   } catch (error) { Live.banner('Could not start the research: ' + error.message, 'error'); }
 }
