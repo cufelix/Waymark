@@ -126,12 +126,41 @@ function cacheKey(chapter: RoadmapChapter, lang: string, occupation: Occupation)
   return `${slug(chapter.title)}|${lang}|${occupation.uri}`;
 }
 
+// A reply cut off by the token limit still holds whole resource objects before the cut; keep those.
+function salvageTruncated(text: string): unknown {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let lastItemEnd = -1;
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === "{" || char === "[") depth++;
+    else if (char === "}" || char === "]") {
+      depth--;
+      if (char === "}" && depth === 2) lastItemEnd = index;
+    }
+  }
+  if (lastItemEnd < 0) return undefined;
+  try {
+    return JSON.parse(`${text.slice(0, lastItemEnd + 1)}]}`);
+  } catch {
+    return undefined;
+  }
+}
+
 function parseCandidates(raw: string): ResourceCandidate[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(unfence(raw));
   } catch {
-    return [];
+    parsed = salvageTruncated(unfence(raw).trim());
   }
   if (!isObject(parsed) || !Array.isArray(parsed.resources)) return [];
 
@@ -347,7 +376,7 @@ export async function findResources(
         model: MODELS.fast,
         json: true,
         temperature: 0,
-        maxCompletionTokens: 2_000,
+        maxCompletionTokens: 6_000,
         messages: [
           {
             role: "system",

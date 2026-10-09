@@ -96,7 +96,7 @@ async function addResources(
   const worker = async (): Promise<void> => {
     while (next < chapters.length) {
       const chapter = chapters[next++]!;
-      const result = await builders.findResources(
+      const lookup = () => builders.findResources(
         chapter,
         {
           occupation,
@@ -112,6 +112,17 @@ async function addResources(
           ...(deps.now === undefined ? {} : { now: deps.now }),
         },
       );
+      // One flaky lookup (rate limit, cut-off model reply) must not sink the whole roadmap: retry once, then
+      // leave that chapter without resources and let the actionability check below decide.
+      let result: Awaited<ReturnType<typeof findResources>> = { resources: [] };
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          result = await lookup();
+          if (result.resources.length > 0) break;
+        } catch {
+          // Retried once; an empty result is handled below.
+        }
+      }
       results.set(chapter.chapterId, result);
     }
   };
