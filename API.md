@@ -200,7 +200,7 @@ Stage 4 of the whiteboard. It turns a validation into a learning roadmap for the
 - **Modules** come in prerequisite order, for example "Python + Mathematics: core foundations", then "Data + SQL".
 - Each module holds **chapters**, for example "Variables and logic". The UI prototype calls modules "sections" and chapters "modules".
 - Each chapter lists **learning resources** found on the web: free resources first, and one marked as the top pick.
-- Its inputs are the validation from Part 3 (over HTTP) and the seeker's profile. It finds resources with Exa: one search per chapter, then the fast model picks and labels them from the page text.
+- Its inputs are the validation from Part 3 (over HTTP) and the seeker's profile. It finds resources with Exa, trying the seeker's languages in order when a search is empty, then the fast model picks and labels them from the page text.
 - Code lives in `src/roadmap/`. It is mounted the same way as Part 3, through `src/api/part4.ts`.
 
 | Method and path | Does | Body | Returns |
@@ -231,7 +231,9 @@ What the whiteboard's two steps become:
 - **Resources:**
   - Every resource has a `source` (the page, tool `exa`) whose `quote` appears on that page.
   - `price`, `effortHours` and `scope` are filled only when the page states them.
-  - Resources are cached per skill and language across seekers, because they hold nothing personal.
+  - Resources are cached per skill and language across seekers, because they hold nothing personal. Cached evidence expires after `RESOURCE_CACHE_TTL_HOURS` (seven days by default).
+  - Repeated URLs are removed across chapters when another verified resource is available. An unfinished chapter cannot make the roadmap `ready` when resource discovery is configured but finds nothing verified; `free-only` also requires at least one verified free resource per unfinished chapter.
+  - A provider failure marks the background build `failed`; it is not disguised as a ready roadmap with empty resources.
 
 **Guardrail:** the same as in Part 3. The roadmap has no progress percentage, no XP and no level. The API returns no "3 of 16 chapters" count, and nothing compares the seeker with other people.
 

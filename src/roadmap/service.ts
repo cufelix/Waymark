@@ -5,7 +5,7 @@ import { newId } from "../seeker/core/ids.ts";
 import { validateSeekerProfile } from "../seeker/core/validate.ts";
 import type { Roadmap, RoadmapChapter, RoadmapProgress, RoadmapRequest } from "./contracts.ts";
 import { planModules } from "./planner.ts";
-import { findResources, type ResourceCache } from "./resources.ts";
+import { findResources, pickTopResource, type ResourceCache } from "./resources.ts";
 import type { RoadmapStore } from "./store.ts";
 import { pickTarget } from "./target.ts";
 import type { ValidationReader } from "./validation-client.ts";
@@ -16,6 +16,7 @@ export type RoadmapDeps = {
   llm: LlmClient;
   exa: ExaClient | null;
   cache: ResourceCache;
+  resourceCacheTtlHours?: number;
   now?: () => Date;
 };
 
@@ -72,6 +73,7 @@ async function addResources(
   builders: RoadmapBuilders,
 ): Promise<void> {
   const chapters = modules.flatMap((module) => module.chapters);
+  const results = new Map<string, Awaited<ReturnType<typeof findResources>>>();
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < chapters.length) {
@@ -84,14 +86,58 @@ async function addResources(
           langs: request.profile.preferences.languages.map(({ lang }) => lang),
           courseBudget: request.profile.preferences.courseBudget,
         },
-        { exa: deps.exa, llm: deps.llm, cache: deps.cache },
+        {
+          exa: deps.exa,
+          llm: deps.llm,
+          cache: deps.cache,
+          ...(deps.resourceCacheTtlHours === undefined ? {} : { cacheTtlHours: deps.resourceCacheTtlHours }),
+          ...(deps.now === undefined ? {} : { now: deps.now }),
+        },
       );
-      chapter.resources = result.resources;
-      if (result.topPickId === undefined) delete chapter.topPickId;
-      else chapter.topPickId = result.topPickId;
+      results.set(chapter.chapterId, result);
     }
   };
   await Promise.all(Array.from({ length: Math.min(4, chapters.length) }, worker));
+
+  const seenUrls = new Set<string>();
+  for (const chapter of chapters) {
+    const result = results.get(chapter.chapterId) ?? { resources: [] };
+    const unseen = result.resources.filter(({ url }) => !seenUrls.has(canonicalResourceUrl(url)));
+    // Prefer unique material, but keep one shared resource rather than making a chapter unactionable.
+    chapter.resources = unseen.length > 0 ? unseen : result.resources.slice(0, 1);
+    for (const { url } of chapter.resources) seenUrls.add(canonicalResourceUrl(url));
+    const topPickId = pickTopResource(
+      chapter.resources,
+      chapter,
+      request.profile.preferences.goal,
+      request.profile.preferences.courseBudget,
+    );
+    if (topPickId === undefined) delete chapter.topPickId;
+    else chapter.topPickId = topPickId;
+  }
+
+  const freeOnly = request.profile.preferences.courseBudget === "free-only";
+  if (deps.exa !== null && chapters.some((chapter) =>
+    !chapter.done && (chapter.resources.length === 0 || (freeOnly && !chapter.resources.some(({ cost }) => cost === "free")))
+  )) {
+    throw new ApiError("upstream_failed", "No verified learning resource was found for an unfinished chapter");
+  }
+}
+
+function canonicalResourceUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.hostname = url.hostname.toLowerCase();
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(?:utm_.+|fbclid|gclid|ref)$/iu.test(key)) url.searchParams.delete(key);
+    }
+    url.searchParams.sort();
+    if (url.pathname !== "/") url.pathname = url.pathname.replace(/\/+$/u, "");
+    return url.toString();
+  } catch {
+    return value;
+  }
 }
 
 /** Stores a building roadmap immediately, then completes its modules and resources in the background. */

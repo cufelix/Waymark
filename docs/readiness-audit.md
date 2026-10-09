@@ -79,13 +79,18 @@ Recommended evaluation set: at least 20 consented/internal personas spanning und
 
 - Current e2e output is constructed from deterministic fake model/search responses, so it proves plumbing and guards, not pedagogical quality.
 - Resource ranking is primarily free-first plus result order/format preference; it does not measure teaching quality, prerequisites, accessibility, recency or completion outcomes.
-- Search failures can yield a ready roadmap with empty resource lists.
-- Resource cache has no TTL or freshness revalidation.
-- There is no cross-chapter deduplication or dead-link checker.
-- Language selection uses the first seeker language, which may not be the desired learning language.
+- There is no live dead-link checker; cache expiry limits how long stale evidence can be reused but does not prove a page remains available between refreshes.
+- Resource search falls back through the seeker's languages, but the profile still has no dedicated learning-language preference.
 - There is no end-to-end live evaluation of whether the proposed sequence fits the available weekly hours.
 
-Recommended rubric per roadmap: prerequisite correctness, coverage of high-demand missing skills, realistic scope for weekly hours, no teaching of already-known material, resource availability/cost accuracy, source freshness, language fit and actionability of every chapter outcome.
+The repeatable benchmark and acceptance thresholds are in [Quality evaluation](quality-evaluation.md). It still needs reviewed real data and human results before any quality claim.
+
+### Closed roadmap reliability items on this branch
+
+- Configured resource-provider failures now fail the build instead of producing a misleading ready roadmap; unfinished chapters require a verified resource.
+- Cached resource evidence has a configurable seven-day default TTL.
+- Searches try the seeker's next language when the preceding language returns no pages.
+- Tracking-normalized duplicate URLs are removed across chapters when an alternative keeps the chapter actionable, and top picks are recalculated afterwards.
 
 ### Privacy operations
 

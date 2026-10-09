@@ -38,6 +38,7 @@ function load(): Promise<{ part4: Part4; deps: unknown }> {
         validations: new validations.HttpValidationReader({ baseUrl, apiKey }),
         llm: new llm.OpenRouterClient(config.OPENROUTER_API_KEY),
         exa: exa.exaFromEnv(),
+        resourceCacheTtlHours: config.RESOURCE_CACHE_TTL_HOURS,
         apiKeys: apiKeys(),
       },
     };

@@ -18,6 +18,7 @@ const Env = z.object({
   PERSONAL_DATA_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
   RETENTION_PURGE_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
   DELETION_RETRY_INTERVAL_SECONDS: z.coerce.number().int().min(10).max(3600).default(60),
+  RESOURCE_CACHE_TTL_HOURS: z.coerce.number().int().min(1).max(8760).default(168),
 
   OPENROUTER_API_KEY: optional,
   LLM_AGENT_MODEL: z.string().default("anthropic/claude-sonnet-5.5"),

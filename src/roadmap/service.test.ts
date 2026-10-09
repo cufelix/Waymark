@@ -204,6 +204,74 @@ test("resource discovery runs at no more than four chapters concurrently", async
   assert.equal(maximum, 4);
 });
 
+test("resource discovery removes repeated URLs when a chapter has an alternative", async () => {
+  const secondChapter = evidenceChapter("chp_00000000000000000000000002");
+  const builders = fakeBuilders(modules([evidenceChapter(), secondChapter]));
+  const unique: LearningResource = {
+    ...structuredClone(RESOURCE),
+    resourceId: "res_00000000000000000000000002",
+    url: "https://example.com/learn/sql-practice",
+    source: {
+      ...structuredClone(RESOURCE.source),
+      id: "src_00000000000000000000000021",
+      url: "https://example.com/learn/sql-practice",
+    },
+  };
+  builders.findResources = async (chapter) => chapter.chapterId === secondChapter.chapterId
+    ? {
+      resources: [{
+        ...structuredClone(RESOURCE),
+        url: "https://EXAMPLE.com/learn/sql-review/?utm_source=test#chapter",
+      }, unique],
+      topPickId: RESOURCE.resourceId,
+    }
+    : { resources: [structuredClone(RESOURCE)], topPickId: RESOURCE.resourceId };
+  const service = deps();
+
+  const created = await createRoadmap(service, request(), builders);
+  await created.buildPromise;
+  const chapters = (await getRoadmap(service, created.roadmapId)).modules[0]!.chapters;
+
+  assert.deepEqual(chapters[0]!.resources.map(({ url }) => url), [RESOURCE.url]);
+  assert.deepEqual(chapters[1]!.resources.map(({ url }) => url), [unique.url]);
+  assert.equal(chapters[1]!.topPickId, unique.resourceId);
+});
+
+test("a configured resource service cannot produce a ready roadmap with an unfinished empty chapter", async () => {
+  const unfinished = evidenceChapter();
+  unfinished.done = false;
+  delete unfinished.doneBy;
+  const builders = fakeBuilders(modules([unfinished]));
+  builders.findResources = async () => ({ resources: [] });
+  const service = deps();
+  service.exa = { async search() { return []; } };
+  const created = await createRoadmap(service, request(), builders);
+
+  await created.buildPromise;
+
+  const failed = await getRoadmap(service, created.roadmapId);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.error?.code, "upstream_failed");
+});
+
+test("a free-only roadmap requires a free resource for every unfinished chapter", async () => {
+  const unfinished = evidenceChapter();
+  unfinished.done = false;
+  delete unfinished.doneBy;
+  const paid = { ...structuredClone(RESOURCE), cost: "paid" as const };
+  const builders = fakeBuilders(modules([unfinished]));
+  builders.findResources = async () => ({ resources: [paid] });
+  const service = deps();
+  service.exa = { async search() { return []; } };
+  const body = request();
+  body.profile.preferences.courseBudget = "free-only";
+  const created = await createRoadmap(service, body, builders);
+
+  await created.buildPromise;
+
+  assert.equal((await getRoadmap(service, created.roadmapId)).status, "failed");
+});
+
 test("list and delete are seeker-scoped", async () => {
   const service = deps();
   const first = await createRoadmap(service, request(), fakeBuilders());

@@ -51,6 +51,7 @@ Every market fact is expected to keep provenance. Quotes produced from a source 
 | `prototype/` | Browser prototype and local API bridge |
 | `API.md` | Shared HTTP and data contract |
 | `PLAN.md` | Architecture, product rules and delivery plan |
+| `docs/quality-evaluation.md` | Repeatable human review for recommendation and roadmap quality |
 
 ## Run locally
 
@@ -86,6 +87,7 @@ External services are optional by feature:
 | `OPENROUTER_ZDR`, `OPENROUTER_DATA_COLLECTION` | Fail-closed provider privacy routing; defaults to zero retention and denied data collection |
 | `PERSONAL_DATA_RETENTION_DAYS` | Sliding retention period for seeker-owned primary data; defaults to 90 days |
 | `RETENTION_PURGE_INTERVAL_MINUTES`, `DELETION_RETRY_INTERVAL_SECONDS` | Automatic expiry and durable cascade-delete retry workers |
+| `RESOURCE_CACHE_TTL_HOURS` | Maximum age of cached learning-resource evidence; defaults to seven days |
 | `EXA_API_KEY` | Discovery, salary sources, task cards and learning resources |
 | `FIRECRAWL_API_KEY` | Reading public pages selected by the seeker |
 | `APIFY_TOKEN` | Vetted public-data actors |

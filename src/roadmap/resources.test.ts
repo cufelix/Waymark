@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { sha256 } from "../seeker/core/claims.ts";
+import { ApiError } from "../seeker/core/errors.ts";
 import { FakeLlm, MODELS } from "../seeker/llm/llm.ts";
 import { FakeExa, type ExaClient, type ExaResult } from "../seeker/salary/exa.ts";
 import type { LearningResource, RoadmapChapter } from "./contracts.ts";
@@ -353,7 +354,10 @@ test("findResources uses a language- and occupation-specific foundation cache ke
     cache,
   });
 
-  assert.deepEqual(cache.keys, ["how-the-web-works|en|urn:stub:occupation:backend-developer"]);
+  assert.deepEqual(cache.keys, [
+    "how-the-web-works|en|urn:stub:occupation:backend-developer",
+    "how-the-web-works|cs|urn:stub:occupation:backend-developer",
+  ]);
 });
 
 test("findResources returns empty without calling the model when Exa is not configured", async () => {
@@ -369,7 +373,7 @@ test("findResources returns empty without calling the model when Exa is not conf
   assert.equal(llm.calls.length, 0);
 });
 
-test("findResources returns empty when Exa throws", async () => {
+test("findResources reports a sanitized upstream failure when Exa throws", async () => {
   const exa: ExaClient = {
     async search(): Promise<ExaResult[]> {
       throw new Error("fake Exa outage containing a pretend secret");
@@ -377,24 +381,67 @@ test("findResources returns empty when Exa throws", async () => {
   };
   const llm = new FakeLlm([]);
 
-  const result = await findResources(chapter(), context, {
-    exa,
-    llm,
-    cache: new MemoryResourceCache(),
-  });
-
-  assert.deepEqual(result, { resources: [] });
+  await assert.rejects(
+    () => findResources(chapter(), context, { exa, llm, cache: new MemoryResourceCache() }),
+    (error) => error instanceof ApiError && error.code === "upstream_failed" && !error.message.includes("pretend secret"),
+  );
   assert.equal(llm.calls.length, 0);
 });
 
-test("findResources returns empty when the model fails", async () => {
-  const result = await findResources(chapter(), context, {
+test("findResources reports a sanitized upstream failure when the model fails", async () => {
+  await assert.rejects(
+    () => findResources(chapter(), context, {
+      exa: new FakeExa(EXA_PAGES),
+      llm: new FakeLlm([]),
+      cache: new MemoryResourceCache(),
+    }),
+    (error) => error instanceof ApiError && error.code === "upstream_failed",
+  );
+});
+
+test("findResources ignores stale cached evidence and refreshes it", async () => {
+  const stale = (await findResources(chapter(), context, {
     exa: new FakeExa(EXA_PAGES),
-    llm: new FakeLlm([]),
+    llm: new FakeLlm([answer([candidate(0)])]),
+    cache: new MemoryResourceCache(),
+  })).resources;
+  stale[0]!.source.fetchedAt = "2026-09-01T00:00:00Z";
+  const cache: ResourceCache = {
+    async get(): Promise<LearningResource[]> { return stale; },
+    async set(): Promise<void> {},
+  };
+  const exa = new FakeExa(EXA_PAGES);
+
+  const refreshed = await findResources(chapter(), context, {
+    exa,
+    llm: new FakeLlm([answer([candidate(0)])]),
+    cache,
+    cacheTtlHours: 24,
+    now: () => new Date("2026-10-09T00:00:00Z"),
+  });
+
+  assert.equal(exa.calls.length, 1);
+  assert.equal(refreshed.resources.length, 1);
+  assert.notEqual(refreshed.resources[0]!.resourceId, stale[0]!.resourceId);
+});
+
+test("findResources tries the next preferred language when the first search is empty", async () => {
+  const calls: string[] = [];
+  const exa: ExaClient = {
+    async search(query): Promise<ExaResult[]> {
+      calls.push(query);
+      return query.endsWith(" in en") ? [] : EXA_PAGES;
+    },
+  };
+
+  const result = await findResources(chapter(), context, {
+    exa,
+    llm: new FakeLlm([answer([candidate(0, { lang: "cs" })])]),
     cache: new MemoryResourceCache(),
   });
 
-  assert.deepEqual(result, { resources: [] });
+  assert.deepEqual(calls.map((query) => query.slice(-5)), ["in en", "in cs"]);
+  assert.equal(result.resources[0]!.lang, "cs");
 });
 
 test("findResources can top-pick intermediate review material for a chapter done by evidence", async () => {
