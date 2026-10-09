@@ -78,7 +78,7 @@ sequenceDiagram
 | `POST /v1/seekers/{seekerId}/intake/cards/{cardId}/rating` | Rate the current task card. Returns the next card, or `cards.done: true` once the top 3 are clear (8 to 12 cards). | `{ rating: "like" \| "maybe" \| "no" }` | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/cards/more` | "None of these feel right": 4 more cards, picked away from the current top 3. | | `Intake` |
 | `POST /v1/seekers/{seekerId}/intake/chat/skip` | End the "Anything else?" step without (more) chat | | `Intake` |
-| `PUT /v1/seekers/{seekerId}/intake/practical` | The practical bits. Sets `preferences.locations`, `remote`, `hoursPerWeek`, `courseBudget` and `education`; once the cards are done it also sets `targetOccupations` to the top 3 paths, which makes the profile `complete`. | `IntakePractical` | `Intake` |
+| `PUT /v1/seekers/{seekerId}/intake/practical` | The practical bits, all required. Sets `preferences.locations`, `remote`, `hoursPerWeek`, `courseBudget`, `education`, `languages` (at least one) and `dreamCompanies` (may be empty only when sent as an explicit empty list, "none yet"); once the cards are done it also sets `targetOccupations` to the top 3 paths, which makes the profile `complete`. | `IntakePractical` | `Intake` |
 | `PUT /v1/seekers/{seekerId}/preferences` | Set or correct preferences directly, without the interview. Must be complete. | `CareerPreferences` | `CareerPreferences` |
 | `POST /v1/seekers/{seekerId}/documents` | Upload a document (PDF, DOCX, ODT, TXT, Markdown, JPEG, PNG or WebP, max 10 MB). Parsed into stated skills. | multipart field `file`; optional field `kind` (default `"cv"`) | `SeekerDocument` |
 | `DELETE /v1/seekers/{seekerId}/documents/{documentId}` | Remove a document and everything parsed from it | | `{ deleted: true }` |
@@ -97,7 +97,11 @@ The UI runs five steps:
 4. a short "Anything else?" chat with the interview agent;
 5. the optional CV and links.
 
-The free-text interview above is part of this flow (steps 1 and 4), because the cards don't collect what the research needs from the seeker: dream companies, languages, deal breakers and the salary expectation.
+The free-text interview above is part of this flow (steps 1 and 4).
+- **What the research needs is never left to goodwill.** Dream companies and languages are part of the required practical step, where the UI can't go on without them.
+  - Dream companies can be an explicit "none yet".
+  - Languages need at least one entry, prefilled with the country's language.
+- The optional chat in step 4 only adds deal breakers, the salary expectation and answers to questions.
 
 - **Warm-up:**
   - Three fixed questions with options: what pulls you in, people / things / information / ideas, and what matters right now.
@@ -114,7 +118,7 @@ The free-text interview above is part of this flow (steps 1 and 4), because the 
   - The order comes only from the seeker's own answers. It says what they would enjoy, not what they are good at or how likely they are to get hired.
   - There is no score field. The UI's map draws closeness from the order, and the path cards cite the counts ("You liked 4 of 5 coding tasks").
 - **"Anything else?" (step 4, phase `chat`):**
-  - After the practical bits, the interview agent asks only for what is still missing, in a few short turns. Dream companies come first (Part 2 researches them), then languages, deal breakers and the salary expectation.
+  - After the practical bits, the interview agent asks only for what is still missing, in a few short turns: deal breakers and the salary expectation. It may also add dream companies the seeker thinks of now.
   - It doesn't re-ask anything the intake already knows (goal, location, hours, the top 3 paths).
   - Pay questions get the salary lookup.
   - The client uses `POST …/interview/messages` as today; the reply's `done: true` ends the step. `POST …/intake/chat/skip` ends it at once ("Skip, I'm done").
@@ -349,6 +353,8 @@ type IntakePractical = {
   hoursPerWeek: CareerPreferences["hoursPerWeek"];
   courseBudget: CareerPreferences["courseBudget"];
   education: CareerPreferences["education"];
+  languages: CareerPreferences["languages"];          // at least one; the UI prefills the country's language
+  dreamCompanies: CareerPreferences["dreamCompanies"];   // [] = the seeker chose "none yet"
 };
 
 type Intake = {
