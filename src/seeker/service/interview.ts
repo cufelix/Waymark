@@ -57,7 +57,8 @@ const REMOTE_VALUES = new Set(["only", "ok", "no"]);
 const GOAL_VALUES = new Set(["learn-fast", "stability", "mission"]);
 const LANGUAGE_LEVELS = new Set(["basic", "working", "fluent", "native"]);
 const FORBIDDEN_REPLY_SUMMARY = /%|\b(?:scores?|fit|fits|fitting|matches?|matching|percent(?:age)?s?|probabilit(?:y|ies))\b/iu;
-const INTAKE_REASKED_FIELD = /\b(?:goal|what matters most|location|where (?:do|would) you (?:want to )?work|remote|languages?|dream compan(?:y|ies))\b|(?:^|[^\p{L}\p{M}])vysněn[\p{L}\p{M}]*\s+firm[\p{L}\p{M}]*|\b(?:cíl|co je (?:pro tebe )?nejdůležitější|lokalit|kde chceš pracovat|práce na dálku|jazyk)\b/iu;
+const ENGLISH_INTAKE_REASKED_FIELD = /\b(?:goal|what matters most|location|where (?:do|would) you (?:want to )?work|remote|languages?|dream compan(?:y|ies))\b/iu;
+const CZECH_INTAKE_REASKED_FIELD = /(?:^|[^\p{L}\p{M}])(?:cíl(?:ech|em|ům|e|i|ů|y)?|co je (?:pro tebe )?nejdůležitější|lokalit(?:ami|ách|ám|ou|ě|a|y|u)?|kde chceš pracovat|práce na dálku|jazyk(?:em|ům|ů|y|a)?|jazyc(?:ích|e)|vysněn[\p{L}\p{M}]*\s+(?:firm(?:ami|ách|ám|ou|ě|a|y|u)?|firem))(?=$|[^\p{L}\p{M}])/iu;
 const INTAKE_ALLOWED_QUESTION = /\b(?:deal[ -]?breakers?|refuse|avoid|won't|would not|salary|pay|earn|minimum|currency|monthly|yearly)\b|\b(?:nepřijateln|odmít|nechceš|vadilo|plat|mzda|výdělek|minimum|měsíčně|ročně|měna)\b/iu;
 const INTAKE_REQUEST_WORDING = /^(?:(?:please\s+)?(?:tell|list|name|specify|enter|share|state|give|provide|confirm|remind)\b|(?:can|could|would)\s+you\b|(?:prosím[\s,]+)?(?:řekni|napiš|zadej|uveď|vyjmenuj|sdílej|potvrď|připomeň)(?=$|[^\p{L}\p{M}])|můžeš(?=$|[^\p{L}\p{M}]))/iu;
 
@@ -99,7 +100,8 @@ function sanitizeWarmupReply(reply: string, seekerText: string): string {
 function reasksKnownIntakeField(reply: string): boolean {
   return sentences(questionDetectionText(reply)).some((sentence) => {
     const question = sentence.includes("?");
-    const redundantRequest = INTAKE_REASKED_FIELD.test(sentence) && (question || INTAKE_REQUEST_WORDING.test(sentence));
+    const knownField = ENGLISH_INTAKE_REASKED_FIELD.test(sentence) || CZECH_INTAKE_REASKED_FIELD.test(sentence);
+    const redundantRequest = knownField && (question || INTAKE_REQUEST_WORDING.test(sentence));
     return redundantRequest || (question && !INTAKE_ALLOWED_QUESTION.test(sentence));
   });
 }

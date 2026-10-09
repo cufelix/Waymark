@@ -231,6 +231,44 @@ test("intake chat rejects a redundant Czech imperative for dream companies", asy
   assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
 });
 
+test("intake chat rejects a redundant Czech imperative for the known goal", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Napiš, co je pro tebe nejdůležitější." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím nic dalšího.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+});
+
+test("intake chat rejects a redundant Czech imperative for known languages", async () => {
+  const { deps, store } = await setup([
+    answer({ reply: "Napiš své jazyky." }),
+  ]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím nic dalšího.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, INTAKE_CHAT_FIRST_QUESTION);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, INTAKE_CHAT_FIRST_QUESTION);
+});
+
+test("intake chat does not treat a Czech adjective as a known language field", async () => {
+  const reply = "Napiš svůj jazykový certifikát.";
+  const { deps, store } = await setup([answer({ reply })]);
+  await enterIntakeChat(store);
+
+  const result = await interviewTurn(deps, "skr_test", "Zatím nic dalšího.");
+
+  assert.equal(result.done, false);
+  assert.equal(result.reply, reply);
+  assert.equal((await store.get("skr_test"))!.interview.at(-1)!.text, reply);
+});
+
 test("intake chat preserves an acknowledgement containing dream company list", async () => {
   const reply = "Your dream company list is saved.";
   const { deps, store } = await setup([answer({ reply })]);
