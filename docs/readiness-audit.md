@@ -53,14 +53,14 @@ It is not ready for real personal data or public GDPR-compliance claims. The rec
 | Export omits stored run profile/options and artifact content | “Everything stored” is false; access/portability is incomplete | Inventory every store and add complete, tested export representations |
 | No retention policy or automatic purge | Storage limitation is not implemented | Define retention per data class and add scheduled, observable deletion |
 | Request-level OpenRouter privacy routing is enforced, but approved endpoints and processing governance are absent | Zero-retention routing reduces provider storage but does not establish lawful processing, transfer safeguards or an approved provider chain | Enforce the policy at account level, allow-list reviewed providers/regions, and complete DPA/transfer assessment and endpoint verification |
-| Dependency install is not currently reproducible under policy | CI/build cannot be trusted | Resolve recent-package policy gate, use frozen pnpm install and add CI |
-| Lockfile scan reports 14 known vulnerabilities in 3 transitive packages | 8 are high severity; release hygiene is not acceptable | Upgrade/override affected chains, retest, scan clean or document accepted unreachable risk |
 
-Affected lockfile packages at audit time:
+### Closed on this branch
 
-- `axios@1.18.0` through `firecrawl@4.30.1` (fixed version reported by OSV: 1.20.0)
-- `basic-ftp@5.3.1` through `get-uri`/proxy tooling (fixed version reported by OSV: 6.2.1)
-- `sprintf-js@1.0.3` through `mammoth` → `argparse` (no fixed version reported for that chain)
+- OpenRouter requests require zero-retention endpoints and deny provider data collection by default, with payload tests.
+- The dependency lockfile passes the configured minimum-release-age policy and installs reproducibly with `pnpm install --frozen-lockfile`.
+- The unused `mammoth` dependency was removed; vulnerable `axios` and `basic-ftp` transitive paths were overridden to fixed versions. A fresh OSV lockfile scan reports no known vulnerabilities.
+- CI now runs database migrations, Vitest, all framework-free Node tests and strict typechecking against PostgreSQL 17.
+- Apache-2.0 is selected and included in the repository.
 
 ## P1 — quality and operational hardening
 
@@ -107,11 +107,10 @@ Recommended rubric per roadmap: prerequisite correctness, coverage of high-deman
 
 ## Suggested work order
 
-1. Dependency/security cleanup and reproducible CI.
-2. Postgres stores for Parts 1/3/4 plus durable deletion jobs.
-3. User authentication and ownership authorization.
-4. Complete data inventory, export and retention implementation.
-5. Processor allow-list, account-level ZDR enforcement, transfer assessment and deployer privacy notice.
-6. Real CZ intake deck and human recommendation evaluation.
-7. Live roadmap quality benchmark and resource freshness checks.
-8. Public screenshots, status badges and chosen license.
+1. Postgres stores for Parts 1/3/4 plus durable deletion jobs.
+2. User authentication and ownership authorization.
+3. Complete data inventory, export and retention implementation.
+4. Processor allow-list, account-level ZDR enforcement, transfer assessment and deployer privacy notice.
+5. Real CZ intake deck and human recommendation evaluation.
+6. Live roadmap quality benchmark and resource freshness checks.
+7. Public screenshots and a product walkthrough.

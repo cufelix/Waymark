@@ -1,4 +1,4 @@
 import { defineConfig } from "vitest/config";
 
-// src/seeker (Part 1), src/gap (Part 3) and src/roadmap (Part 4) run their own tests with `node --test`.
+// Parts 1, 3 and 4 use node:test and run separately through `pnpm test:node`.
 export default defineConfig({ test: { exclude: ["node_modules/**", "src/seeker/**", "src/gap/**", "src/roadmap/**"] } });

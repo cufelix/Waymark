@@ -75,7 +75,7 @@ async function addResources(
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < chapters.length) {
-      const chapter = chapters[next++];
+      const chapter = chapters[next++]!;
       const result = await builders.findResources(
         chapter,
         {

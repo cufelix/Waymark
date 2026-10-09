@@ -14,7 +14,7 @@ export function ulid(now: number = Date.now()): string {
   }
   const bytes = randomBytes(16);
   let rand = "";
-  for (let i = 0; i < 16; i++) rand += CROCKFORD[bytes[i] % 32];
+  for (let i = 0; i < 16; i++) rand += CROCKFORD[bytes[i]! % 32];
   return time + rand;
 }
 

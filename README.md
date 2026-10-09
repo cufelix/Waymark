@@ -6,6 +6,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-lockfile-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![CI](https://github.com/cufelix/Waymark/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cufelix/Waymark/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 Waymark turns a person’s own preferences, experience and chosen links into a sourced view of the job market and a roadmap they can act on. It does not reduce a person to a score or claim to predict whether they will be hired.
 
@@ -97,14 +99,13 @@ The framework-free seeker, validation and roadmap suite runs directly on Node:
 node --test $(git ls-files 'src/seeker/*.test.ts' 'src/seeker/**/*.test.ts' 'src/gap/*.test.ts' 'src/roadmap/*.test.ts') src/seeker/intake/*.test.ts
 ```
 
-At the PR #22 merge commit, that command passed 294 tests. After dependencies are installed, also run:
+At the PR #22 merge commit, that command passed 294 tests. After dependencies are installed, run the full verification suite:
 
 ```bash
-pnpm test
-pnpm typecheck
+pnpm check
 ```
 
-A green local run is not a substitute for CI. The repository does not yet publish a passing CI badge.
+The same command runs in CI on every pull request and push to `main`.
 
 ## Privacy and security
 
@@ -136,4 +137,4 @@ Do not use real seeker data until the P0 items in [docs/readiness-audit.md](docs
 
 ## License
 
-No open-source license has been selected yet. Until a license is added, the repository is publicly readable but reuse rights are not granted. Choose the license deliberately before presenting Waymark as open source.
+Licensed under the [Apache License 2.0](LICENSE).
